@@ -30,6 +30,7 @@
     "@shopify/flash-list": "^2.2.2",
     "@tanstack/react-query": "^5.90.21",
     "axios": "^1.13.5",
+    "babel-preset-expo": "~54.0.10",
     "dayjs": "^1.11.19",
     "expo": "~54.0.33",
     "expo-constants": "~18.0.13",
