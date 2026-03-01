@@ -1,0 +1,23 @@
+# Dependencies (EAS will npm install)
+node_modules
+
+# Build artifacts (EAS will regenerate)
+ios/Pods
+ios/build
+android/.gradle
+android/build
+android/app/build
+.expo
+
+# Not needed for build
+.git
+.claude
+.github
+fastlane
+assets/screenshots
+assets/icons-original
+*.md
+*.p8
+*.key
+*.pem
+keys/
