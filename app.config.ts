@@ -30,6 +30,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       bundleIdentifier: 'com.myapp.app',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        NSAppTransportSecurity: {
+          NSAllowsArbitraryLoads: true,
+          NSAllowsLocalNetworking: true,
+        },
       },
     },
     android: {
