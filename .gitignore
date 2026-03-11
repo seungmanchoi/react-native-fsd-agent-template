@@ -24,4 +24,8 @@ web-build/
 # typescript
 *.tsbuildinfo
 
+# Native
+ios/
+android/
+
 # EAS

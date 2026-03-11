@@ -1,23 +1,27 @@
-# Dependencies (EAS will npm install)
-node_modules
+# Native builds (EAS generates these)
+ios/
+android/
 
-# Build artifacts (EAS will regenerate)
-ios/Pods
-ios/build
-android/.gradle
-android/build
-android/app/build
-.expo
+# Build artifacts
+.expo/
 
 # Not needed for build
-.git
-.claude
-.github
-fastlane
-assets/screenshots
-assets/icons-original
+.git/
+.claude/
+.github/
+.idea/
+.vscode/
+fastlane/
+assets/screenshots/
+assets/icons-original/
+
+# Docs & secrets
 *.md
 *.p8
 *.key
 *.pem
 keys/
+
+# OS files
+.DS_Store
+Thumbs.db
