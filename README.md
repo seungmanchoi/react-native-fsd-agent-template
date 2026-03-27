@@ -1,21 +1,57 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/React_Native-0.81-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/Expo-54-000020?style=for-the-badge&logo=expo&logoColor=white" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/Feature--Sliced_Design-FSD-orange?style=for-the-badge" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Expo_Router-6-000020?style=flat-square&logo=expo&logoColor=white" />
+  <img src="https://img.shields.io/badge/Zustand-5-433E38?style=flat-square&logo=zustand&logoColor=white" />
+  <img src="https://img.shields.io/badge/TanStack_Query-5-FF4154?style=flat-square&logo=reactquery&logoColor=white" />
+  <img src="https://img.shields.io/badge/NativeWind-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" />
+  <img src="https://img.shields.io/badge/Axios-1.x-5A29E4?style=flat-square&logo=axios&logoColor=white" />
+  <img src="https://img.shields.io/badge/React_Hook_Form-7-EC5990?style=flat-square&logo=reacthookform&logoColor=white" />
+  <img src="https://img.shields.io/badge/Zod-4-3E67B1?style=flat-square&logo=zod&logoColor=white" />
+  <img src="https://img.shields.io/badge/ESLint-9-4B32C3?style=flat-square&logo=eslint&logoColor=white" />
+  <img src="https://img.shields.io/badge/Prettier-3-F7B93E?style=flat-square&logo=prettier&logoColor=black" />
+  <img src="https://img.shields.io/badge/EAS_Build-CLI-000020?style=flat-square&logo=expo&logoColor=white" />
+  <img src="https://img.shields.io/badge/Reanimated-4-6236FF?style=flat-square&logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/Lottie-7-00DDB3?style=flat-square&logo=airbnb&logoColor=white" />
+  <img src="https://img.shields.io/badge/Flash_List-2-FF6C37?style=flat-square&logo=shopify&logoColor=white" />
+  <img src="https://img.shields.io/badge/Bottom_Sheet-5-000000?style=flat-square" />
+  <img src="https://img.shields.io/badge/Day.js-1.11-FF5F4C?style=flat-square" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Web-lightgrey?style=flat-square" />
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" />
+  <img src="https://img.shields.io/badge/node-%3E%3D18-339933?style=flat-square&logo=nodedotjs&logoColor=white" />
+</p>
+
 # React Native FSD Template
 
-React Native + Expo template with **Feature-Sliced Design (FSD)** architecture.
+Production-ready React Native + Expo template with **Feature-Sliced Design (FSD)** architecture.
 
 ## Tech Stack
 
 | Category | Technology |
 |----------|-----------|
 | Framework | React Native 0.81 + Expo 54 |
-| Language | TypeScript (strict mode) |
-| Routing | Expo Router (file-based) |
-| Global State | Zustand |
-| Server State | TanStack Query |
-| Styling | NativeWind (Tailwind CSS) |
-| Form | React Hook Form + Zod |
-| API | Axios (auto token refresh) |
-| Lint | ESLint + Prettier |
-| Build | EAS Build |
+| Language | TypeScript 5.9 (strict mode) |
+| Routing | Expo Router 6 (file-based) |
+| Global State | Zustand 5 |
+| Server State | TanStack Query 5 |
+| Styling | NativeWind 4 (Tailwind CSS 3.4) |
+| Form & Validation | React Hook Form 7 + Zod 4 |
+| API Client | Axios (auto token refresh) |
+| Animation | Reanimated 4 + Lottie 7 |
+| List | FlashList 2 (Shopify) |
+| Bottom Sheet | @gorhom/bottom-sheet 5 |
+| Date | Day.js |
+| Lint & Format | ESLint 9 + Prettier 3 |
+| Build & Deploy | EAS Build / EAS Submit |
 
 ## Getting Started
 
