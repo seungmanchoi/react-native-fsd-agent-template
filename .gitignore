@@ -29,3 +29,6 @@ ios/
 android/
 
 # EAS
+
+# Claude Code skills (cloned repos)
+.claude/skills/
