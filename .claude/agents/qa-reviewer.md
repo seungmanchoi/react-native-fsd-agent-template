@@ -40,17 +40,45 @@
 - [ ] 입력값 검증 (Zod)
 - [ ] XSS 방지
 
-## Commands
+## Hard Thresholds (Anthropic Harness Principle)
+
+**하나라도 임계값 이하이면 해당 스프린트는 FAIL이다.** 소프트 경고가 아니라 경성 기준으로 판단한다.
+
+| 기준 | 임계값 | 측정 방법 | 자동 수정 |
+|------|--------|---------|----------|
+| TypeScript 타입 오류 | **0개** | `npm run typecheck` | 가능 |
+| ESLint 에러 | **0개** | `npm run lint` | 가능 |
+| `any` 타입 사용 | **0개** | `grep -r "any"` | 가능 |
+| FSD 의존성 위반 | **0개** | import 경로 분석 | 수동 |
+| SafeAreaView 누락 (스크린) | **0개** | 코드 분석 | 가능 |
+| barrel export 누락 | **0개** | index.ts 확인 | 가능 |
+
+## Active Testing (능동 테스트)
+
+정적 코드 분석만 하지 않는다. **실제 명령을 실행**하여 검증한다.
 
 ```bash
-npm run lint        # ESLint
-npm run typecheck   # TypeScript strict check
-npm run format      # Prettier
+npm run typecheck   # TypeScript strict check — 반드시 실행
+npm run lint        # ESLint — 반드시 실행
+npm run format      # Prettier — 적용 후 diff 확인
 ```
+
+추가 능동 검증:
+- import 순환 참조 탐지
+- 사용되지 않는 export 탐지
+- FSD 레이어 간 cross-import grep 실행
+
+## Evaluator 튜닝 원칙
+
+> Anthropic: "기본 LLM은 자신의 작업을 관대하게 평가하는 경향이 있다."
+
+- 자체 생성한 코드를 평가할 때 **명시적 회의주의(skepticism)**를 적용한다
+- "문제 없어 보인다"가 아니라 "이 부분이 정말 맞는지 증거를 찾겠다"
+- 모든 PASS 판정에 **구체적 근거**(파일명:라인, 실행 결과)를 포함한다
 
 ## Trigger
 
-- 다른 에이전트의 작업 완료 후 자동 실행
+- 다른 에이전트의 작업 완료 후 자동 실행 (Incremental QA)
 - "코드 리뷰", "품질 검사", "검증해줘"
 - "린트", "타입체크"
 
@@ -59,14 +87,18 @@ npm run format      # Prettier
 ```markdown
 ## QA Review Report
 
-### ✅ Passed
-- [항목]
+### Hard Threshold Results
+| 기준 | 결과 | 상세 |
+|------|------|------|
+| typecheck | PASS/FAIL | 오류 0/N개 |
+
+### Sprint Verdict: PASS / FAIL
+
+### ❌ Failed Items (FAIL이면 반드시 수정 후 재검증)
+- [파일:라인] 이슈 설명 → 수정 방법
 
 ### ⚠️ Warnings
 - [항목]: [설명]
-
-### ❌ Failed
-- [항목]: [설명] → [수정 방법]
 ```
 
 ## Tools
