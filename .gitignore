@@ -30,3 +30,6 @@ android/
 
 # Screenshots (keep in repo for store deployment)
 !screenshots/**
+
+# Agent workspace (inter-agent data exchange)
+_workspace/
