@@ -116,6 +116,80 @@ Phase 7: Deployment    — /store-deploy
 
 데이터 흐름: `_workspace/` 디렉토리를 통해 에이전트 간 컨텍스트 전달.
 
+## EAS Build & Deploy Rules (MANDATORY)
+
+### 빌드 순서
+
+프로덕션 빌드 시 반드시 아래 순서를 따른다:
+
+1. **로컬 빌드 먼저** (`eas build --local`) → 빌드 에러 확인
+2. 로컬 빌드 성공 시 → **클라우드 빌드** (`eas build`) 진행
+3. 클라우드 빌드 크레딧 부족 시 로컬 빌드 결과물 사용
+
+이렇게 하면 클라우드 빌드 크레딧 낭비 없이 Gradle/Xcode 에러를 사전에 잡을 수 있다.
+
+### 빌드 아카이브 최적화 (.easignore)
+
+EAS 클라우드 빌드 시 불필요한 파일이 업로드되면 아카이브 크기가 커지고 업로드 시간이 증가한다. `.easignore` 파일을 반드시 설정한다:
+
+```
+# .easignore 필수 항목
+node_modules/
+assets/store-screenshots/
+assets/store-listing/
+fastlane/
+screenshots/
+docs/
+scripts/
+build-output/
+.git/
+.idea/
+.vscode/
+.playwright-mcp/
+.DS_Store
+*.md
+*.tsbuildinfo
+```
+
+### 앱 크기 최적화 체크리스트
+
+배포 전 아래 항목을 확인한다:
+
+| 항목 | 방법 | 효과 |
+|------|------|------|
+| 이미지 최적화 | PNG → WebP 변환, 해상도 적정화 | 에셋 크기 50%+ 감소 |
+| 미사용 폰트 제거 | 사용하지 않는 `@expo-google-fonts/*` 삭제 | 폰트당 0.5-2MB 절감 |
+| 미사용 의존성 제거 | `npm ls --all` 확인 후 미사용 패키지 삭제 | 번들 크기 감소 |
+| Lottie 애니메이션 최적화 | 파일 크기 확인, 불필요한 레이어 제거 | 1-5MB 절감 가능 |
+| 네이티브 디버그 심볼 | `eas.json`에서 production 프로필 확인 | 앱 크기 직접 영향 없음 |
+| ProGuard/R8 (Android) | 자동 적용됨, 매핑 파일 경고 무시 가능 | 코드 크기 감소 |
+| Bitcode (iOS) | Expo managed에서 자동 처리 | - |
+
+### 배포 전 필수 준비 항목
+
+| 항목 | 설명 |
+|------|------|
+| 개인정보처리방침 URL | GitHub Pages 등에 호스팅, 4개 언어 권장 |
+| 앱 아이콘 | iOS: 1024x1024, Android: 512x512 (adaptive icon) |
+| 스크린샷 | iOS: iPhone 6.7"/6.5", iPad 12.9". Android: 1080x1920 phone |
+| 그래픽 이미지 (Android) | 1024x500 feature graphic |
+| 스토어 메타데이터 | `fastlane/metadata/` 구조로 title, description, release notes 준비 |
+| 앱 버전 관리 | ASC/Play 기존 버전보다 높은 version 설정 필수 |
+| `.easignore` 설정 | 빌드 아카이브에 불필요한 파일 제외 |
+
+### Android 특수 고려사항
+
+- **lintOptions/lint 구문**: AGP 8+ 에서 `lintOptions`는 `lint`로 변경됨. Expo config plugin 작성 시 주의
+- **ACTIVITY_RECOGNITION 권한**: `expo-sensors` 사용 시 자동 포함됨. Play Console "건강 앱" 질문에서 용도 설명 필요
+- **Draft App 제한**: 앱 설정 미완료 시 Google Play API(fastlane supply 포함) 커밋이 실패함. Play Console 웹에서 앱 설정을 먼저 완료해야 함
+- **첫 번째 제출**: EAS Submit / fastlane이 아닌 Play Console 웹에서 수동으로 첫 AAB 업로드 필요
+
+### iOS 특수 고려사항
+
+- **ASC App ID**: `eas.json`의 `ascAppId`에 실제 App Store Connect 앱 ID 설정 필수 (기본값 변경)
+- **버전 충돌**: ASC에 이미 높은 버전이 있으면 낮은 버전 업로드 불가. `app.config.ts`에서 버전 확인
+- **ITSAppUsesNonExemptEncryption**: 암호화 미사용 시 `Info.plist`에 `false` 설정으로 수출 규정 팝업 스킵
+
 ## Branch Strategy
 
 ```

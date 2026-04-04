@@ -437,6 +437,70 @@ feature/* ← Feature branches
 
 ---
 
+## Build & Deploy Optimization
+
+### EAS Build 순서 (필수)
+
+```
+1. eas build --local        ← 로컬에서 먼저 빌드 에러 확인
+2. eas build                ← 성공 확인 후 클라우드 빌드
+3. eas submit               ← 스토어 제출
+```
+
+> 클라우드 빌드 크레딧은 월 제한이 있으므로, 로컬 빌드로 Gradle/Xcode 에러를 먼저 잡는다.
+
+### .easignore 설정
+
+빌드 아카이브에서 불필요한 파일을 제외하여 업로드 시간을 단축한다:
+
+```
+node_modules/
+assets/store-screenshots/
+fastlane/
+scripts/
+build-output/
+.git/
+.idea/
+.vscode/
+*.md
+```
+
+### 앱 크기 최적화
+
+| 최적화 항목 | 방법 | 효과 |
+|------------|------|------|
+| **이미지 포맷** | PNG → WebP, 적정 해상도 | 에셋 50%+ 감소 |
+| **미사용 폰트** | 불필요한 `@expo-google-fonts/*` 제거 | 폰트당 0.5-2MB |
+| **미사용 패키지** | `npm ls` 확인 후 제거 | 번들 크기 감소 |
+| **Lottie 최적화** | 불필요 레이어 제거, 파일 크기 확인 | 1-5MB 가능 |
+
+### 배포 준비 체크리스트
+
+```
+□ 개인정보처리방침 URL 준비 (GitHub Pages 등)
+□ 앱 아이콘 (iOS 1024x1024, Android 512x512)
+□ 스토어 스크린샷 (iOS/Android 각 디바이스별)
+□ Android Feature Graphic (1024x500)
+□ fastlane/metadata/ 메타데이터 (title, description, release notes)
+□ .easignore 최적화
+□ app.config.ts 버전 확인 (기존 스토어 버전보다 높게)
+□ eas.json ascAppId 실제 값 설정 (iOS)
+```
+
+### 플랫폼별 주의사항
+
+**Android:**
+- 첫 번째 AAB 업로드는 Play Console 웹에서 수동 진행
+- `expo-sensors` 사용 시 ACTIVITY_RECOGNITION 권한 → Play Console "건강 앱" 질문 대응 필요
+- 앱 설정 미완료("draft app") 상태에서 fastlane supply API 제한 있음
+
+**iOS:**
+- `eas.json`의 `ascAppId`에 실제 ASC 앱 ID 설정 필수
+- ASC에 이미 높은 버전이 있으면 낮은 버전 업로드 불가
+- `ITSAppUsesNonExemptEncryption: false` 설정 권장
+
+---
+
 ## Inspired By
 
 - **[revfactory/harness](https://github.com/revfactory/harness)** — Agent Team & Skill Architect 메타 스킬. 에이전트 팀 구성, 파이프라인 패턴, `_workspace/` 데이터 흐름 방식의 원천
