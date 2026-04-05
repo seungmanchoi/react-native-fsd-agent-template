@@ -121,6 +121,32 @@ Tasks:
 
 ---
 
+### Phase 2.5: Spec Planning — `spec-planner`
+
+**에이전트**: `spec-planner`
+**입력**: `_workspace/plan/prd.md`, `_workspace/plan/fsd-module-map.md`
+**출력**: `docs/specs/`
+
+```
+Tasks:
+1. PRD에서 피처 목록 추출
+2. 피처별 docs/specs/{NN}-{feature-name}/ 디렉토리 생성
+3. 각 피처의 phase 파일 작성 (phase1-mvp.md, phase2-enhancement.md 등)
+4. 각 phase에 체크박스 형식의 task 목록 정의 (파일 단위)
+5. docs/specs/README.md 진행 현황 대시보드 생성
+```
+
+**Task 형식**: 각 task는 생성할 파일 경로와 설명을 포함한다.
+```markdown
+- [ ] `src/features/auth/api/auth.api.ts` — 로그인/회원가입 API
+```
+
+**진행 추적**: Phase 4 구현 중 task 완료 시 `- [ ]` → `- [x]`로 변경하고 대시보드 업데이트.
+
+**Error Handling**: PRD가 불충분하면 사용자에게 핵심 기능 3개를 확인 후 진행.
+
+---
+
 ### Phase 3: Design — `design-architect`
 
 **에이전트**: `design-architect`
@@ -167,6 +193,14 @@ Tasks:
 ### Phase 4: Implementation — 3 에이전트 순차 실행
 
 Phase 4는 의존성 순서에 따라 3개 에이전트가 **순차적으로** 진행한다.
+
+**Spec Task 추적 규칙 (Phase 4 전체에 적용)**:
+구현 에이전트가 파일을 생성/완료할 때마다:
+1. `docs/specs/{feature}/phase{N}-*.md`에서 해당 task의 `- [ ]` → `- [x]` 변경
+2. phase 내 모든 task 완료 시 frontmatter `status: completed` 변경
+3. `docs/specs/README.md` 대시보드 진행률 업데이트
+
+---
 
 #### Phase 4a: Feature Builder — `feature-builder`
 
@@ -363,12 +397,17 @@ Tasks:
              │ _workspace/plan/
              ▼
 ┌──────────────────────────┐
+│  Phase 2.5: Spec Planning│  spec-planner (docs/specs/)
+└────────────┬─────────────┘
+             │ docs/specs/
+             ▼
+┌──────────────────────────┐
 │  Phase 3: Design         │  design-architect (/design-system)
 └────────────┬─────────────┘
              │ _workspace/design/
              ▼
 ┌──────────────────────────────────────────────┐
-│  Phase 4: Implementation (순차)              │
+│  Phase 4: Implementation (순차 + spec 체크)  │
 │  4a feature-builder (/create-feature/entity) │
 │     → 4b api-integrator                      │
 │        → 4c ui-developer (/create-screen)    │
@@ -400,6 +439,7 @@ Tasks:
 |---------|----------|----------|
 | `idea-researcher` | `/ideate` | 시장 조사, 앱 아이디어 도출 |
 | `product-planner` | `/plan-app` | PRD, FSD 모듈 맵, 유저 스토리 |
+| `spec-planner` | — | docs/specs/ 스펙 문서, phase/task 분해, 진행 추적 |
 | `design-architect` | `/design-system` | NativeWind 테마, 화면 레이아웃 |
 | `feature-builder` | `/create-feature`, `/create-entity` | FSD 모듈, Zustand, TS 타입 |
 | `api-integrator` | — | Axios 클라이언트, TanStack Query hooks |
