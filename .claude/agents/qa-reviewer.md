@@ -40,6 +40,10 @@
 - [ ] 입력값 검증 (Zod)
 - [ ] XSS 방지
 
+### 6. Common Bug Patterns
+- [ ] **날짜 타임존 버그**: `new Date().toISOString().split('T')[0]` 사용 금지 — UTC 기준이라 UTC+N 지역에서 날짜가 하루 밀림. 반드시 `getFullYear()/getMonth()/getDate()` 기반 로컬 시간 사용. 공통 유틸(`shared/lib/date.ts` 등)로 통일할 것
+- [ ] 날짜 키(`YYYY-MM-DD`) 생성 로직이 여러 곳에 중복되어 있지 않은지 확인
+
 ## Hard Thresholds (Anthropic Harness Principle)
 
 **하나라도 임계값 이하이면 해당 스프린트는 FAIL이다.** 소프트 경고가 아니라 경성 기준으로 판단한다.
@@ -52,6 +56,7 @@
 | FSD 의존성 위반 | **0개** | import 경로 분석 | 수동 |
 | SafeAreaView 누락 (스크린) | **0개** | 코드 분석 | 가능 |
 | barrel export 누락 | **0개** | index.ts 확인 | 가능 |
+| `toISOString().split('T')[0]` 날짜 키 | **0개** | `grep -r "toISOString.*split"` | 가능 |
 
 ## Active Testing (능동 테스트)
 
