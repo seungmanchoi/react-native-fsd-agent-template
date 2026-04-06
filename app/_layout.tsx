@@ -5,12 +5,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import Toast from 'react-native-toast-message';
-import * as SplashScreen from 'expo-splash-screen';
+// import * as SplashScreen from 'expo-splash-screen';
 import { QueryProvider, ThemeProvider } from '@core/providers';
 import { toastConfig, ErrorBoundary } from '@shared/ui';
 import '../global.css';
 
-SplashScreen.preventAutoHideAsync();
+// SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout(): React.JSX.Element {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -23,7 +23,7 @@ export default function RootLayout(): React.JSX.Element {
         console.error('Failed to initialize:', error);
       } finally {
         setIsInitialized(true);
-        await SplashScreen.hideAsync();
+        // await SplashScreen.hideAsync();
       }
     };
     initialize();
