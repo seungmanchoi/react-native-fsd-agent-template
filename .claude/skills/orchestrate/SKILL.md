@@ -257,6 +257,30 @@ Tasks:
 
 Phase 4는 의존성 순서에 따라 3개 에이전트가 **순차적으로** 진행한다.
 
+**Sprint Contract (Anthropic 원칙)**:
+각 서브스텝(4a/4b/4c) 시작 **전**에 Sprint Contract를 `_workspace/implementation/sprint-contract-{step}.md`에 작성한다:
+
+```markdown
+# Sprint Contract: Phase 4{a|b|c}
+
+## Done 조건
+- [ ] 생성할 파일 목록 (spec에서 추출)
+- [ ] 각 파일의 핵심 기능 1줄 설명
+
+## 검증 방법
+- typecheck 0 에러
+- lint 0 에러
+- barrel export 완성
+
+## 예상 산출물
+- src/features/{name}/ 디렉토리 N개
+- src/entities/{name}/ 디렉토리 N개
+```
+
+이 Contract가 Quick QA의 기준이 된다. Contract에 명시되지 않은 항목은 검증하지 않는다.
+
+---
+
 **Spec Task 추적 규칙 (Phase 4 전체에 적용)**:
 구현 에이전트가 파일을 생성/완료할 때마다:
 1. `docs/specs/{feature}/phase{N}-*.md`에서 해당 task의 `- [ ]` → `- [x]` 변경
@@ -441,16 +465,29 @@ inspection-report.md에 이슈 발견 시:
 
 ---
 
-### Phase 6: Iteration
+### Phase 6: Iteration — Pivot vs Refine (Anthropic 원칙)
 
-Phase 5에서 발견된 이슈가 HIGH 이상일 경우:
+Phase 5에서 발견된 이슈가 HIGH 이상일 경우, **Pivot vs Refine 판단**을 수행한다:
 
 ```
-qa-reviewer 수정 적용
-  → app-inspector 재검사
-  → 최대 3회 반복
-  → 미해결 이슈는 // TODO: [ISSUE] 주석으로 마킹
+Loop 시작 (최대 3회):
+  1. QA 보고서의 점수 추이 확인
+  2. Pivot vs Refine 판단:
+     - 점수 상승 추세 → Refine (현재 방향 유지, 이슈만 수정)
+     - 점수 정체/하락 → Pivot (접근 방식 변경)
+     - 2회 연속 동일 이슈 → Pivot 강제
+  3. 수정 적용
+  4. qa-reviewer + app-inspector 재검사
+  5. 점수가 임계값 이상이면 Phase 7 진행
+     점수가 임계값 미만이면 Loop 반복
+
+  미해결 이슈 (3회 후):
+  → // TODO: [ISSUE-{번호}] 주석으로 마킹
+  → _workspace/qa/unresolved.md에 기록
 ```
+
+**Iteration Ceiling (Anthropic 원칙)**:
+점수 개선이 둔화되면 추가 반복의 효용이 낮다. 3회 반복 후에도 개선이 미미하면 현재 상태로 Phase 7에 진행하고, 미해결 이슈는 백로그로 관리한다.
 
 ---
 
@@ -567,3 +604,47 @@ import { useAuth } from '@/features/auth';
 2. 다음 Phase로 진행하지 않고 사용자에게 알림
 3. 사용자 입력 후 해당 Phase부터 재개
 ```
+
+---
+
+## Active Runtime Testing (Anthropic 원칙)
+
+> "Evaluators should interact with running applications rather than reviewing static outputs."
+
+Phase 5의 app-inspector는 정적 코드 분석뿐 아니라 **런타임 테스트**도 수행해야 한다:
+
+```
+1. iOS Simulator 실행: npx expo start --ios
+2. 각 화면 스크린샷 캡처: xcrun simctl io booted screenshot
+3. 네비게이션 흐름 확인: 탭 전환, 스택 push/pop
+4. 입력 테스트: 키보드 입력, 버튼 터치 반응
+5. 에러 상태 유발: 네트워크 끊기, 빈 데이터
+```
+
+Playwright MCP가 가용한 경우 웹 빌드에서 자동화 테스트도 가능하다.
+
+---
+
+## Model Capability Adaptation (Anthropic 원칙)
+
+> "Every component in a harness encodes an assumption about what the model can't do on its own."
+
+**모델이 발전하면 하네스를 간소화해야 한다.** 각 컴포넌트가 정당화되는지 주기적으로 재평가:
+
+| 컴포넌트 | 가정 | Opus 4.6에서 필요? |
+|---------|------|-------------------|
+| Sprint Contract | 모델이 범위를 놓침 | 단순 앱은 불필요, 복잡한 앱은 유지 |
+| Quick QA (4a-4c) | 서브스텝 간 에러 누적 | 유지 권장 (typecheck은 항상 유용) |
+| Phase 6 Fix Loop | 한 번에 완벽 불가 | 유지 (자체 평가는 여전히 관대) |
+| Generator-Evaluator 분리 | 자체 평가 편향 | 핵심 — 제거 불가 |
+| Context Reset | 컨텍스트 저하 | Opus 4.6+는 불필요할 수 있음 |
+
+**비용 인식**: 멀티 에이전트 하네스는 단일 에이전트 대비 **20배 이상** 토큰을 소비한다. 단순한 기능 추가는 하네스 없이 직접 구현하고, 전체 앱 구축 시에만 파이프라인을 활성화한다.
+
+---
+
+## Inspired By
+
+- **[Anthropic Harness Design](https://www.anthropic.com/engineering/harness-design-long-running-apps)** — Generator-Evaluator, Sprint Contract, Hard Threshold, Pivot vs Refine, Active Testing, Model Capability Adaptation
+- **[revfactory/harness](https://github.com/revfactory/harness)** — 6가지 아키텍처 패턴 (Pipeline, Fan-out, Expert Pool, Producer-Reviewer, Supervisor, Hierarchical), Progressive Disclosure, Agent Teams
+- **[Feature-Sliced Design](https://feature-sliced.design/)** — 프론트엔드 아키텍처 방법론
