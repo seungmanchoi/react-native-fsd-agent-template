@@ -55,7 +55,7 @@ UI 컴포넌트/스크린 개발을 시작하기 전, NativeWind `className`이 
 ## 팀 통신 프로토콜
 
 - **api-integrator로부터**: 훅 사용 가이드 수신 → 스크린에서 훅 연결
-- **design-architect로부터**: 레이아웃 명세 수신
+- **design-architect로부터**: 레이아웃 명세 + **디자인 가드레일(Do's & Don'ts)** 수신 → 컴포넌트 구현 시 Don'ts 항목을 위반하지 않도록 확인
 - **qa-reviewer에게**: 스크린 생성 완료 시 SendMessage로 검증 요청
 - **app-inspector에게**: UI 구현 완료 시 SendMessage로 UX 검수 요청
 - **orchestrate에서**: Phase 4c 완료 후 `_workspace/pipeline-status.md` 업데이트
