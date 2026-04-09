@@ -195,6 +195,7 @@ build-output/
 | 스크린샷 | iOS: iPhone 6.7"/6.5", iPad 12.9". Android: 1080x1920 phone |
 | 그래픽 이미지 (Android) | 1024x500 feature graphic |
 | 스토어 메타데이터 | `fastlane/metadata/` 구조로 title, description, release notes 준비 |
+| **릴리즈 노트** | **Android changelogs는 반드시 500 bytes 이내**. Google Play API 제한. iOS release_notes는 4000자까지 가능하지만, 동일 내용을 Android에도 사용하므로 **500 bytes 기준으로 작성** |
 | 앱 버전 관리 | ASC/Play 기존 버전보다 높은 version 설정 필수 |
 | `.easignore` 설정 | 빌드 아카이브에 불필요한 파일 제외 |
 
