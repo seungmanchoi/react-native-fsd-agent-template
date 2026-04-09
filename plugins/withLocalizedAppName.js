@@ -2,18 +2,8 @@
  * Expo Config Plugin: Localized App Name
  *
  * iOS: Generates InfoPlist.strings with CFBundleDisplayName per language
+ *      AND registers them in the Xcode project as variant group resources
  * Android: Generates strings.xml with app_name per language in values-{locale}/
- *
- * Usage in app.config.ts:
- *   plugins: [
- *     ['./plugins/withLocalizedAppName', {
- *       // key: iOS locale code, value: display name
- *       en: 'Tint Camera - Season & Retro',
- *       ko: '감성필터 - 계절·레트로 카메라',
- *       ja: 'Tint Camera - 四季&レトロ',
- *       ...
- *     }],
- *   ]
  */
 
 const {
@@ -24,7 +14,7 @@ const {
 const fs = require('fs');
 const path = require('path');
 
-// iOS locale code mapping (Expo/Apple locale → .lproj folder name)
+// iOS locale code mapping
 const IOS_LOCALE_MAP = {
   en: 'en',
   ko: 'ko',
@@ -52,7 +42,7 @@ const IOS_LOCALE_MAP = {
 
 // Android locale code mapping
 const ANDROID_LOCALE_MAP = {
-  en: '', // default (values/)
+  en: '',
   ko: 'ko',
   ja: 'ja',
   'zh-Hans': 'zh-rCN',
@@ -67,7 +57,7 @@ const ANDROID_LOCALE_MAP = {
   tr: 'tr',
   th: 'th',
   vi: 'vi',
-  id: 'in', // Android uses 'in' for Indonesian
+  id: 'in',
   ms: 'ms',
   hi: 'hi',
   ar: 'ar',
@@ -105,26 +95,137 @@ function withLocalizedAppNameIOS(config, localizedNames) {
     },
   ]);
 
-  // Step 2: Add .lproj folders to Xcode project resources
+  // Step 2: Register InfoPlist.strings as variant group in Xcode project
   config = withXcodeProject(config, (config) => {
     const project = config.modResults;
+    const projectName = IOSConfig.XcodeUtils.getProjectName(
+      config.modRequest.projectRoot
+    );
 
-    for (const [locale] of Object.entries(localizedNames)) {
-      const iosLocale = IOS_LOCALE_MAP[locale] || locale;
-      // Add known region to project
-      try {
-        const pbxProject = project.getFirstProject();
-        if (pbxProject && pbxProject.firstProject) {
-          const knownRegions =
-            pbxProject.firstProject.knownRegions || [];
-          if (!knownRegions.includes(iosLocale)) {
-            knownRegions.push(iosLocale);
-            pbxProject.firstProject.knownRegions = knownRegions;
+    // Collect all locale codes
+    const locales = Object.entries(localizedNames).map(
+      ([locale]) => IOS_LOCALE_MAP[locale] || locale
+    );
+
+    // Add known regions
+    try {
+      const pbxProject = project.getFirstProject();
+      if (pbxProject && pbxProject.firstProject) {
+        const knownRegions = pbxProject.firstProject.knownRegions || ['en', 'Base'];
+        for (const locale of locales) {
+          if (!knownRegions.includes(locale)) {
+            knownRegions.push(locale);
           }
         }
-      } catch {
-        // Ignore errors in region manipulation
+        pbxProject.firstProject.knownRegions = knownRegions;
       }
+    } catch {
+      // Ignore
+    }
+
+    // Create variant group for InfoPlist.strings and add to Resources build phase
+    try {
+      // Check if variant group already exists
+      const variantGroups = project.hash.project.objects['PBXVariantGroup'] || {};
+      let existingGroupKey = null;
+
+      for (const [key, value] of Object.entries(variantGroups)) {
+        if (typeof value === 'object' && value.name === 'InfoPlist.strings') {
+          existingGroupKey = key;
+          break;
+        }
+      }
+
+      if (!existingGroupKey) {
+        // Create variant group with all locale files
+        const variantGroupChildren = [];
+
+        for (const locale of locales) {
+          const fileRefUuid = project.generateUuid();
+          const filePath = `${locale}.lproj/InfoPlist.strings`;
+
+          // Add file reference
+          project.hash.project.objects['PBXFileReference'] =
+            project.hash.project.objects['PBXFileReference'] || {};
+          project.hash.project.objects['PBXFileReference'][fileRefUuid] = {
+            isa: 'PBXFileReference',
+            lastKnownFileType: 'text.plist.strings',
+            name: locale,
+            path: filePath,
+            sourceTree: '"<group>"',
+          };
+          project.hash.project.objects['PBXFileReference'][`${fileRefUuid}_comment`] = locale;
+
+          variantGroupChildren.push({
+            value: fileRefUuid,
+            comment: locale,
+          });
+        }
+
+        // Create variant group
+        const variantGroupUuid = project.generateUuid();
+        project.hash.project.objects['PBXVariantGroup'] =
+          project.hash.project.objects['PBXVariantGroup'] || {};
+        project.hash.project.objects['PBXVariantGroup'][variantGroupUuid] = {
+          isa: 'PBXVariantGroup',
+          children: variantGroupChildren,
+          name: 'InfoPlist.strings',
+          sourceTree: '"<group>"',
+        };
+        project.hash.project.objects['PBXVariantGroup'][`${variantGroupUuid}_comment`] =
+          'InfoPlist.strings';
+
+        // Add variant group to main group
+        const mainGroupKey = project.getFirstProject().firstProject.mainGroup;
+        const mainGroup = project.hash.project.objects['PBXGroup'][mainGroupKey];
+        if (mainGroup && mainGroup.children) {
+          // Find the project name group
+          for (const child of mainGroup.children) {
+            const childGroup =
+              project.hash.project.objects['PBXGroup'][child.value];
+            if (childGroup && childGroup.name === projectName) {
+              childGroup.children.push({
+                value: variantGroupUuid,
+                comment: 'InfoPlist.strings',
+              });
+              break;
+            }
+            // Also check path-based groups
+            if (childGroup && childGroup.path === projectName) {
+              childGroup.children.push({
+                value: variantGroupUuid,
+                comment: 'InfoPlist.strings',
+              });
+              break;
+            }
+          }
+        }
+
+        // Add to Resources build phase
+        const buildPhases = project.hash.project.objects['PBXResourcesBuildPhase'] || {};
+        for (const [, phase] of Object.entries(buildPhases)) {
+          if (typeof phase === 'object' && phase.files) {
+            const buildFileUuid = project.generateUuid();
+            project.hash.project.objects['PBXBuildFile'] =
+              project.hash.project.objects['PBXBuildFile'] || {};
+            project.hash.project.objects['PBXBuildFile'][buildFileUuid] = {
+              isa: 'PBXBuildFile',
+              fileRef: variantGroupUuid,
+              fileRef_comment: 'InfoPlist.strings',
+            };
+            project.hash.project.objects['PBXBuildFile'][`${buildFileUuid}_comment`] =
+              'InfoPlist.strings in Resources';
+
+            phase.files.push({
+              value: buildFileUuid,
+              comment: 'InfoPlist.strings in Resources',
+            });
+            break; // Only add to first Resources phase
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('withLocalizedAppName: Failed to add variant group:', e.message);
     }
 
     return config;
@@ -139,12 +240,7 @@ function withLocalizedAppNameAndroid(config, localizedNames) {
     async (config) => {
       const projectRoot = config.modRequest.projectRoot;
       const resDir = path.join(
-        projectRoot,
-        'android',
-        'app',
-        'src',
-        'main',
-        'res'
+        projectRoot, 'android', 'app', 'src', 'main', 'res'
       );
 
       for (const [locale, name] of Object.entries(localizedNames)) {
@@ -162,9 +258,7 @@ function withLocalizedAppNameAndroid(config, localizedNames) {
 
         const stringsPath = path.join(valuesDir, 'strings.xml');
 
-        // Check if strings.xml already exists
         if (fs.existsSync(stringsPath)) {
-          // Read existing and replace/add app_name
           let content = fs.readFileSync(stringsPath, 'utf-8');
           if (content.includes('name="app_name"')) {
             content = content.replace(
@@ -179,7 +273,6 @@ function withLocalizedAppNameAndroid(config, localizedNames) {
           }
           fs.writeFileSync(stringsPath, content, 'utf-8');
         } else {
-          // Create new strings.xml
           const content = `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <string name="app_name">${escapeXml(name)}</string>\n</resources>\n`;
           fs.writeFileSync(stringsPath, content, 'utf-8');
         }
