@@ -49,6 +49,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ],
       'expo-router',
       'expo-secure-store',
+      // Localized app name — shown on home screen matching store listing
+      // Add/remove languages as needed. Keys are locale codes.
+      ['./plugins/withLocalizedAppName', {
+        en: 'MyApp',
+        ko: '마이앱',
+        ja: 'マイアプリ',
+        'zh-Hans': '我的应用',
+      }],
     ],
     experiments: {
       typedRoutes: true,
