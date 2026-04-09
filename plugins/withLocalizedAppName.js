@@ -142,7 +142,7 @@ function withLocalizedAppNameIOS(config, localizedNames) {
 
         for (const locale of locales) {
           const fileRefUuid = project.generateUuid();
-          const filePath = `${locale}.lproj/InfoPlist.strings`;
+          const filePath = `${projectName}/${locale}.lproj/InfoPlist.strings`;
 
           // Add file reference
           project.hash.project.objects['PBXFileReference'] =
