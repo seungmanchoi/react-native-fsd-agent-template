@@ -1,51 +1,45 @@
-import { TextInput, View, Text, StyleSheet, TextInputProps } from 'react-native';
-import { Colors, Typography, BorderRadius, Spacing } from '@shared/config';
+import { TextInput, View, Text, TextInputProps } from 'react-native';
 
 interface IInputProps extends TextInputProps {
   label?: string;
   error?: string;
+  className?: string;
+  labelClassName?: string;
+  inputClassName?: string;
 }
 
-export function Input({ label, error, style, ...props }: IInputProps): React.JSX.Element {
+export function Input({ 
+  label, 
+  error, 
+  style, 
+  className,
+  labelClassName,
+  inputClassName,
+  ...props 
+}: IInputProps): React.JSX.Element {
   return (
-    <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+    <View style={style} className={\`w-full \${className || ''}\`}>
+      {label && (
+        <Text className={\`text-sm font-medium text-text-muted mb-1 \${labelClassName || ''}\`}>
+          {label}
+        </Text>
+      )}
       <TextInput
-        style={[styles.input, error && styles.inputError, style]}
-        placeholderTextColor={Colors.text.muted}
+        className={\`
+          bg-surface dark:bg-surface-dark 
+          rounded-2xl px-4 py-3
+          text-primary dark:text-primary-dark
+          border \${error ? 'border-red-500' : 'border-transparent'}
+          \${inputClassName || ''}
+        \`}
+        placeholderTextColor="#A1A1AA"
         {...props}
       />
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && (
+        <Text className="text-xs text-red-500 mt-1">
+          {error}
+        </Text>
+      )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-  },
-  label: {
-    fontSize: Typography.fontSizes.sm,
-    fontWeight: Typography.fontWeights.medium,
-    color: Colors.text.secondary,
-    marginBottom: Spacing.xs,
-  },
-  input: {
-    backgroundColor: Colors.background.tertiary,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    fontSize: Typography.fontSizes.base,
-    color: Colors.text.primary,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  inputError: {
-    borderColor: Colors.status.error,
-  },
-  error: {
-    fontSize: Typography.fontSizes.xs,
-    color: Colors.status.error,
-    marginTop: Spacing.xs,
-  },
-});

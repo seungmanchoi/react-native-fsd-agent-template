@@ -41,6 +41,14 @@ React Native + Expo template with **Feature-Sliced Design (FSD)** architecture a
 | barrel export 누락 | **0개** |
 | NativeWind 설정 누락 | **0개** |
 
+### ESLint 9 (Flat Config) & FlashList v2 (CRITICAL)
+
+이 템플릿은 최신 기술 스택을 준수한다.
+
+1. **ESLint 9**: \`eslint.config.js\` (Flat Config) 형식을 사용한다. \`lint\` 스크립트에서 \`--ext\` 옵션은 더 이상 사용하지 않는다.
+2. **FlashList v2**: \`estimatedItemSize\` 속성은 더 이상 필수사항이 아니며, 사용 시 타입 에러가 발생할 수 있다. 자동 크기 계산을 활용한다.
+3. **Workspace 제외**: \`_workspace/\`, \`.claude/\`, \`plugins/\` 디렉토리는 린트 및 타입체크 대상에서 제외되어야 한다.
+
 ### NativeWind 필수 설정 (CRITICAL)
 
 NativeWind가 정상 동작하려면 아래 4개 파일이 **모두** 올바르게 설정되어야 한다. 하나라도 누락되면 `className`이 적용되지 않아 전체 UI가 깨진다.

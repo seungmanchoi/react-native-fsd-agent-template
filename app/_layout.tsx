@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import Toast from 'react-native-toast-message';
+import mobileAds from 'react-native-google-mobile-ads';
 import { QueryProvider, ThemeProvider } from '@core/providers';
 import { toastConfig, ErrorBoundary } from '@shared/ui';
 import '../global.css';
@@ -15,6 +16,7 @@ export default function RootLayout(): React.JSX.Element {
   useEffect(() => {
     const initialize = async (): Promise<void> => {
       try {
+        await mobileAds().initialize();
         // TODO: Add auth initialization here
       } catch (error) {
         console.error('Failed to initialize:', error);

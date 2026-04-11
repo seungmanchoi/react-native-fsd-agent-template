@@ -1,5 +1,4 @@
-import { Pressable, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
-import { Colors, Typography, BorderRadius, Spacing } from '@shared/config';
+import { Pressable, Text, ActivityIndicator, ViewStyle } from 'react-native';
 
 type TButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type TButtonSize = 'sm' | 'md' | 'lg';
@@ -12,6 +11,8 @@ interface IButtonProps {
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
+  className?: string;
+  style?: ViewStyle;
 }
 
 export function Button({
@@ -22,103 +23,65 @@ export function Button({
   disabled = false,
   loading = false,
   fullWidth = false,
+  className,
+  style,
 }: IButtonProps): React.JSX.Element {
   const isDisabled = disabled || loading;
+
+  const getVariantStyle = () => {
+    switch (variant) {
+      case 'primary': return 'bg-primary dark:bg-primary-dark';
+      case 'secondary': return 'bg-surface dark:bg-surface-dark';
+      case 'outline': return 'bg-transparent border border-primary dark:border-primary-dark';
+      case 'ghost': return 'bg-transparent';
+      default: return 'bg-primary';
+    }
+  };
+
+  const getSizeStyle = () => {
+    switch (size) {
+      case 'sm': return 'h-9 px-3';
+      case 'md': return 'h-11 px-4';
+      case 'lg': return 'h-13 px-6';
+      default: return 'h-11 px-4';
+    }
+  };
+
+  const getTextStyle = () => {
+    const base = "font-semibold";
+    const sizeStyle = size === 'sm' ? "text-sm" : size === 'lg' ? "text-lg" : "text-base";
+    let color = "text-white";
+    
+    if (variant === 'secondary') color = "text-primary dark:text-primary-dark";
+    if (variant === 'outline' || variant === 'ghost') color = "text-primary dark:text-primary-dark";
+    
+    return \`\${base} \${sizeStyle} \${color}\`;
+  };
 
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
-      style={({ pressed }) => [
-        styles.base,
-        styles[variant],
-        styles[`size_${size}`],
-        fullWidth && styles.fullWidth,
-        isDisabled && styles.disabled,
-        pressed && styles.pressed,
-      ]}
+      style={style}
+      className={\`
+        flex-row items-center justify-center rounded-xl
+        \${getVariantStyle()}
+        \${getSizeStyle()}
+        \${fullWidth ? 'w-full' : ''}
+        \${isDisabled ? 'opacity-50' : 'active:opacity-80'}
+        \${className || ''}
+      \`}
     >
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'outline' || variant === 'ghost' ? Colors.primary.DEFAULT : '#fff'}
+          color={variant === 'outline' || variant === 'ghost' ? undefined : '#fff'}
         />
       ) : (
-        <Text style={[styles.text, styles[`text_${variant}`], styles[`text_${size}`]]}>
+        <Text className={getTextStyle()}>
           {title}
         </Text>
       )}
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  } as ViewStyle,
-  primary: {
-    backgroundColor: Colors.primary.DEFAULT,
-  } as ViewStyle,
-  secondary: {
-    backgroundColor: Colors.background.tertiary,
-  } as ViewStyle,
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: Colors.primary.DEFAULT,
-  } as ViewStyle,
-  ghost: {
-    backgroundColor: 'transparent',
-  } as ViewStyle,
-  size_sm: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    minHeight: 36,
-  } as ViewStyle,
-  size_md: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    minHeight: 44,
-  } as ViewStyle,
-  size_lg: {
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
-    minHeight: 52,
-  } as ViewStyle,
-  fullWidth: {
-    width: '100%',
-  } as ViewStyle,
-  disabled: {
-    opacity: 0.5,
-  } as ViewStyle,
-  pressed: {
-    opacity: 0.8,
-  } as ViewStyle,
-  text: {
-    fontWeight: Typography.fontWeights.semibold,
-  } as TextStyle,
-  text_primary: {
-    color: '#ffffff',
-  } as TextStyle,
-  text_secondary: {
-    color: Colors.text.primary,
-  } as TextStyle,
-  text_outline: {
-    color: Colors.primary.DEFAULT,
-  } as TextStyle,
-  text_ghost: {
-    color: Colors.primary.DEFAULT,
-  } as TextStyle,
-  text_sm: {
-    fontSize: Typography.fontSizes.sm,
-  } as TextStyle,
-  text_md: {
-    fontSize: Typography.fontSizes.base,
-  } as TextStyle,
-  text_lg: {
-    fontSize: Typography.fontSizes.lg,
-  } as TextStyle,
-});

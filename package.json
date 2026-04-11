@@ -15,7 +15,7 @@
     "eas:build:preview": "eas build --profile preview",
     "eas:build:prod": "eas build --profile production",
     "eas:update": "eas update --branch preview",
-    "lint": "eslint . --ext .ts,.tsx",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\""
   },
@@ -44,6 +44,7 @@
     "expo-status-bar": "~3.0.9",
     "expo-store-review": "~9.0.9",
     "expo-system-ui": "~6.0.9",
+    "i18n-js": "^4.5.3",
     "lottie-react-native": "^7.3.6",
     "nativewind": "^4.2.1",
     "react": "19.1.0",

@@ -43,3 +43,4 @@ android/
 # Agent workspace (inter-agent data exchange)
 _workspace/*.ipa
 *.aab
+\n# Workspace\n_workspace/\nbuild-output/
