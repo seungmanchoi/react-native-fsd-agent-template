@@ -285,7 +285,7 @@ npm run android    # Android Emulator
 ├── app.config.ts                       # Expo config (dynamic)
 ├── tailwind.config.js                  # NativeWind/Tailwind config
 ├── tsconfig.json                       # TypeScript (path aliases)
-├── .eslintrc.js                        # ESLint rules
+├── eslint.config.js                    # ESLint 9 Flat Config
 ├── .prettierrc.js                      # Prettier rules
 ├── eas.json                            # EAS Build profiles
 └── CLAUDE.md                           # Claude Code instructions
@@ -368,7 +368,7 @@ npm run start:tunnel   # Dev server (tunnel)
 npm run ios            # Run on iOS
 npm run android        # Run on Android
 npm run web            # Run on Web
-npm run lint           # ESLint check
+npm run lint           # ESLint 9 check
 npm run typecheck      # TypeScript check
 npm run format         # Prettier format
 npm run eas:build:dev  # EAS development build
@@ -473,6 +473,9 @@ assets/store-screenshots/
 fastlane/
 scripts/
 build-output/
+_workspace/
+.claude/
+plugins/
 .git/
 .idea/
 .vscode/
@@ -518,7 +521,7 @@ build-output/
 ## Inspired By
 
 - **[revfactory/harness](https://github.com/revfactory/harness)** — Agent Team & Skill Architect 메타 스킬. 에이전트 팀 구성, 파이프라인 패턴, `_workspace/` 데이터 흐름 방식의 원천
-- **[Anthropic Harness Design](https://www.anthropic.com/engineering/harness-design-long-running-apps)** — Context Reset, Sprint 분해, Hard Threshold, 독립 Evaluator 등 장시간 에이전트 작업을 위한 공식 설계 가이드
+- **[Anthropic Harness Design](https://www.anthropic.com/engineering/harness-design-long-running-apps)** — Context Reset, Sprint 분해, Hard Threshold, 독립 Evaluator 등 장시간 에이전트 작업을 위한 공식 설계 가이드. FlashList v2 및 ESLint 9 규격을 완벽히 준수합니다.
 - **[Feature-Sliced Design](https://feature-sliced.design/)** — 프론트엔드 아키텍처 방법론
 
 ---
