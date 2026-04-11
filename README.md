@@ -369,6 +369,7 @@ npm run ios            # Run on iOS
 npm run android        # Run on Android
 npm run web            # Run on Web
 npm run lint           # ESLint 9 check
+npm test               # Vitest unit tests
 npm run typecheck      # TypeScript check
 npm run format         # Prettier format
 npm run eas:build:dev  # EAS development build

@@ -162,7 +162,7 @@ apiClient.interceptors.response.use(
 
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
-      } catch (refreshError) {
+      } catch {
         await tokenManager.clearTokens();
         refreshSubscribers = [];
 
