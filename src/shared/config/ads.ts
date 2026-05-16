@@ -1,4 +1,3 @@
-import { TestIds } from 'react-native-google-mobile-ads';
 import { Platform } from 'react-native';
 import { env } from './env';
 
@@ -31,22 +30,35 @@ const ANDROID_AD_UNITS: IAdUnitIds = {
   APP_OPEN: 'ca-app-pub-XXXXX/ZZZZZ',
 };
 
-const TEST_AD_UNITS: IAdUnitIds = {
-  BANNER_GALLERY: TestIds.ADAPTIVE_BANNER,
-  BANNER_SETTINGS: TestIds.ADAPTIVE_BANNER,
-  INTERSTITIAL_AFTER_ACTION: TestIds.INTERSTITIAL,
-  REWARDED_PREMIUM: TestIds.REWARDED,
-  NATIVE_FEED: TestIds.NATIVE,
-  APP_OPEN: TestIds.APP_OPEN,
+const IOS_TEST_AD_UNITS: IAdUnitIds = {
+  BANNER_GALLERY: 'ca-app-pub-3940256099942544/2435281174',
+  BANNER_SETTINGS: 'ca-app-pub-3940256099942544/2435281174',
+  INTERSTITIAL_AFTER_ACTION: 'ca-app-pub-3940256099942544/4411468910',
+  REWARDED_PREMIUM: 'ca-app-pub-3940256099942544/1712485313',
+  NATIVE_FEED: 'ca-app-pub-3940256099942544/3986624511',
+  APP_OPEN: 'ca-app-pub-3940256099942544/5575463023',
+};
+
+const ANDROID_TEST_AD_UNITS: IAdUnitIds = {
+  BANNER_GALLERY: 'ca-app-pub-3940256099942544/9214589741',
+  BANNER_SETTINGS: 'ca-app-pub-3940256099942544/9214589741',
+  INTERSTITIAL_AFTER_ACTION: 'ca-app-pub-3940256099942544/1033173712',
+  REWARDED_PREMIUM: 'ca-app-pub-3940256099942544/5224354917',
+  NATIVE_FEED: 'ca-app-pub-3940256099942544/2247696110',
+  APP_OPEN: 'ca-app-pub-3940256099942544/9257395921',
 };
 
 function getPlatformAdUnits(): IAdUnitIds {
   return Platform.OS === 'ios' ? IOS_AD_UNITS : ANDROID_AD_UNITS;
 }
 
+function getPlatformTestAdUnits(): IAdUnitIds {
+  return Platform.OS === 'ios' ? IOS_TEST_AD_UNITS : ANDROID_TEST_AD_UNITS;
+}
+
 export const AdUnitIds: IAdUnitIds = env.IS_PROD
   ? getPlatformAdUnits()
-  : TEST_AD_UNITS;
+  : getPlatformTestAdUnits();
 
 export const ADS_CONFIG = {
   INTERSTITIAL_INTERVAL: 3,
