@@ -199,13 +199,98 @@ src/shared/analytics/
 
 ### 통합 단계 (필수 순서)
 
-1. **Firebase 콘솔에 프로젝트 생성** — iOS/Android 앱 등록, `GoogleService-Info.plist`(iOS) / `google-services.json`(Android) 다운로드
-2. **설정 파일 배치** — `ios/GoogleService-Info.plist`, `android/app/google-services.json`. 둘 다 `.gitignore`에 추가하고 `eas.json`의 `env`로 EAS Secrets에서 주입
-3. **패키지 설치 및 plugin 등록** — 위 표 참조, `app.config.ts` 수정
-4. **`src/shared/analytics/` 모듈 작성** — 래퍼/카탈로그/훅
-5. **루트 `_layout.tsx`에서 Analytics 초기화** — `setAnalyticsCollectionEnabled(env.IS_PROD)` 호출
-6. **이벤트 트래킹 적용** — PRD의 KPI에 매핑된 화면/액션에 `useScreenTracking()` 및 `logEvent()` 삽입
-7. **Crashlytics 활성화** — 동일 위치에서 `crashlytics().setCrashlyticsCollectionEnabled(env.IS_PROD)`
+#### 1단계: Firebase 콘솔에서 프로젝트 및 앱 생성 (Playwright MCP 자동화)
+
+**AdMob과 동일하게 Playwright MCP로 Firebase 콘솔(https://console.firebase.google.com)에 접속하여 수동 단계 없이 자동으로 진행한다.** Firebase의 앱 등록 API는 일반 사용자용 OAuth scope로는 호출이 제한되므로 콘솔 UI 자동화가 표준이다.
+
+##### Playwright MCP 사용 절차
+1. `mcp__playwright__browser_navigate`로 `https://console.firebase.google.com` 접속
+2. 로그인이 필요하면 사용자에게 직접 로그인 요청 (브라우저 창은 비-headless 모드로 유지)
+3. **프로젝트 선택 또는 생성**
+   - 기존 Firebase 프로젝트가 있으면 선택
+   - 없으면 "프로젝트 추가" → 프로젝트 이름 입력 (보통 `{앱슬러그}-prod`) → Google Analytics 사용 설정 ON → 계정 선택 → 만들기
+4. **iOS 앱 추가**
+   - 프로젝트 개요 → "앱 추가" → iOS 아이콘 클릭
+   - Apple bundle ID: `app.config.ts`의 `ios.bundleIdentifier` 값 입력
+   - 앱 닉네임: 앱 이름 입력 (옵션)
+   - App Store ID: 비워두기 (출시 후 입력 가능)
+   - "앱 등록" → **GoogleService-Info.plist 다운로드** 버튼 클릭
+   - SDK 추가/콘솔 단계는 "다음" 눌러서 스킵 (코드 통합은 4단계에서 처리)
+5. **Android 앱 추가**
+   - "앱 추가" → Android 아이콘 클릭
+   - Android 패키지 이름: `app.config.ts`의 `android.package` 값 입력
+   - 앱 닉네임 입력 (옵션)
+   - 디버그 서명 인증서 SHA-1: 일단 비워두기 (Crashlytics/SDK는 SHA-1 없이도 동작)
+   - "앱 등록" → **google-services.json 다운로드** 버튼 클릭
+6. **다운로드 파일을 프로젝트로 이동**
+   - `~/Downloads/GoogleService-Info.plist` → `ios/GoogleService-Info.plist`
+   - `~/Downloads/google-services.json` → `android/app/google-services.json`
+   - prebuild 전이라 `ios/`, `android/` 폴더가 없으면 일단 `firebase/` 임시 폴더에 보관 후 `expo prebuild --clean` 후 재배치
+7. **Analytics 활성화 확인**
+   - 콘솔 좌측 메뉴 "Analytics" → "대시보드" 클릭하여 데이터 스트림이 활성 상태인지 확인
+   - "측정 ID(G-XXXXXXXXXX)"를 기록 (선택)
+
+##### Playwright MCP 자동화 실패 시 fallback
+- Firebase 콘솔이 UI를 변경하여 selector가 실패하면 즉시 중단하고 사용자에게 "Firebase 콘솔에서 iOS/Android 앱을 수동으로 등록한 뒤, `GoogleService-Info.plist`와 `google-services.json`을 `~/Downloads/`에 받아두었다"는 확인을 요청한다.
+- 사용자 확인 후 6단계(파일 이동)부터 자동화를 재개한다.
+
+#### 2단계: 설정 파일 배치 및 보안 처리
+
+1. **로컬 배치**
+   ```
+   ios/GoogleService-Info.plist
+   android/app/google-services.json
+   ```
+2. **`.gitignore`에 즉시 추가** (커밋 차단)
+   ```gitignore
+   # Firebase secrets — never commit
+   ios/GoogleService-Info.plist
+   android/app/google-services.json
+   firebase/
+   ```
+3. **EAS Secrets로 빌드 시 주입**
+   ```bash
+   eas secret:create --scope project --name GOOGLE_SERVICES_PLIST --type file --value ./ios/GoogleService-Info.plist
+   eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value ./android/app/google-services.json
+   ```
+4. **`app.config.ts`에서 환경변수 참조**
+   ```typescript
+   ios: { googleServicesFile: process.env.GOOGLE_SERVICES_PLIST ?? './ios/GoogleService-Info.plist', ... }
+   android: { googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './android/app/google-services.json', ... }
+   ```
+
+#### 3단계: 패키지 설치 및 plugin 등록
+
+```bash
+npm install @react-native-firebase/app @react-native-firebase/analytics @react-native-firebase/crashlytics
+npx expo install expo-build-properties
+```
+
+`app.config.ts`의 `plugins`에 추가:
+```typescript
+plugins: [
+  '@react-native-firebase/app',
+  '@react-native-firebase/crashlytics',
+  ['expo-build-properties', { ios: { useFrameworks: 'static' } }],
+],
+```
+
+#### 4단계: `src/shared/analytics/` 모듈 작성
+래퍼(`client.ts`)·이벤트 카탈로그(`events.ts`)·`useScreenTracking` 훅·barrel export.
+
+#### 5단계: 루트 `_layout.tsx`에서 Analytics 초기화
+`initAnalytics()` 호출 (내부에서 `setAnalyticsCollectionEnabled(env.IS_PROD)` + `setCrashlyticsCollectionEnabled(env.IS_PROD)` 수행).
+
+#### 6단계: 이벤트 트래킹 적용
+PRD의 KPI에 매핑된 화면/액션에 `useScreenTracking()` 및 `logEvent()` 삽입.
+
+#### 7단계: 빌드 검증
+```bash
+npx expo prebuild --clean
+npm run typecheck && npm run lint
+eas build --profile preview --platform ios --local   # 또는 development
+```
+빌드 로그에서 `[Firebase/Analytics][I-ACS...]` 초기화 로그가 나오는지 확인한다.
 
 ### Hard Threshold (Analytics)
 

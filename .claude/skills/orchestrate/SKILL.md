@@ -450,29 +450,90 @@ npm run typecheck && npm run lint
 
 ```
 Tasks:
-1. Firebase 콘솔에 iOS/Android 앱 등록 (사용자 확인 필요)
-   - GoogleService-Info.plist / google-services.json 발급
-   - 로컬에 배치 후 .gitignore 등록, EAS Secrets로 빌드 시 주입
+1. Firebase 콘솔에 iOS/Android 앱 등록 (Playwright MCP 자동화)
+   AdMob 콘솔 자동화와 동일한 패턴. Firebase 앱 생성은 일반 OAuth scope로
+   호출 불가하므로 console.firebase.google.com UI를 Playwright MCP로 조작한다.
+
+   1-1. mcp__playwright__browser_navigate → https://console.firebase.google.com
+   1-2. 로그인 필요 시 사용자에게 브라우저 창에서 직접 로그인 요청
+        (headless 모드 사용 금지, 창은 자동화 중에도 열려 있어야 함)
+   1-3. 프로젝트 선택
+        - 기존 Firebase 프로젝트가 있으면 클릭하여 선택
+        - 없으면 "프로젝트 추가" → 이름 `{앱슬러그}-prod` → Google Analytics ON →
+          GA 계정 선택 → "프로젝트 만들기"
+   1-4. iOS 앱 등록
+        - "앱 추가" → iOS 아이콘
+        - Apple bundle ID: app.config.ts의 ios.bundleIdentifier 그대로 입력
+        - 앱 닉네임: 앱 이름
+        - "앱 등록"
+        - "GoogleService-Info.plist 다운로드" 버튼 클릭
+          → 다운로드는 ~/Downloads/ 에 저장됨
+        - 이후 SDK 단계는 "다음"으로 모두 스킵
+   1-5. Android 앱 등록
+        - "앱 추가" → Android 아이콘
+        - Android 패키지 이름: app.config.ts의 android.package 그대로 입력
+        - 앱 닉네임: 앱 이름
+        - SHA-1: 비워두기 (Analytics/Crashlytics는 SHA-1 없이 동작)
+        - "앱 등록"
+        - "google-services.json 다운로드" 버튼 클릭
+        - SDK 단계 "다음"으로 스킵
+   1-6. 다운로드 파일을 프로젝트로 이동
+        - ~/Downloads/GoogleService-Info.plist → ios/GoogleService-Info.plist
+        - ~/Downloads/google-services.json → android/app/google-services.json
+        - ios/ 또는 android/ 폴더가 없으면 firebase/ 임시 폴더에 보관 후
+          expo prebuild --clean 이후 정식 위치로 이동
+   1-7. .gitignore에 즉시 추가
+        - ios/GoogleService-Info.plist
+        - android/app/google-services.json
+        - firebase/
+   1-8. EAS Secrets 등록 (클라우드 빌드용)
+        eas secret:create --scope project --name GOOGLE_SERVICES_PLIST \
+          --type file --value ./ios/GoogleService-Info.plist
+        eas secret:create --scope project --name GOOGLE_SERVICES_JSON \
+          --type file --value ./android/app/google-services.json
+
+   Playwright selector 실패 fallback:
+   - Firebase 콘솔 UI가 변경되어 자동화가 실패하면 즉시 중단
+   - _workspace/implementation/firebase-manual.md 에 진행 상황 기록
+   - 사용자에게 "콘솔에서 직접 두 앱을 등록하고 두 파일을
+     ~/Downloads/ 에 받아두었다"는 확인 요청
+   - 확인 후 1-6단계부터 자동화 재개
+
 2. 패키지 설치
-   - @react-native-firebase/app
-   - @react-native-firebase/analytics
-   - @react-native-firebase/crashlytics
+   npm install @react-native-firebase/app \
+     @react-native-firebase/analytics \
+     @react-native-firebase/crashlytics
+   npx expo install expo-build-properties
+
 3. Expo plugin 등록 (app.config.ts)
-   - plugins: ['@react-native-firebase/app', '@react-native-firebase/crashlytics']
-   - expo-build-properties: iOS useFrameworks: 'static'
+   plugins:
+     - '@react-native-firebase/app'
+     - '@react-native-firebase/crashlytics'
+     - ['expo-build-properties', { ios: { useFrameworks: 'static' } }]
+   ios.googleServicesFile / android.googleServicesFile 경로도 지정
+
 4. src/shared/analytics/ 모듈 작성
    - client.ts (logEvent, setUserProperty, initAnalytics 래퍼)
    - events.ts (PRD의 KPI 카탈로그를 상수로 정의)
    - hooks/useScreenTracking.ts
    - types/index.ts, index.ts (barrel export)
+
 5. 루트 _layout.tsx에서 initAnalytics() 호출
    - env.IS_PROD 기준으로 수집 활성/비활성 토글
+
 6. PRD KPI 매핑 적용
    - 모든 스크린에 useScreenTracking() 삽입
    - 핵심 액션(F-NNN)에 logEvent() 삽입
    - 활성/유지/수익화 축 이벤트가 모두 1개 이상 코드에 존재하는지 검증
+
 7. Crashlytics 초기화
    - crashlytics().setCrashlyticsCollectionEnabled(env.IS_PROD)
+
+8. 빌드 검증
+   - npx expo prebuild --clean
+   - npm run typecheck && npm run lint
+   - eas build --local 또는 development build로 한 번 구동
+   - 디바이스/시뮬레이터 로그에 [Firebase/Analytics] 초기화 로그 확인
 ```
 
 **Sprint Contract (Phase 4d)** — `_workspace/implementation/sprint-contract-4d.md`:
@@ -480,20 +541,27 @@ Tasks:
 # Sprint Contract: Phase 4d Analytics
 
 ## Done 조건
-- [ ] @react-native-firebase/{app,analytics,crashlytics} 패키지 설치 완료
-- [ ] app.config.ts에 plugins 등록 완료
-- [ ] src/shared/analytics/{client,events,types,index}.ts 생성 완료
-- [ ] src/shared/analytics/hooks/useScreenTracking.ts 생성 완료
+- [ ] Playwright MCP로 Firebase 콘솔에 iOS/Android 앱 등록 완료
+- [ ] ios/GoogleService-Info.plist 파일이 프로젝트에 존재
+- [ ] android/app/google-services.json 파일이 프로젝트에 존재
+- [ ] 두 파일이 .gitignore에 등록되어 git status에 untracked로도 노출되지 않음
+- [ ] EAS Secrets에 GOOGLE_SERVICES_PLIST, GOOGLE_SERVICES_JSON 업로드 완료
+- [ ] @react-native-firebase/{app,analytics,crashlytics} + expo-build-properties 설치
+- [ ] app.config.ts에 plugins 및 googleServicesFile 경로 등록
+- [ ] src/shared/analytics/{client,events,types,index}.ts 생성
+- [ ] src/shared/analytics/hooks/useScreenTracking.ts 생성
 - [ ] 루트 _layout.tsx에서 initAnalytics() 호출
 - [ ] PRD의 north-star 이벤트 + 4축 이벤트 각 1개 이상 logEvent 호출 존재
-- [ ] GoogleService-Info.plist / google-services.json이 .gitignore에 포함
 - [ ] env.IS_PROD 기반 dev/prod 분기 동작
+- [ ] expo prebuild --clean 성공 + 로컬 빌드 성공
 
 ## 검증 방법
+- git ls-files | grep -E '(GoogleService-Info\.plist|google-services\.json)' 결과 0건
 - npm run typecheck 0 에러
 - npm run lint 0 에러
 - grep으로 매직 스트링 logEvent 호출 0건 확인
 - grep으로 외부 코드의 firebase.analytics() 직접 호출 0건 확인
+- eas secret:list 결과에 GOOGLE_SERVICES_PLIST, GOOGLE_SERVICES_JSON 존재
 ```
 
 **KPI 정의 검증 (Go/No-Go)**:
@@ -502,8 +570,12 @@ Tasks:
 - PRD에 정의된 이벤트와 코드의 EVENTS 상수가 1:1로 일치하지 않으면 FAIL
 
 **Error Handling**:
-- Firebase 콘솔 접근 권한이 없는 경우: `_workspace/implementation/error-4d.md`에 차단 사유 기록 후 사용자에게 콘솔 설정 요청
-- 패키지 설치 후 빌드 실패 시: `useFrameworks: 'static'` 누락 또는 plugin 등록 누락 우선 확인
+- **Firebase 콘솔 미로그인**: Playwright MCP가 로그인 페이지를 감지하면 사용자에게 브라우저 창에서 직접 로그인하라고 요청하고 대기. 절대 자격증명을 자동 입력 시도하지 않는다.
+- **Playwright selector 실패** (콘솔 UI 변경): `_workspace/implementation/firebase-manual.md`에 진행 상태(어느 단계에서 실패했는지, 어떤 앱이 이미 등록되었는지) 기록 후 사용자에게 수동 등록 + 파일 다운로드를 요청. 사용자 확인 후 파일 이동 단계부터 자동화 재개.
+- **다운로드 파일 누락**: `~/Downloads/GoogleService-Info.plist`, `~/Downloads/google-services.json`이 없으면 1-4 / 1-5단계의 "다운로드" 버튼 클릭이 실패한 것. 콘솔에서 해당 앱 설정 → "GoogleService-Info.plist/google-services.json" 다시 다운로드.
+- **EAS Secrets 충돌**: 동일 이름 secret이 이미 있으면 `eas secret:delete` 후 재생성 (사용자 확인 필요).
+- **빌드 실패 — Multiple commands produce duplicate**: `useFrameworks: 'static'` 누락 또는 `@react-native-firebase/app` plugin 등록 누락 우선 확인.
+- **Firebase 콘솔 접근 권한 부재**: `_workspace/implementation/error-4d.md`에 차단 사유 기록 후 사용자에게 Firebase 프로젝트 권한 부여 요청.
 
 **Quick QA Checkpoint (4d-QA)**:
 Phase 4d 완료 후 qa-reviewer가 경량 검증을 실행한다:

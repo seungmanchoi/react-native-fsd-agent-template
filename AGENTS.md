@@ -297,12 +297,40 @@ Rules:
 
 Integration order:
 
-1. Create Firebase project, register iOS and Android apps, download config files.
-2. Place config files locally (gitignored), wire EAS Secrets for build-time injection.
-3. Install packages, add plugins to `app.config.ts`. Set `useFrameworks: 'static'` for iOS via `expo-build-properties`.
+1. **Create Firebase project and apps via Playwright MCP** (browser automation on https://console.firebase.google.com, same pattern as AdMob console setup). Firebase REST APIs for app provisioning are not available to standard OAuth scopes, so the console UI is the authoritative channel.
+   - Navigate to the Firebase console with `mcp__playwright__browser_navigate`.
+   - If not signed in, ask the user to sign in directly in the opened browser window. Resume automation after sign-in.
+   - Create a new project (`{app-slug}-prod`) or pick an existing one. Enable Google Analytics during creation.
+   - Add iOS app: bundle ID from `app.config.ts` `ios.bundleIdentifier`. Click "Register app". Click "Download GoogleService-Info.plist". Skip the SDK/console steps.
+   - Add Android app: package name from `app.config.ts` `android.package`. Leave SHA-1 blank for now. Click "Register app". Click "Download google-services.json". Skip the SDK/console steps.
+   - Move downloaded files:
+     - `~/Downloads/GoogleService-Info.plist` → `ios/GoogleService-Info.plist`
+     - `~/Downloads/google-services.json` → `android/app/google-services.json`
+   - If `ios/` or `android/` does not yet exist (pre-prebuild), park files in `firebase/` and re-place after `expo prebuild --clean`.
+   - If the Firebase console UI changes and selectors break, stop automation, ask the user to register both apps manually and download the files, then resume from the move step.
+2. **Place config files locally and protect them**.
+   - Add to `.gitignore`: `ios/GoogleService-Info.plist`, `android/app/google-services.json`, `firebase/`.
+   - Upload as EAS Secrets so cloud builds receive them:
+     ```bash
+     eas secret:create --scope project --name GOOGLE_SERVICES_PLIST --type file --value ./ios/GoogleService-Info.plist
+     eas secret:create --scope project --name GOOGLE_SERVICES_JSON  --type file --value ./android/app/google-services.json
+     ```
+   - Reference them in `app.config.ts` via `ios.googleServicesFile` / `android.googleServicesFile`.
+3. Install packages and register plugins:
+   ```bash
+   npm install @react-native-firebase/app @react-native-firebase/analytics @react-native-firebase/crashlytics
+   npx expo install expo-build-properties
+   ```
+   Add to `app.config.ts` `plugins`:
+   ```ts
+   '@react-native-firebase/app',
+   '@react-native-firebase/crashlytics',
+   ['expo-build-properties', { ios: { useFrameworks: 'static' } }],
+   ```
 4. Implement `src/shared/analytics/` wrapper, catalog, and screen tracking hook.
 5. Initialize Analytics and Crashlytics in root `_layout.tsx` with collection gated on `env.IS_PROD`.
 6. Wire events to the KPI map from the PRD.
+7. Verify: `expo prebuild --clean`, `npm run typecheck`, `npm run lint`, then a local EAS build. Confirm `[Firebase/Analytics]` initialization appears in the device log.
 
 Hard thresholds for Analytics:
 

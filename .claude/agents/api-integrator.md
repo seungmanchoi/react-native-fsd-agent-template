@@ -126,6 +126,32 @@ export const useScreenTracking = (screenName: string) => {
 - PII(이메일/전화/실명/정확한 위치) 금지
 - `GoogleService-Info.plist`, `google-services.json`은 `.gitignore` 처리. EAS Secrets로 빌드 시점에 주입
 
+## Firebase 콘솔 자동화 (Playwright MCP)
+
+Firebase 앱 등록은 일반 OAuth scope로 호출이 불가능하므로 **AdMob과 동일하게 Playwright MCP로 콘솔 UI를 자동화**한다. 사용자가 수동으로 콘솔에 들어가는 단계를 만들지 않는다.
+
+### 책임
+1. `mcp__playwright__browser_navigate`로 `https://console.firebase.google.com` 진입
+2. 미로그인 상태이면 사용자에게 브라우저 창에서 직접 로그인 요청 (자격증명 자동 입력 금지)
+3. 프로젝트 생성 또는 선택 (`{앱슬러그}-prod`)
+4. iOS 앱 등록 — bundle ID는 `app.config.ts` `ios.bundleIdentifier`
+5. Android 앱 등록 — 패키지명은 `app.config.ts` `android.package`, SHA-1 비워둠
+6. **`GoogleService-Info.plist` 및 `google-services.json` 다운로드 버튼 클릭** → `~/Downloads/`로 저장됨
+7. 다운로드 파일을 프로젝트로 이동
+   - `~/Downloads/GoogleService-Info.plist` → `ios/GoogleService-Info.plist`
+   - `~/Downloads/google-services.json` → `android/app/google-services.json`
+   - `ios/`/`android/` 없으면 `firebase/` 임시 폴더 보관 후 `expo prebuild --clean` 후 정식 배치
+8. `.gitignore`에 두 파일 + `firebase/` 즉시 추가
+9. EAS Secrets 등록
+   ```bash
+   eas secret:create --scope project --name GOOGLE_SERVICES_PLIST --type file --value ./ios/GoogleService-Info.plist
+   eas secret:create --scope project --name GOOGLE_SERVICES_JSON  --type file --value ./android/app/google-services.json
+   ```
+
+### 실패 시 fallback
+- Selector 실패 → 즉시 중단, `_workspace/implementation/firebase-manual.md`에 진행 상태 기록 후 사용자에게 수동 등록 요청. 파일 다운로드 완료 확인 후 7단계부터 재개.
+- 다운로드 버튼 클릭 후 파일이 `~/Downloads/`에 없으면 콘솔의 해당 앱 설정 → "GoogleService-Info.plist/google-services.json 다시 다운로드"로 재시도.
+
 ## 팀 통신 프로토콜
 
 - **feature-builder로부터**: 타입 정의 완료 알림 수신 → API 함수 작성 시작
