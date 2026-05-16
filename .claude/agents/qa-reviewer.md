@@ -39,6 +39,11 @@
 - [ ] 하드코딩된 시크릿/키 없음
 - [ ] 입력값 검증 (Zod)
 - [ ] XSS 방지
+- [ ] **토큰/시크릿이 `AsyncStorage`·`MMKV`·평문 파일에 저장되지 않음** — 반드시 `@/shared/secure-storage` (expo-secure-store, iOS Keychain / Android Keystore-backed) 사용
+- [ ] `SecureStore` 외부에서 `accessToken`/`refreshToken` 등 시크릿 식별자를 직접 다루지 않음
+- [ ] Zustand `persist`가 토큰 슬라이스를 `AsyncStorage` 어댑터로 저장하지 않음 (SecureStore-backed 어댑터만 허용)
+- [ ] `console.log`/Crashlytics/Analytics 파라미터에 토큰/PII 노출 없음
+- [ ] `app.config.ts` `extra` 또는 클라이언트 번들 `.env`에 비밀키 포함 없음
 
 ### 6. Common Bug Patterns
 - [ ] **날짜 타임존 버그**: `new Date().toISOString().split('T')[0]`로 로컬 날짜를 구하는 코드 금지 — UTC 기준이라 UTC+9(한국/일본) 지역에서 자정~09시 사이에 "어제" 날짜가 반환됨. 반드시 `dayjs().format('YYYY-MM-DD')` 사용 (로컬 시간 기준)
@@ -59,6 +64,9 @@
 | SafeAreaView 누락 (스크린) | **0개** | 코드 분석 | 가능 |
 | barrel export 누락 | **0개** | index.ts 확인 | 가능 |
 | `toISOString().split('T')[0]` 날짜 키 | **0개** | `grep -r "toISOString.*split"` | 가능 |
+| 토큰을 AsyncStorage에 저장 | **0개** | `grep -rE "AsyncStorage.*(token\|secret\|password)"` 등 | 가능 |
+| SecureStore 외부에서 토큰 처리 | **0개** | `@/shared/secure-storage` 미경유 토큰 참조 grep | 수동 |
+| 토큰/PII 로그 노출 | **0개** | `console.log` 인자 분석 | 수동 |
 
 ## Active Testing (능동 테스트)
 

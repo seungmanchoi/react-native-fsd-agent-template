@@ -41,6 +41,114 @@ React Native + Expo template with **Feature-Sliced Design (FSD)** architecture a
 | barrel export 누락 | **0개** |
 | NativeWind 설정 누락 | **0개** |
 | `toISOString().split('T')[0]`로 로컬 날짜 구하기 | **0개** |
+| 토큰/시크릿이 AsyncStorage·MMKV·평문에 저장됨 | **0개** |
+
+### Secure Storage / 민감 데이터 저장 (MANDATORY)
+
+**`AsyncStorage`는 평문으로 저장되며 루팅/탈옥 기기에서 그대로 읽힌다.** 인증 토큰을 포함한 모든 민감 데이터는 iOS Keychain / Android Keystore-backed Encrypted Storage에 저장한다. 표준 도구는 `expo-secure-store` 이다.
+
+#### 저장 경계 — 무엇을 어디에
+
+| 분류 | 예시 | 저장 위치 |
+|------|------|----------|
+| **민감 (반드시 SecureStore)** | access token, refresh token, OAuth/세션 토큰, API 비밀키, 결제 토큰/카드 정보, 사용자 비밀번호·PIN·생체 백업키, 프리미엄 라이선스 키, 사용자 식별 가능 정보(PII)와 결합된 토큰 | `expo-secure-store` |
+| **준민감 (SecureStore 권장)** | 푸시 토큰, 디바이스 시크릿, 분석/측정용 user pseudo-id (재설치 후 복구 필요한 경우) | `expo-secure-store` |
+| **비민감 (AsyncStorage/MMKV 허용)** | UI 테마, 언어, 마지막으로 본 화면, 온보딩 완료 플래그, 캐시된 비식별 콘텐츠, Zustand의 비민감 영역 | `@react-native-async-storage/async-storage` 또는 MMKV |
+
+**금지 사항**
+- 토큰을 Redux/Zustand persist를 통해 AsyncStorage에 저장 — persist는 **비민감 슬라이스만 대상**으로 한다
+- 토큰을 `app.config.ts`의 `extra` 필드, `.env` 클라이언트 번들, 또는 평문 JSON으로 노출
+- Console/Crashlytics/Analytics 로그에 토큰 또는 PII 출력 (`__DEV__`에서도 마스킹)
+
+#### 표준 스택
+
+| 영역 | 패키지 | 비고 |
+|------|--------|------|
+| 암호화 저장 | `expo-secure-store` | iOS Keychain, Android Keystore + EncryptedSharedPreferences |
+| 비민감 KV | `@react-native-async-storage/async-storage` 또는 `react-native-mmkv` | persist용 |
+| 생체 인증 | `expo-local-authentication` (선택) | Keychain 접근 시 `requireAuthentication: true` |
+
+설치:
+```bash
+npx expo install expo-secure-store
+```
+
+#### 코드 통합 위치 (FSD)
+
+```
+src/shared/secure-storage/
+├── client.ts          # expo-secure-store 래퍼 (getItem/setItem/deleteItem/multiRemove)
+├── keys.ts            # 저장 키 상수 (SECURE_KEYS.ACCESS_TOKEN 등)
+├── types/index.ts     # ISecureStorageOptions, TSecureKey 등
+└── index.ts           # barrel export
+```
+
+**필수 패턴**:
+```typescript
+// src/shared/secure-storage/client.ts
+import * as SecureStore from 'expo-secure-store';
+import { SECURE_KEYS, TSecureKey } from './keys';
+
+const DEFAULT_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY, // iCloud 백업 차단
+};
+
+export const setSecureItem = async (key: TSecureKey, value: string) => {
+  await SecureStore.setItemAsync(key, value, DEFAULT_OPTIONS);
+};
+
+export const getSecureItem = async (key: TSecureKey): Promise<string | null> => {
+  return SecureStore.getItemAsync(key, DEFAULT_OPTIONS);
+};
+
+export const deleteSecureItem = async (key: TSecureKey) => {
+  await SecureStore.deleteItemAsync(key, DEFAULT_OPTIONS);
+};
+
+export const clearAllSecure = async () => {
+  await Promise.all(Object.values(SECURE_KEYS).map(deleteSecureItem));
+};
+```
+
+```typescript
+// src/shared/secure-storage/keys.ts
+export const SECURE_KEYS = {
+  ACCESS_TOKEN: 'auth.access_token',
+  REFRESH_TOKEN: 'auth.refresh_token',
+  BIOMETRIC_ENABLED: 'auth.biometric_enabled',
+} as const;
+
+export type TSecureKey = (typeof SECURE_KEYS)[keyof typeof SECURE_KEYS];
+```
+
+#### 토큰 저장소 통합 규칙
+
+- `features/auth/store/`의 토큰 상태는 메모리에 보관하고, **persist 어댑터는 `expo-secure-store` 기반 custom storage**로 구현한다. Zustand `persist`의 `storage`에 `createJSONStorage(() => secureZustandStorage)`를 주입한다.
+- Axios 인터셉터(`src/shared/api/client.ts`)는 토큰을 메모리 또는 SecureStore에서 가져온다. **AsyncStorage 직접 조회 금지**.
+- 토큰 만료/로그아웃 시 `clearAllSecure()` 호출로 모든 시크릿 키를 일괄 삭제한다.
+- iOS 옵션: 기본은 `WHEN_UNLOCKED_THIS_DEVICE_ONLY` — 디바이스 잠금 해제 시에만 접근, 백업/iCloud 동기화 제외.
+- Android: `expo-secure-store`가 자동으로 Keystore-backed `EncryptedSharedPreferences`를 사용. 별도 설정 불필요.
+
+#### 생체 인증 게이트 (선택)
+
+결제·금융·헬스 데이터 등 고위험 토큰은 접근 시 생체 인증을 강제한다:
+```typescript
+await SecureStore.setItemAsync(key, value, {
+  keychainAccessible: SecureStore.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY,
+  requireAuthentication: true,
+  authenticationPrompt: '인증이 필요합니다',
+});
+```
+
+#### Hard Threshold (Secure Storage)
+
+| 기준 | 임계값 |
+|------|--------|
+| 토큰/시크릿이 `AsyncStorage`/`MMKV`/`localStorage`/평문 파일에 저장 | **0개** |
+| `SecureStore` 외부에서 토큰을 직접 다루는 코드 (래퍼 미사용) | **0개** |
+| Zustand `persist` storage가 토큰 슬라이스를 AsyncStorage로 저장 | **0개** |
+| 토큰/PII가 `console.log`/Crashlytics/Analytics 파라미터에 노출 | **0개** |
+| `app.config.ts` `extra` 또는 `.env`에 클라이언트용 비밀키 포함 | **0개** |
 
 ### 날짜/시간 처리 (CRITICAL)
 

@@ -18,6 +18,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 4. **타입 정의**: Request/Response 인터페이스 자동 생성 (`I{Name}Request`, `I{Name}Response`)
 5. **Analytics 모듈**: `src/shared/analytics/` 에 Firebase 래퍼, 이벤트 카탈로그, 화면 추적 훅 생성
 6. **이벤트 배선**: PRD의 KPI 카탈로그를 기준으로 각 화면/액션에 `logEvent` 호출 삽입
+7. **Secure Storage 모듈**: `src/shared/secure-storage/` 에 expo-secure-store 래퍼와 키 카탈로그 생성. 토큰 store의 persist 어댑터를 SecureStore-backed으로 구성
 
 ## Rules
 
@@ -26,6 +27,9 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 - TanStack Query key는 배열 형태로 일관성 있게 정의: `['{domain}', '{action}', params]`
 - Zustand store는 persist middleware 필요 시에만 적용
 - 에러 타입은 `@shared/types`의 공통 에러 타입 사용
+- **인증 토큰/시크릿은 `AsyncStorage` 금지** — 반드시 `@/shared/secure-storage`(expo-secure-store 래퍼) 사용. iOS Keychain / Android Keystore-backed 저장소가 표준
+- Zustand `persist`로 토큰 슬라이스를 저장해야 하는 경우, **storage 어댑터는 SecureStore-backed custom storage**를 주입한다 (AsyncStorage 어댑터 금지)
+- Axios 인터셉터의 토큰 조회는 메모리 또는 `SecureStore`에서만. 로그에 토큰을 출력하지 않는다
 
 ## Patterns
 
@@ -60,6 +64,61 @@ export const useUserStore = create<IUserState>()((set) => ({
   setUser: (user) => set({ user }),
   clear: () => set({ user: null }),
 }));
+```
+
+### Secure Storage 래퍼 (`src/shared/secure-storage/client.ts`)
+```typescript
+import * as SecureStore from 'expo-secure-store';
+import { SECURE_KEYS, TSecureKey } from './keys';
+
+const DEFAULT_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
+export const setSecureItem = (key: TSecureKey, value: string) =>
+  SecureStore.setItemAsync(key, value, DEFAULT_OPTIONS);
+export const getSecureItem = (key: TSecureKey) =>
+  SecureStore.getItemAsync(key, DEFAULT_OPTIONS);
+export const deleteSecureItem = (key: TSecureKey) =>
+  SecureStore.deleteItemAsync(key, DEFAULT_OPTIONS);
+export const clearAllSecure = () =>
+  Promise.all(Object.values(SECURE_KEYS).map(deleteSecureItem));
+```
+
+### SecureStore-backed Zustand Persist (토큰 store 전용)
+```typescript
+import { create } from 'zustand';
+import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
+import { getSecureItem, setSecureItem, deleteSecureItem } from '@/shared/secure-storage';
+import { SECURE_KEYS } from '@/shared/secure-storage/keys';
+
+const secureZustandStorage: StateStorage = {
+  getItem: (name) => getSecureItem(name as never),
+  setItem: (name, value) => setSecureItem(name as never, value),
+  removeItem: (name) => deleteSecureItem(name as never),
+};
+
+interface IAuthState {
+  accessToken: string | null;
+  refreshToken: string | null;
+  setTokens: (a: string, r: string) => void;
+  clear: () => void;
+}
+
+export const useAuthStore = create<IAuthState>()(
+  persist(
+    (set) => ({
+      accessToken: null,
+      refreshToken: null,
+      setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
+      clear: () => set({ accessToken: null, refreshToken: null }),
+    }),
+    {
+      name: SECURE_KEYS.ACCESS_TOKEN, // 단일 keychain 항목으로 직렬화
+      storage: createJSONStorage(() => secureZustandStorage),
+    },
+  ),
+);
 ```
 
 ### Firebase Analytics 래퍼 (`src/shared/analytics/client.ts`)
@@ -165,6 +224,7 @@ Firebase 앱 등록은 일반 OAuth scope로 호출이 불가능하므로 **AdMo
 - "스토어 만들어줘", "상태 관리 추가"
 - "쿼리 훅 작성", "뮤테이션 추가"
 - "Firebase 세팅", "Analytics 통합", "KPI 이벤트 추가", "측정 지표 연결"
+- "토큰 저장", "Keychain", "Keystore", "Secure Storage", "민감 데이터 저장", "expo-secure-store"
 
 ## Tools
 

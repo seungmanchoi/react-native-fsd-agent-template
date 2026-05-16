@@ -79,6 +79,104 @@ These are fail conditions:
 | Missing barrel exports | 0 |
 | Broken NativeWind setup | 0 |
 | `toISOString().split('T')[0]` for local date | 0 |
+| Tokens or secrets stored in AsyncStorage/MMKV/plaintext | 0 |
+
+### Secure Storage And Sensitive Data
+
+`AsyncStorage` and `MMKV` write to plaintext stores that are readable on rooted/jailbroken devices. Auth tokens and any other sensitive data must live in iOS Keychain / Android Keystore-backed encrypted storage. Use `expo-secure-store` as the standard.
+
+Install:
+
+```bash
+npx expo install expo-secure-store
+```
+
+Storage boundary:
+
+| Class | Examples | Storage |
+| --- | --- | --- |
+| Sensitive | access token, refresh token, OAuth/session tokens, API secret keys, payment tokens, passwords/PINs, premium license keys, PII-bound tokens | `expo-secure-store` |
+| Semi-sensitive | push tokens, device secrets, recoverable user pseudo-IDs | `expo-secure-store` |
+| Non-sensitive | UI theme, locale, last-visited screen, onboarding flags, non-identifying cache, non-sensitive Zustand slices | `@react-native-async-storage/async-storage` or `react-native-mmkv` |
+
+Forbidden:
+
+- Persisting tokens through Redux/Zustand `persist` into `AsyncStorage`. `persist` is only for non-sensitive slices.
+- Putting secrets in `app.config.ts` `extra`, `.env` files shipped to the client bundle, or plaintext JSON.
+- Logging tokens or PII to console, Crashlytics, or Analytics params — mask even in `__DEV__`.
+
+FSD layout:
+
+```text
+src/shared/secure-storage/
+├── client.ts        # expo-secure-store wrapper
+├── keys.ts          # SECURE_KEYS constants + TSecureKey
+├── types/index.ts
+└── index.ts         # barrel export
+```
+
+Required wrapper pattern (`src/shared/secure-storage/client.ts`):
+
+```ts
+import * as SecureStore from 'expo-secure-store';
+import { SECURE_KEYS, TSecureKey } from './keys';
+
+const DEFAULT_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
+export const setSecureItem = (key: TSecureKey, value: string) =>
+  SecureStore.setItemAsync(key, value, DEFAULT_OPTIONS);
+
+export const getSecureItem = (key: TSecureKey) =>
+  SecureStore.getItemAsync(key, DEFAULT_OPTIONS);
+
+export const deleteSecureItem = (key: TSecureKey) =>
+  SecureStore.deleteItemAsync(key, DEFAULT_OPTIONS);
+
+export const clearAllSecure = () =>
+  Promise.all(Object.values(SECURE_KEYS).map(deleteSecureItem));
+```
+
+Keys catalog (`src/shared/secure-storage/keys.ts`):
+
+```ts
+export const SECURE_KEYS = {
+  ACCESS_TOKEN: 'auth.access_token',
+  REFRESH_TOKEN: 'auth.refresh_token',
+  BIOMETRIC_ENABLED: 'auth.biometric_enabled',
+} as const;
+
+export type TSecureKey = (typeof SECURE_KEYS)[keyof typeof SECURE_KEYS];
+```
+
+Integration rules:
+
+- Token state in `features/auth/store/` lives in memory. Its persist adapter must be a `SecureStore`-backed custom storage passed to Zustand `persist` via `createJSONStorage`.
+- Axios interceptor in `src/shared/api/client.ts` reads tokens from memory or `SecureStore`. Never from `AsyncStorage`.
+- On logout or token expiry, call `clearAllSecure()` to wipe every secret key.
+- Default iOS option: `WHEN_UNLOCKED_THIS_DEVICE_ONLY` — excludes iCloud/local backups.
+- Android: `expo-secure-store` uses Keystore-backed `EncryptedSharedPreferences` automatically. No extra wiring required.
+
+Biometric gating (optional, for high-risk tokens like payment, health, financial):
+
+```ts
+await SecureStore.setItemAsync(key, value, {
+  keychainAccessible: SecureStore.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY,
+  requireAuthentication: true,
+  authenticationPrompt: 'Authenticate to continue',
+});
+```
+
+Hard thresholds for Secure Storage:
+
+| Check | Threshold |
+| --- | --- |
+| Tokens/secrets stored in `AsyncStorage`/`MMKV`/`localStorage`/plaintext | 0 |
+| Code touching tokens outside `@/shared/secure-storage` wrapper | 0 |
+| Zustand `persist` writing a token slice to `AsyncStorage` | 0 |
+| Tokens or PII appearing in `console.log`, Crashlytics, or Analytics params | 0 |
+| Client-side secrets in `app.config.ts` `extra` or `.env` | 0 |
 
 ### Date and Time Handling
 

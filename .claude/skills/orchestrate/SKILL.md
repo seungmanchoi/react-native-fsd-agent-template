@@ -365,11 +365,21 @@ npm run typecheck && npm run lint
 
 ```
 Tasks:
+0. Secure Storage 모듈 구축 (토큰 저장 인프라 — API 클라이언트 작성 전 필수)
+   - npx expo install expo-secure-store
+   - src/shared/secure-storage/{client,keys,types,index}.ts
+   - SECURE_KEYS 상수: ACCESS_TOKEN, REFRESH_TOKEN 등
+   - DEFAULT_OPTIONS: keychainAccessible = WHEN_UNLOCKED_THIS_DEVICE_ONLY (iCloud 백업 차단)
+   - SecureStore-backed Zustand storage adapter 제공
 1. Axios 클라이언트 설정 (baseURL, interceptors, 토큰 자동 갱신)
+   - 토큰 조회는 메모리 또는 @/shared/secure-storage 만 사용 (AsyncStorage 금지)
 2. 각 feature의 API 함수 구현
 3. TanStack Query hooks 작성 (useQuery, useMutation, infinite)
-4. API 에러 핸들링 표준화
+4. API 에러 핸들링 표준화 + 토큰/PII가 로그/리포트에 포함되지 않도록 마스킹
 5. 개발용 목 데이터 작성
+6. 토큰 store(features/auth/store)는 SecureStore-backed persist 어댑터 사용
+   - createJSONStorage(() => secureZustandStorage) 주입
+   - AsyncStorage 어댑터 사용 금지
 ```
 
 **Token Auto-Refresh 패턴**:
@@ -392,6 +402,11 @@ Phase 4b 완료 후 qa-reviewer가 경량 검증을 실행한다:
 ```bash
 npm run typecheck && npm run lint
 ```
+추가 보안 grep (qa-reviewer 수동 수행):
+- `grep -rE "AsyncStorage.*(token|secret|password|refresh)"` → 0건
+- `grep -rE "(accessToken|refreshToken)" src/` 결과가 모두 `@/shared/secure-storage` 경유인지 확인
+- 토큰 store의 persist storage가 AsyncStorage가 아닌지 확인
+
 - PASS → Phase 4c 진행
 - FAIL → api-integrator에게 수정 요청 (최대 2회 재시도)
 
@@ -609,7 +624,12 @@ Checks:
 3. ESLint 규칙 위반
 4. 불필요한 re-render (useCallback, useMemo 누락)
 5. 메모리 누수 (useEffect cleanup 누락)
-6. 보안 이슈 (하드코딩된 시크릿, 노출된 API 키)
+6. 보안 이슈
+   - 하드코딩된 시크릿, 노출된 API 키
+   - 토큰/시크릿이 AsyncStorage/MMKV/평문에 저장됨 (반드시 expo-secure-store)
+   - SecureStore 외부에서 토큰을 직접 처리하는 코드
+   - Zustand persist가 토큰 슬라이스를 AsyncStorage 어댑터로 저장
+   - console.log/Crashlytics/Analytics에 토큰·PII 노출
 ```
 
 **Test Scenarios** (Harness 패턴):
