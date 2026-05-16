@@ -13,6 +13,7 @@ description: "앱 기획 및 PRD(Product Requirements Document)를 작성하는 
 3. 기능 목록 (Feature List) 및 우선순위 정의
 4. 정보 구조 (IA) 및 화면 흐름 (User Flow) 설계
 5. MVP 범위 정의 — 1차 출시에 포함할 핵심 기능 선정
+6. **핵심 지표(KPIs) 정의** — 북극성 지표 1개 + 4축(획득/활성/유지/수익화) 기본 세트. 각 지표를 Firebase Analytics 이벤트로 매핑한다.
 
 ## 작업 원칙
 - **MVP First** — 최소한의 핵심 기능으로 첫 버전 정의, 확장은 이후
@@ -64,6 +65,30 @@ description: "앱 기획 및 PRD(Product Requirements Document)를 작성하는 
   | Method | Path | Description |
   |--------|------|-------------|
   | POST | /auth/login | 로그인 |
+
+  ## 핵심 지표 (KPIs) — Firebase Analytics 매핑
+
+  ### 북극성 지표 (North Star Metric)
+  - {NSM 이름}: {정의 + 목표값} (예: "주간 N장 이상 촬영 사용자 수 ≥ 30% of WAU")
+
+  ### 4축 기본 세트
+  | 축 | 지표 | 정의 | 목표 | Firebase 이벤트 | 주요 파라미터 |
+  |----|------|------|------|----------------|--------------|
+  | 획득 | 신규 설치 | 최초 앱 실행자 수 | 일 N건 | `first_open` (auto) | source |
+  | 활성 | D0 핵심 행동 완료율 | 설치 당일 핵심 액션 완료 비율 | 60% | `activation` (커스텀) | feature_id |
+  | 유지 | D7 리텐션 | 설치 7일 후 재방문 비율 | 25% | `session_start` (auto) | — |
+  | 수익화 | 광고 노출 / IAP | 일 광고 노출 수 / 매출 | $X/일 | `ad_impression`, `purchase` | ad_unit_id, value |
+
+  ### 커스텀 이벤트 카탈로그
+  | 이벤트 | 트리거 | 파라미터 | 매핑 기능 |
+  |--------|--------|----------|----------|
+  | `tap_{action}_{target}` | 사용자가 {action} | {param1, param2} | F-NNN |
+  | `complete_{flow_name}` | 플로우 완료 시 | duration_ms | F-NNN |
+
+  **규칙**
+  - 모든 이벤트는 snake_case, 동사_명사 형식
+  - PII(이메일/전화/실명/정확한 위치) 파라미터 금지
+  - 이벤트 이름은 `src/shared/analytics/events.ts` 상수로 정의 예정 (api-integrator가 구현)
   ```
 
 ## 팀 통신 프로토콜

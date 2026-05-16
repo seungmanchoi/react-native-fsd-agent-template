@@ -51,10 +51,14 @@ Use Codex skills when they are available for the same workflow:
 For full app development, follow this pipeline and do not skip QA:
 
 1. Ideation
-2. Product planning
+2. Product planning (must define KPIs — north-star metric + acquisition/activation/retention/monetization)
 3. Spec planning and task breakdown
 4. Design
 5. Implementation
+   - 5a feature scaffolding
+   - 5b API integration
+   - 5c UI screens
+   - 5d Firebase Analytics + Crashlytics integration (KPI events from PRD)
 6. QA and app inspection
 7. Iteration, up to 3 fix loops
 8. Deployment through `store-deploy`
@@ -244,6 +248,71 @@ features/{name}/
 - Keep interfaces, types, and enums in separate files when they are shared.
 - Use the `@/` alias for app imports.
 - Keep public imports behind barrel exports where the local module pattern expects it.
+
+## Analytics And Key Metrics
+
+Every app must collect measurable KPIs from launch. Firebase is the standard.
+
+Required packages:
+
+- `@react-native-firebase/app`
+- `@react-native-firebase/analytics`
+- `@react-native-firebase/crashlytics`
+- `@react-native-firebase/remote-config` (optional)
+
+Standard KPI axes (define all four in the PRD, plus one north-star metric):
+
+| Axis | Examples | Firebase event |
+| --- | --- | --- |
+| Acquisition | new installs, first open | `first_open` (auto), `app_install` |
+| Activation | DAU/WAU, first key action | custom `activation`, `screen_view` (auto) |
+| Retention | D1/D7/D30, session length | `session_start`, `user_engagement` (auto) |
+| Monetization | ad impressions, IAP revenue, ARPU | `ad_impression` (auto), `purchase` |
+
+Event naming:
+
+- snake_case, verb_noun (`tap_camera_capture`, `view_gallery_grid`)
+- Do not reuse Firebase reserved auto-event names.
+- Max 25 params per event. Key length ≤ 40, value length ≤ 100.
+- Never log PII (email, phone, real name, precise location).
+
+Code layout under FSD:
+
+```text
+src/shared/analytics/
+├── client.ts           # firebase analytics wrapper — logEvent, setUserProperty
+├── events.ts           # event catalog (constants + param types)
+├── hooks/
+│   └── useScreenTracking.ts
+├── types/index.ts
+└── index.ts            # barrel export
+```
+
+Rules:
+
+- Never call `firebase.analytics()` or `logEvent` directly outside `@/shared/analytics`.
+- Define every event name as a constant in `events.ts`. No magic strings.
+- Disable collection in dev: gate with `env.IS_PROD`.
+- Do not commit `GoogleService-Info.plist` or `google-services.json`. Inject via EAS Secrets and `eas.json` env.
+
+Integration order:
+
+1. Create Firebase project, register iOS and Android apps, download config files.
+2. Place config files locally (gitignored), wire EAS Secrets for build-time injection.
+3. Install packages, add plugins to `app.config.ts`. Set `useFrameworks: 'static'` for iOS via `expo-build-properties`.
+4. Implement `src/shared/analytics/` wrapper, catalog, and screen tracking hook.
+5. Initialize Analytics and Crashlytics in root `_layout.tsx` with collection gated on `env.IS_PROD`.
+6. Wire events to the KPI map from the PRD.
+
+Hard thresholds for Analytics:
+
+| Check | Threshold |
+| --- | --- |
+| PRD missing KPI section (north-star + 4 axes) | 0 |
+| Direct `firebase.analytics()` calls outside `@/shared/analytics` | 0 |
+| `logEvent` called with magic strings (no constant in `events.ts`) | 0 |
+| Event params containing PII | 0 |
+| Committed `GoogleService-Info.plist` or `google-services.json` | 0 |
 
 ## Build And Store Deployment
 
