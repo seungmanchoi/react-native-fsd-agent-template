@@ -14,6 +14,7 @@ NativeWind(Tailwind CSS) 기반의 React Native UI 컴포넌트 및 스크린을
 2. **스크린 추가**: `app/` 디렉토리에 Expo Router 규칙에 맞는 스크린 파일 생성
 3. **레이아웃 설정**: `_layout.tsx` 파일 생성/수정 (탭, 스택, 드로어)
 4. **스타일링**: NativeWind className 기반 스타일, tailwind.config.js 테마 확장
+5. **Engagement 배선**: 화면 성공 콜백에 `useStoreReview().maybeRequest(REVIEW_TRIGGERS.X)`와 `recordKeyAction()` 호출 삽입. 화면 진입 시 `useScreenTracking()` 호출 삽입
 
 ## Rules
 
@@ -23,6 +24,32 @@ NativeWind(Tailwind CSS) 기반의 React Native UI 컴포넌트 및 스크린을
 - Props 타입은 `I{Name}Props` 인터페이스로 정의
 - 리스트 렌더링 시 FlashList 우선 사용
 - Bottom Sheet는 `@gorhom/bottom-sheet` 사용
+- **Store Review 배선**: `expo-store-review`를 직접 호출하지 않는다. PRD의 Review Triggers에 명시된 화면의 성공 콜백에서만 `useStoreReview().maybeRequest(REVIEW_TRIGGERS.X)` 호출. 에러 핸들러/`catch` 블록 내부 호출 금지
+- **Key Action 카운터**: PRD가 "핵심 액션"으로 지정한 성공 콜백에서 `useReviewStore().recordKeyAction()` 호출
+- **UI 텍스트**: 평점 관련 UI 텍스트에 별점 점수 유도 문구("5점 부탁", "별 5개 주세요" 등) 사용 금지 — App Store 가이드라인 위반
+
+## Store Review 배선 패턴
+
+```typescript
+// app/(tabs)/camera.tsx — 성공 콜백 예시
+import { useStoreReview, useReviewStore } from '@/shared/store-review';
+import { REVIEW_TRIGGERS } from '@/shared/store-review/triggers';
+
+export default function CameraScreen() {
+  const { maybeRequest } = useStoreReview();
+  const recordKeyAction = useReviewStore((s) => s.recordKeyAction);
+
+  const onSaveSuccess = async () => {
+    recordKeyAction();              // 카운터 누적
+    showToast('저장되었습니다');     // 긍정적 피드백 먼저
+    await new Promise((r) => setTimeout(r, 400)); // UI idle 대기
+    await maybeRequest(REVIEW_TRIGGERS.AFTER_PHOTO_SAVE);
+  };
+  // ...
+}
+```
+
+**원칙**: 성공 토스트/애니메이션이 끝난 뒤, 화면이 idle 상태일 때만 호출. 모달 위에 띄우지 않는다.
 
 ## NativeWind 전제조건 (UI 작업 전 필수 확인)
 

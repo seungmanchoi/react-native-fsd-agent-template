@@ -92,10 +92,11 @@ _workspace/
 │   ├── market-research.md      # idea-researcher 출력
 │   └── app-concepts.md
 ├── plan/
-│   ├── prd.md                  # product-planner 출력 (KPI 섹션 포함)
+│   ├── prd.md                  # product-planner 출력 (KPI + Review Triggers 섹션 포함)
 │   ├── user-stories.md
 │   ├── fsd-module-map.md
-│   └── kpis.md                 # 북극성 + 4축 + 이벤트 카탈로그
+│   ├── kpis.md                 # 북극성 + 4축 + 이벤트 카탈로그
+│   └── review-triggers.md      # 평점 유도 트리거 카탈로그 + 임계값
 ├── design/
 │   ├── design-system.md        # design-architect 출력
 │   ├── nativewind-theme.md
@@ -427,6 +428,14 @@ Tasks:
 4. Safe Area handling (SafeAreaView 필수)
 5. 로딩/에러/빈 상태 처리
 6. React Hook Form + Zod 폼 구현
+7. Engagement 배선
+   - 모든 스크린에 useScreenTracking() 삽입 (Phase 4d에서 모듈은 구축됨)
+   - PRD Review Triggers에 매핑된 화면의 성공 콜백에서
+     useReviewStore().recordKeyAction() 호출 후
+     useStoreReview().maybeRequest(REVIEW_TRIGGERS.X) 호출
+   - 호출 위치는 긍정적 토스트/애니메이션 종료 직후 (UI idle 상태)
+   - 에러 핸들러/catch/onError 블록 내부 호출 금지
+   - "5점 부탁" 등 평점 점수 유도 텍스트 사용 금지
 ```
 
 **필수 패턴**:
@@ -544,7 +553,18 @@ Tasks:
 7. Crashlytics 초기화
    - crashlytics().setCrashlyticsCollectionEnabled(env.IS_PROD)
 
-8. 빌드 검증
+8. Store Review 모듈 구축 (engagement 인프라)
+   - npx expo install expo-store-review
+   - src/shared/store-review/{client,policy,store,triggers,types,index}.ts
+   - hooks/useStoreReview.ts
+   - PRD의 "Store Review Triggers" 섹션을 REVIEW_TRIGGERS 상수로 변환
+   - 정책 엔진 canRequestReview: 설치≥3일, 실행≥5회, 핵심액션≥3회,
+     마지막요청 후 ≥90일, 세션당 1회, 최근 5분 내 에러 차단
+   - 카운터 store는 비민감이므로 AsyncStorage persist 사용 (SecureStore 불필요)
+   - 루트 _layout.tsx에서 useReviewStore.recordLaunch() 호출
+   - 글로벌 에러 바운더리/Crashlytics 핸들러에서 recordError() 호출
+
+9. 빌드 검증
    - npx expo prebuild --clean
    - npm run typecheck && npm run lint
    - eas build --local 또는 development build로 한 번 구동
@@ -568,6 +588,9 @@ Tasks:
 - [ ] 루트 _layout.tsx에서 initAnalytics() 호출
 - [ ] PRD의 north-star 이벤트 + 4축 이벤트 각 1개 이상 logEvent 호출 존재
 - [ ] env.IS_PROD 기반 dev/prod 분기 동작
+- [ ] src/shared/store-review/{client,policy,store,triggers,hooks/useStoreReview,types,index}.ts 생성
+- [ ] PRD의 Review Triggers가 REVIEW_TRIGGERS 상수로 1:1 매핑
+- [ ] 루트 _layout.tsx에서 recordLaunch() 호출 + 에러 바운더리에서 recordError() 호출
 - [ ] expo prebuild --clean 성공 + 로컬 빌드 성공
 
 ## 검증 방법
@@ -601,6 +624,9 @@ npm run typecheck && npm run lint
 - 외부 코드에서 `firebase.analytics()` 직접 호출 0건 (반드시 `@/shared/analytics` 래퍼 사용)
 - `logEvent(`'string'`, ...)` 매직 스트링 호출 0건 (반드시 `EVENTS.*` 상수 사용)
 - 이벤트 파라미터에 이메일/전화/실명/정확 위치 PII 0건
+- `expo-store-review` 직접 호출 0건 (반드시 `@/shared/store-review` 훅 사용)
+- 정책 엔진 미경유 `requestReview()` 호출 0건
+- 매직 스트링 트리거 ID 0건 (반드시 `REVIEW_TRIGGERS.*` 사용)
 
 - PASS → Phase 5 진행
 - FAIL → api-integrator에게 수정 요청 (최대 2회 재시도)
@@ -630,6 +656,13 @@ Checks:
    - SecureStore 외부에서 토큰을 직접 처리하는 코드
    - Zustand persist가 토큰 슬라이스를 AsyncStorage 어댑터로 저장
    - console.log/Crashlytics/Analytics에 토큰·PII 노출
+7. Store Review 안티패턴
+   - expo-store-review를 @/shared/store-review 외부에서 직접 호출
+   - 정책 엔진(canRequestReview) 미경유 requestReview() 호출
+   - 매직 스트링 트리거 ID (REVIEW_TRIGGERS.* 미사용)
+   - 에러 핸들러/catch/onError 내부의 평점 요청
+   - 온보딩/첫 실행/결제 실패/권한 거부 직후의 평점 요청
+   - 별점 점수 유도 UI 텍스트("5점 부탁", "별 5개" 등)
 ```
 
 **Test Scenarios** (Harness 패턴):
@@ -769,13 +802,13 @@ Tasks:
 | 에이전트 | 담당 스킬 | 책임 영역 |
 |---------|----------|----------|
 | `idea-researcher` | `/ideate` | 시장 조사, 앱 아이디어 도출 |
-| `product-planner` | `/plan-app` | PRD, FSD 모듈 맵, 유저 스토리, **KPI 정의** |
+| `product-planner` | `/plan-app` | PRD, FSD 모듈 맵, 유저 스토리, **KPI 정의 + Review Trigger 카탈로그** |
 | `spec-planner` | — | docs/specs/ 스펙 문서, phase/task 분해, 진행 추적 |
 | `design-architect` | `/design-system` | NativeWind 테마, 화면 레이아웃 |
 | `feature-builder` | `/create-feature`, `/create-entity` | FSD 모듈, Zustand, TS 타입 |
-| `api-integrator` | — | Axios 클라이언트, TanStack Query hooks, **Firebase Analytics 통합 + KPI 이벤트 배선** |
-| `ui-developer` | `/create-screen` | Expo Router 스크린, NativeWind UI |
-| `qa-reviewer` | — | 코드 품질, TypeScript, FSD 규칙, **Analytics 매직 스트링/PII 검사** |
+| `api-integrator` | — | Axios 클라이언트, TanStack Query hooks, **Firebase Analytics + KPI 이벤트 + Secure Storage + Store Review 인프라** |
+| `ui-developer` | `/create-screen` | Expo Router 스크린, NativeWind UI, **Review trigger·screen tracking·key action 카운터 배선** |
+| `qa-reviewer` | — | 코드 품질, TypeScript, FSD 규칙, **Analytics 매직 스트링/PII + SecureStore 우회 + Review 안티패턴 검사** |
 | `app-inspector` | `/inspect-app` | 기능/UX 검사, Safe Area, 접근성 |
 
 ---

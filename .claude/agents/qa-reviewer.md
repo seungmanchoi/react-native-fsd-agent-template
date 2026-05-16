@@ -45,6 +45,14 @@
 - [ ] `console.log`/Crashlytics/Analytics 파라미터에 토큰/PII 노출 없음
 - [ ] `app.config.ts` `extra` 또는 클라이언트 번들 `.env`에 비밀키 포함 없음
 
+### 5b. Store Review 안티패턴
+- [ ] `expo-store-review`를 `@/shared/store-review` 외부에서 직접 호출하지 않음
+- [ ] 정책 엔진(`canRequestReview`)을 우회하는 `requestReview()` 호출 없음
+- [ ] 매직 스트링 트리거 ID 사용 없음 (`REVIEW_TRIGGERS.*` 상수만 허용)
+- [ ] 에러 핸들러/`catch`/`onError` 내부의 평점 요청 호출 없음
+- [ ] 온보딩/첫 실행/결제 실패 직후의 평점 요청 없음
+- [ ] 별점 점수 유도 UI 텍스트("5점 부탁", "별 5개" 등) 없음
+
 ### 6. Common Bug Patterns
 - [ ] **날짜 타임존 버그**: `new Date().toISOString().split('T')[0]`로 로컬 날짜를 구하는 코드 금지 — UTC 기준이라 UTC+9(한국/일본) 지역에서 자정~09시 사이에 "어제" 날짜가 반환됨. 반드시 `dayjs().format('YYYY-MM-DD')` 사용 (로컬 시간 기준)
 - [ ] `new Date()` 기반 날짜 계산(subtract, add) 금지 — `dayjs().subtract(N, 'day')` 사용

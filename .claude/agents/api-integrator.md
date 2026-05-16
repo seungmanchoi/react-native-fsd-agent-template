@@ -19,6 +19,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 5. **Analytics 모듈**: `src/shared/analytics/` 에 Firebase 래퍼, 이벤트 카탈로그, 화면 추적 훅 생성
 6. **이벤트 배선**: PRD의 KPI 카탈로그를 기준으로 각 화면/액션에 `logEvent` 호출 삽입
 7. **Secure Storage 모듈**: `src/shared/secure-storage/` 에 expo-secure-store 래퍼와 키 카탈로그 생성. 토큰 store의 persist 어댑터를 SecureStore-backed으로 구성
+8. **Store Review 모듈**: `src/shared/store-review/` 에 expo-store-review 래퍼, 정책 엔진(`canRequestReview`), 카운터 Zustand store, `REVIEW_TRIGGERS` 카탈로그, `useStoreReview` 훅 구축. PRD의 Review Triggers 섹션을 상수 카탈로그로 변환
 
 ## Rules
 
@@ -177,6 +178,67 @@ export const useScreenTracking = (screenName: string) => {
 };
 ```
 
+### Store Review 모듈 (`src/shared/store-review/`)
+```typescript
+// triggers.ts — PRD에서 정의된 트리거 카탈로그를 상수로 변환
+export const REVIEW_TRIGGERS = {
+  AFTER_PHOTO_SAVE: 'after_photo_save',
+  AFTER_TASK_COMPLETE: 'after_task_complete',
+  AFTER_PREMIUM_UNLOCK: 'after_premium_unlock',
+} as const;
+export type TReviewTrigger = (typeof REVIEW_TRIGGERS)[keyof typeof REVIEW_TRIGGERS];
+
+// store.ts — 비민감 카운터는 AsyncStorage persist 사용 (SecureStore 불필요)
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+interface IReviewState {
+  installedAt: string;
+  launchCount: number;
+  keyActionCount: number;
+  lastRequestedAt: string | null;
+  lastErrorAt: string | null;
+  requestedThisSession: boolean;
+  recordLaunch: () => void;
+  recordKeyAction: () => void;
+  recordError: () => void;
+  markRequested: () => void;
+  resetSession: () => void;
+}
+
+export const useReviewStore = create<IReviewState>()(
+  persist(
+    (set) => ({
+      installedAt: new Date().toISOString(),
+      launchCount: 0,
+      keyActionCount: 0,
+      lastRequestedAt: null,
+      lastErrorAt: null,
+      requestedThisSession: false,
+      recordLaunch: () => set((s) => ({ launchCount: s.launchCount + 1, requestedThisSession: false })),
+      recordKeyAction: () => set((s) => ({ keyActionCount: s.keyActionCount + 1 })),
+      recordError: () => set({ lastErrorAt: new Date().toISOString() }),
+      markRequested: () =>
+        set({ lastRequestedAt: new Date().toISOString(), requestedThisSession: true }),
+      resetSession: () => set({ requestedThisSession: false }),
+    }),
+    { name: 'review-store', storage: createJSONStorage(() => AsyncStorage) },
+  ),
+);
+
+// policy.ts, client.ts, hooks/useStoreReview.ts 는 CLAUDE.md 패턴 그대로 구현
+```
+
+## Store Review 통합 규칙
+
+- 외부 코드는 `expo-store-review`를 직접 호출하지 않는다. **반드시 `useStoreReview().maybeRequest(REVIEW_TRIGGERS.X)`** 만 사용
+- 트리거 ID는 `REVIEW_TRIGGERS` 상수에서만 가져온다 (매직 스트링 금지)
+- 정책 엔진 게이트(`canRequestReview`)를 우회하지 않는다
+- 모든 평점 요청은 `logEvent('request_store_review', { trigger })`로 Analytics에 기록
+- 에러 핸들러(`catch`, `onError`) 내부에서 호출 금지
+- 호출 위치는 **긍정적 액션의 성공 콜백 + UI idle 상태**
+
 ## Analytics 통합 규칙
 
 - 외부 코드는 `firebase.analytics()`를 직접 호출하지 않는다. 반드시 `@/shared/analytics`의 래퍼만 사용
@@ -225,6 +287,7 @@ Firebase 앱 등록은 일반 OAuth scope로 호출이 불가능하므로 **AdMo
 - "쿼리 훅 작성", "뮤테이션 추가"
 - "Firebase 세팅", "Analytics 통합", "KPI 이벤트 추가", "측정 지표 연결"
 - "토큰 저장", "Keychain", "Keystore", "Secure Storage", "민감 데이터 저장", "expo-secure-store"
+- "평점 요청", "스토어 리뷰", "별점 유도", "in-app review", "expo-store-review"
 
 ## Tools
 

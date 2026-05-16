@@ -80,6 +80,7 @@ These are fail conditions:
 | Broken NativeWind setup | 0 |
 | `toISOString().split('T')[0]` for local date | 0 |
 | Tokens or secrets stored in AsyncStorage/MMKV/plaintext | 0 |
+| `requestReview()` calls bypassing the policy engine | 0 |
 
 ### Secure Storage And Sensitive Data
 
@@ -439,6 +440,129 @@ Hard thresholds for Analytics:
 | `logEvent` called with magic strings (no constant in `events.ts`) | 0 |
 | Event params containing PII | 0 |
 | Committed `GoogleService-Info.plist` or `google-services.json` | 0 |
+
+## In-App Store Review Prompts
+
+Ratings should fire at the moment users feel value, not at first launch. Bad timing produces 1-star reviews. All review prompts go through a single policy engine — no direct calls from screens.
+
+Standard stack:
+
+- `expo-store-review` (wraps iOS `SKStoreReviewController` and Android Play In-App Review API)
+- Non-sensitive counters persisted via AsyncStorage or MMKV (no SecureStore needed)
+
+Install:
+
+```bash
+npx expo install expo-store-review
+```
+
+Platform limits to know:
+
+- iOS displays at most 3 prompts per app per 365 days. The system decides actual display, not the developer.
+- Android Play In-App Review also has its own quota and silently throttles.
+- Calling the API is free, but burning quota means losing meaningful opportunities. Use the policy engine to call rarely.
+
+Trigger policy (all gates must pass before `requestReview()` runs):
+
+| Gate | Default | Rationale |
+| --- | --- | --- |
+| Days since install | ≥ 3 | Never ask brand-new users |
+| Launch count | ≥ 5 | User has actually returned |
+| Key-action completions | ≥ 3 | Repeated value, not one-time activation |
+| Days since last request | ≥ 90 | Protect iOS system quota |
+| Already asked this session | false | One per session |
+| Error/crash in last 5 min | false | Block negative context |
+
+Anti-patterns (immediate FAIL):
+
+- Prompting during onboarding or first launch
+- Prompting after payment failures, network errors, or permission denials
+- Stacking the prompt over an existing modal
+- UI copy that suggests a star count (e.g. "please give 5 stars") — violates App Store guidelines
+- Dark patterns that gate features behind ratings
+- Calling `StoreReview.requestReview()` from anywhere except the policy-engine hook
+
+FSD layout:
+
+```text
+src/shared/store-review/
+├── client.ts          # expo-store-review wrapper
+├── policy.ts          # canRequestReview gate engine
+├── store.ts           # Zustand persist — counters and timestamps
+├── triggers.ts        # REVIEW_TRIGGERS constants
+├── hooks/
+│   └── useStoreReview.ts  # maybeRequest(triggerId)
+├── types/index.ts
+└── index.ts
+```
+
+Trigger catalog (`triggers.ts`):
+
+```ts
+export const REVIEW_TRIGGERS = {
+  AFTER_PHOTO_SAVE: 'after_photo_save',
+  AFTER_TASK_COMPLETE: 'after_task_complete',
+  AFTER_PREMIUM_UNLOCK: 'after_premium_unlock',
+} as const;
+
+export type TReviewTrigger = (typeof REVIEW_TRIGGERS)[keyof typeof REVIEW_TRIGGERS];
+```
+
+Hook contract (`useStoreReview.ts`):
+
+```ts
+import * as StoreReview from 'expo-store-review';
+import { logEvent } from '@/shared/analytics';
+import { useReviewStore } from '../store';
+import { canRequestReview } from '../policy';
+import type { TReviewTrigger } from '../triggers';
+
+export const useStoreReview = () => {
+  const state = useReviewStore();
+  return {
+    maybeRequest: async (trigger: TReviewTrigger) => {
+      if (!(await StoreReview.isAvailableAsync())) return false;
+      if (!canRequestReview(state)) return false;
+      state.markRequested();
+      await logEvent('request_store_review', { trigger });
+      await StoreReview.requestReview();
+      return true;
+    },
+  };
+};
+```
+
+Call rules:
+
+- Code outside `@/shared/store-review` never calls `expo-store-review` directly.
+- Trigger IDs come only from `REVIEW_TRIGGERS`. No magic strings.
+- Every prompt logs `request_store_review` to Firebase Analytics with the trigger param.
+- Call from the success callback of a positive action, after the UI is idle (toast dismissed, navigation settled).
+- Never call from `onError`, `catch`, or boundary handlers.
+
+Automatic counters:
+
+- Root `_layout.tsx` calls `reviewStore.recordLaunch()` on app start.
+- A global error boundary / Crashlytics handler calls `reviewStore.recordError()`.
+- `recordKeyAction()` is invoked from screen success callbacks by ui-developer.
+
+Hard thresholds for store review:
+
+| Check | Threshold |
+| --- | --- |
+| Direct `expo-store-review` calls outside the wrapper | 0 |
+| `requestReview()` calls that bypass `canRequestReview` | 0 |
+| Magic-string trigger IDs (not from `REVIEW_TRIGGERS`) | 0 |
+| Review prompts inside error/crash handlers | 0 |
+| Review prompts during onboarding, first launch, or after failure | 0 |
+| UI copy that suggests a star count | 0 |
+
+Agent responsibilities:
+
+- product-planner: lists candidate review triggers in the PRD with thresholds.
+- api-integrator: builds the `src/shared/store-review/` module (wrapper, policy, store, triggers, hook).
+- ui-developer: wires `useStoreReview().maybeRequest(...)` and `recordKeyAction()` into screen success callbacks.
+- qa-reviewer: enforces anti-patterns and hard thresholds.
 
 ## Build And Store Deployment
 

@@ -14,6 +14,7 @@ description: "앱 기획 및 PRD(Product Requirements Document)를 작성하는 
 4. 정보 구조 (IA) 및 화면 흐름 (User Flow) 설계
 5. MVP 범위 정의 — 1차 출시에 포함할 핵심 기능 선정
 6. **핵심 지표(KPIs) 정의** — 북극성 지표 1개 + 4축(획득/활성/유지/수익화) 기본 세트. 각 지표를 Firebase Analytics 이벤트로 매핑한다.
+7. **Review Trigger 카탈로그 정의** — 사용자가 가치를 느끼는 긍정적 액션 2~5개를 트리거 후보로 선정하고 각 임계값(N회 완료 등)을 명시한다. 안티패턴(첫 실행/온보딩/에러 직후)은 제외 사항으로 명문화한다.
 
 ## 작업 원칙
 - **MVP First** — 최소한의 핵심 기능으로 첫 버전 정의, 확장은 이후
@@ -89,6 +90,30 @@ description: "앱 기획 및 PRD(Product Requirements Document)를 작성하는 
   - 모든 이벤트는 snake_case, 동사_명사 형식
   - PII(이메일/전화/실명/정확한 위치) 파라미터 금지
   - 이벤트 이름은 `src/shared/analytics/events.ts` 상수로 정의 예정 (api-integrator가 구현)
+
+  ## Store Review Triggers — 평점 유도 정책
+
+  ### 후보 트리거 (2~5개)
+  | ID | 트리거 액션 | 매핑 기능 | 임계값 | 게이트 안내 |
+  |----|-----------|----------|--------|-----------|
+  | AFTER_PHOTO_SAVE | 사진 저장 성공 | F-NNN | 누적 3회 저장 시 | 첫 저장은 제외 |
+  | AFTER_TASK_COMPLETE | 작업 완료 | F-NNN | 누적 3회 완료 시 | 에러 발생 5분 이내 차단 |
+
+  ### 공통 게이트 (반드시 통과해야 호출)
+  - 설치 후 ≥ 3일
+  - 앱 실행 누적 ≥ 5회
+  - 마지막 요청 후 ≥ 90일 (iOS 시스템 쿼터 보호)
+  - 세션당 1회
+  - 최근 5분 내 에러/크래시 없음
+
+  ### 안티패턴 (이 액션 직후 평점 요청 금지)
+  - 앱 첫 실행, 온보딩 진행 중
+  - 결제 실패, 네트워크 오류, 권한 거부 직후
+  - 모달이 떠있는 상태에서
+
+  **구현 매핑**
+  - 트리거 ID → `src/shared/store-review/triggers.ts`의 `REVIEW_TRIGGERS` 상수 (api-integrator)
+  - 트리거 배선 → 각 화면의 성공 콜백에서 `useStoreReview().maybeRequest(...)` (ui-developer)
   ```
 
 ## 팀 통신 프로토콜
