@@ -39,100 +39,100 @@
   <img src="https://img.shields.io/badge/node-%3E%3D18-339933?style=flat-square&logo=nodedotjs&logoColor=white" />
 </p>
 
-**English** | [한국어](./README.ko.md)
+[English](./README.md) | **한국어**
 
 # React Native FSD Agent Template
 
-A React Native + Expo + Feature-Sliced Design production template that supports AI agent-based full-lifecycle development.
+AI 에이전트 기반 풀 라이프사이클 개발을 지원하는 React Native + Expo + Feature-Sliced Design 프로덕션 템플릿.
 
-> **What makes this different?** This template includes 8 Claude Code agents and 8 skills that understand FSD architecture rules. With a single "Make an app" command, the entire pipeline—from ideation to market research, planning, design system, FSD module scaffolding, API integration, screen development, and QA verification—runs automatically.
+> **What makes this different?** 이 템플릿은 FSD 아키텍처 규칙을 이해하는 8개의 Claude Code 에이전트와 8개의 스킬을 포함합니다. "앱 만들어줘" 한 마디로 아이디어 도출부터 시장 조사 → 기획 → 디자인 시스템 → FSD 모듈 스캐폴딩 → API 연동 → 스크린 개발 → QA 검증까지 전체 파이프라인이 자동으로 실행됩니다.
 
 ---
 
 ## Full Pipeline
 
 ```
-Phase 1: Ideation       idea-researcher   Market research, competitor analysis, idea generation
+Phase 1: Ideation       idea-researcher   시장 조사, 경쟁 앱 분석, 아이디어 도출
            │
-Phase 2: Planning       product-planner   PRD, user stories, FSD module map design
+Phase 2: Planning       product-planner   PRD, 유저 스토리, FSD 모듈 맵 설계
            │
-Phase 2.5: Spec Planning  spec-planner    Feature spec docs, phase/task decomposition, progress tracking
+Phase 2.5: Spec Planning  spec-planner    피처별 스펙 문서, phase/task 분해, 진 행 추적
            │
-Phase 3: Design         design-architect  NativeWind theme, screen layouts
+Phase 3: Design         design-architect  NativeWind 테마, 화면 레이아웃
            │
-Phase 4: Implementation (Sequential + spec task check)
-  4a       feature-builder   FSD modules, Zustand store, TypeScript types
-  4b       api-integrator    Axios client, TanStack Query hooks
-  4c       ui-developer      Expo Router screens, NativeWind UI
+Phase 4: Implementation (순차 + spec task 체크 병행)
+  4a       feature-builder   FSD 모듈, Zustand store, TypeScript 타입
+  4b       api-integrator    Axios 클라이언트, TanStack Query hooks
+  4c       ui-developer      Expo Router 스크린, NativeWind UI
            │
-Phase 5: QA (Parallel)
-  5a       qa-reviewer       Code quality, TypeScript strict, FSD rules
-  5b       app-inspector     Functional/UX inspection, Safe Area, accessibility
+Phase 5: QA (병렬)
+  5a       qa-reviewer       코드 품질, TypeScript strict, FSD 규칙
+  5b       app-inspector     기능/UX 검사, Safe Area, 접근성
            │
-Phase 6: Iteration      Fix Loop (max 3 times)
+Phase 6: Iteration      Fix Loop (최대 3회)
            │
 Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 ```
 
-Data Flow: Context between agents is passed through the `_workspace/` directory.
+데이터 흐름: 에이전트 간 컨텍스트는 `_workspace/` 디렉토리를 통해 전달됩니다.
 
 ---
 
 ## Agent Team
 
-| Agent | Role | Trigger |
+| 에이전트 | 역할 | 트리거 |
 |---------|-----|-------|
-| **idea-researcher** | Market research, app idea generation | "Find app ideas" |
-| **product-planner** | PRD, FSD module map, user stories | "Plan the app" |
-| **spec-planner** | Feature spec docs, phase/task decomposition, progress tracking | Auto after Phase 2 |
-| **design-architect** | Design system, NativeWind theme | "Create design system" |
-| **feature-builder** | FSD module scaffolding | "Create feature/entity" |
-| **api-integrator** | Axios + TanStack Query + Zustand | "Integrate API" |
-| **ui-developer** | NativeWind screens & UI components | "Create screens" |
-| **qa-reviewer** | Code quality, TypeScript, FSD rules | Auto at each Phase |
-| **app-inspector** | Functional/UX inspection, Safe Area, accessibility | "Inspect app" |
+| **idea-researcher** | 시장 조사, 앱 아이디어 도출 | "앱 아이디어 찾아줘" |
+| **product-planner** | PRD, FSD 모듈 맵, 유저 스토리 | "앱 기획해줘" |
+| **spec-planner** | 피처별 스펙 문서, phase/task 분해, 진행 추적 | Phase 2 완료 후 자동 |
+| **design-architect** | 디자인 시스템, NativeWind 테마 | "디자인 시스템 만들어 줘" |
+| **feature-builder** | FSD 모듈 스캐폴딩 | "feature/entity 만들어줘" |
+| **api-integrator** | Axios + TanStack Query + Zustand | "API 연동해줘" |
+| **ui-developer** | NativeWind 스크린 & UI 컴포넌트 | "스크린 만들어줘" |
+| **qa-reviewer** | 코드 품질, TypeScript, FSD 규칙 | 각 Phase 자동 실행 |
+| **app-inspector** | 기능/UX 검사, Safe Area, 접근성 | "앱 검사해줘" |
 
 ---
 
 ## Skills
 
-| Skill | Command | Description |
+| 스킬 | 커맨드 | 설명 |
 |-----|-------|-----|
-| `ideate` | "Find app ideas" | Market research and idea generation |
-| `plan-app` | "Plan the app" | PRD writing and FSD module map design |
-| `design-system` | "Create design system" | NativeWind theme and screen layout |
-| `create-feature` | "Create feature" | FSD feature module scaffolding |
-| `create-entity` | "Create entity" | FSD entity domain model creation |
-| `create-screen` | "Add screen" | Expo Router screen creation |
-| `inspect-app` | "Inspect app" | Full functional/UX inspection |
-| `orchestrate` | "Make an app" | Full pipeline orchestration |
+| `ideate` | "앱 아이디어 찾아줘" | 시장 조사 및 앱 아이디어 도출 |
+| `plan-app` | "앱 기획해줘" | PRD 작성 및 FSD 모듈 맵 설계 |
+| `design-system` | "디자인 시스템 만들어줘" | NativeWind 테마 및 화면 레이아웃 |
+| `create-feature` | "피처 만들어줘" | FSD feature 모듈 스캐폴딩 |
+| `create-entity` | "엔티티 만들어줘" | FSD entity 도메인 모델 생성 |
+| `create-screen` | "스크린 추가해줘" | Expo Router 스크린 생성 |
+| `inspect-app` | "앱 검사해줘" | 기능/UX 전체 검사 |
+| `orchestrate` | "앱 만들어줘" | 전체 파이프라인 오케스트레이션 |
 
 ---
 
 ## Architecture Pattern
 
-The pipeline mixes two patterns:
+파이프라인은 두 가지 패턴을 혼합합니다.
 
-- **Phase 1–2**: Sequential Pipeline — Output of each agent becomes input for the next.
-- **Phase 2.5**: Spec Planning — PRD is decomposed into feature-specific phases/tasks in `docs/specs/`. This serves as the baseline for implementation tracking.
-- **Phase 3**: Design — Design system, theme, and screen layout design.
-- **Phase 4**: Fan-out (Sequential) — feature-builder → api-integrator → ui-developer. **Update spec checkboxes on task completion**.
-- **Phase 5**: Parallel Execution — qa-reviewer and app-inspector inspect simultaneously.
-- **Phase 6**: Fix Loop — Up to 3 iterations; unresolved issues marked as TODO.
+- **Phase 1–2**: 순차 파이프라인 — 각 에이전트의 출력이 다음 에이전트의 입력이  됩니다.
+- **Phase 2.5**: Spec Planning — PRD를 `docs/specs/`에 피처별 phase/task로 분해. 이후 구현 진행 추적의 기준이 됩니다.
+- **Phase 3**: Design — 디자인 시스템, 테마, 화면 레이아웃 설계.
+- **Phase 4**: Fan-out (순차) — feature-builder → api-integrator → ui-developer. **각 task 완료 시 spec 체크박스 업데이트**.
+- **Phase 5**: 병렬 실행 — qa-reviewer와 app-inspector가 동시에 검사.
+- **Phase 6**: Fix Loop — 최대 3회 반복 후 미해결 이슈는 TODO 마킹.
 
 ### Harness Design Principles
 
-Designed based on [Anthropic's official Harness Engineering Guide](https://www.anthropic.com/engineering/harness-design-long-running-apps) and [revfactory/harness](https://github.com/revfactory/harness).
+[Anthropic의 공식 하네스 설계 가이드](https://www.anthropic.com/engineering/harness-design-long-running-apps)와 [revfactory/harness](https://github.com/revfactory/harness)를 기반으로 설계되었습니다.
 
-| Principle | Description |
+| 원칙 | 설명 |
 |------|------|
-| **Context Reset** | Save artifacts in `_workspace/` between phases then reset context. More effective than compaction. |
-| **Sprint-based Decomposition** | Feature-level sprints in Phase 4. Implement → Evaluate → Fix for each sprint. |
-| **Independent Evaluator** | Separate Generator (builder/integrator/developer) and Evaluator (reviewer/inspector). |
-| **Hard Threshold** | Strict pass/fail criteria. 0 typecheck errors, 0 any types, 0 FSD violations. |
-| **4-Axis Design Evaluation** | Design Quality (30%), Originality (25%), Craft (25%), Functionality (20%). |
-| **Design Guardrails** | Use Do's & Don'ts to prevent off-brand AI choices. |
-| **Active Testing** | Static analysis + `npm run typecheck/lint` + circular dependency detection. |
+| **Context Reset** | Phase 간 `_workspace/`에 산출물 저장 후 컨텍스트 리셋. Compaction보다 효과적 |
+| **Sprint 기반 분해** | Phase 4에서 feature 단위 스프린트. 각 스프린트마다 구현→평가→수정 |
+| **독립 Evaluator** | Generator(builder/integrator/developer)와 Evaluator(reviewer/inspector) 분리 |
+| **Hard Threshold** | pass/fail 경성 기준. typecheck 0 에러, any 0개, FSD 위반 0개 |
+| **디자인 4축 평가** | Design Quality(30%), Originality(25%), Craft(25%), Functionality(20%) |
+| **디자인 가드레일** | Do's & Don'ts로 AI의 오프브랜드 선택을 사전 차단 |
+| **능동 테스트** | 정적 분석 + `npm run typecheck/lint` 실행 + import 순환 참조 탐지 |
 
 ---
 
@@ -159,30 +159,30 @@ Designed based on [Anthropic's official Harness Engineering Guide](https://www.a
 
 ## Getting Started
 
-### 1. Using the Template
+### 1. 템플릿 사용
 
-Click the **"Use this template"** button on GitHub or:
+GitHub에서 **"Use this template"** 버튼을 클릭하거나:
 
 ```bash
 gh repo create my-app --template seungmanchoi/react-native-fsd-agent-template --clone
 cd my-app
 ```
 
-### 2. Install Dependencies
+### 2. 의존성 설치
 
 ```bash
 npm install
 ```
 
-### 3. Environment Setup
+### 3. 환경 설정
 
 ```bash
 cp .env.example .env
 ```
 
-Edit the `.env` file to set your API URL, etc.
+`.env` 파일을 수정하여 API URL 등을 설정합니다.
 
-### 4. Running the App
+### 4. 실행
 
 ```bash
 npm start          # Expo Dev Server (LAN)
@@ -190,19 +190,19 @@ npm run ios        # iOS Simulator
 npm run android    # Android Emulator
 ```
 
-### 5. Using AI Agent Harness (Claude Code)
+### 5. AI Agent Harness 사용 (Claude Code)
 
 ```bash
-# Full Pipeline — Make an app from scratch
-"Make a coffee subscription app"
+# 전체 파이프라인 — 앱을 처음부터 끝까지 만들기
+"커피 구독 앱을 만들어줘"
 
-# Individual Skills — Add specific features
-"Add product list/detail feature. API endpoint is /products"
+# 개별 스킬 — 특정 기능만 추가
+"상품 목록/상세 기능을 만들어줘. API는 /products 엔드포인트"
 
-# → feature-builder: scaffolding src/features/product/
-# → api-integrator: creating API functions + useProducts hooks
-# → ui-developer: creating product list/detail screens
-# → qa-reviewer: FSD rules + type validation
+# → feature-builder: src/features/product/ 스캐폴딩
+# → api-integrator: API 함수 + useProducts 훅 생성
+# → ui-developer: 상품 리스트/상세 스크린 생성
+# → qa-reviewer: FSD 규칙 + 타입 검증
 ```
 
 ---
@@ -213,19 +213,19 @@ npm run android    # Android Emulator
 .
 ├── .claude/
 │   ├── agents/                         # AI Agent definitions
-│   │   ├── idea-researcher.md          # Market research, idea generation
-│   │   ├── product-planner.md          # PRD, FSD module map
-│   │   ├── design-architect.md         # Design system, layouts
+│   │   ├── idea-researcher.md          # 시장 조사, 아이디어 도출
+│   │   ├── product-planner.md          # PRD, FSD 모듈 맵
+│   │   ├── design-architect.md         # 디자인 시스템, 레이아웃
 │   │   ├── feature-builder.md          # FSD module scaffolding
 │   │   ├── api-integrator.md           # API + state management
 │   │   ├── ui-developer.md             # UI/Screen development
-│   │   ├── spec-planner.md             # Spec docs, phase/task decomposition
+│   │   ├── spec-planner.md             # Spec docs, phase/task 분해
 │   │   ├── qa-reviewer.md              # Code quality assurance
 │   │   └── app-inspector.md            # Functional/UX inspection
 │   └── skills/                         # AI Skills
-│       ├── ideate/                     # Ideation
-│       ├── plan-app/                   # App planning
-│       ├── design-system/              # Design system
+│       ├── ideate/                     # 아이디어 도출
+│       ├── plan-app/                   # 앱 기획
+│       ├── design-system/              # 디자인 시스템
 │       ├── create-feature/             # Feature scaffolding
 │       ├── create-entity/              # Entity scaffolding
 │       ├── create-screen/              # Screen creation
@@ -233,18 +233,18 @@ npm run android    # Android Emulator
 │       └── orchestrate/                # Full pipeline orchestration
 │
 ├── docs/
-│   └── specs/                         # Feature spec docs (spec-planner output)
-│       ├── README.md                  # Progress dashboard
-│       └── {NN}-{feature}/            # Feature-specific phase files
+│   └── specs/                         # 피처별 스펙 문서 (spec-planner 출력)
+│       ├── README.md                  # 진행 현황 대시보드
+│       └── {NN}-{feature}/            # 피처별 phase 파일
 │           ├── phase1-mvp.md
 │           └── phase2-enhancement.md
 │
-├── _workspace/                         # Data exchange between agents
-│   ├── idea/                           # Phase 1 output
-│   ├── plan/                           # Phase 2 output
-│   ├── design/                         # Phase 3 output
-│   ├── implementation/                 # Phase 4 output
-│   └── qa/                             # Phase 5 output
+├── _workspace/                         # 에이전트 간 데이터 교환
+│   ├── idea/                           # Phase 1 출력
+│   ├── plan/                           # Phase 2 출력
+│   ├── design/                         # Phase 3 출력
+│   ├── implementation/                 # Phase 4 출력
+│   └── qa/                             # Phase 5 출력
 │
 ├── app/                                # Expo Router (file-based routing)
 │   ├── _layout.tsx                     # Root layout (providers)
@@ -297,7 +297,7 @@ npm run android    # Android Emulator
 
 ## FSD Architecture
 
-**Feature-Sliced Design** is an architectural methodology for organizing frontend code by business domains.
+**Feature-Sliced Design**은 비즈니스 도메인별로 코드를 구성하는 아키텍처입니다.
 
 ### Layer Hierarchy
 
@@ -305,7 +305,7 @@ npm run android    # Android Emulator
 app (routing) → widgets → features → entities → shared
 ```
 
-Upper layers can only reference lower layers. Direct references between the same level are prohibited.
+상위 레이어는 하위 레이어만 참조할 수 있습니다. 동일 레벨 간 직접 참조는 금지합 니다.
 
 ### Adding a New Feature
 
@@ -382,12 +382,12 @@ npm run eas:build:prod # EAS production build
 
 ## Customization
 
-### 1. App Name and Identifier
+### 1. 앱 이름 및 식별자
 
-Edit in `app.config.ts`:
+`app.config.ts`에서 수정:
 
 ```typescript
-name: 'MyApp',              // App name
+name: 'MyApp',              // 앱 이름
 slug: 'my-app',             // URL slug
 scheme: 'myapp',            // Deep link scheme
 // iOS
@@ -396,9 +396,9 @@ bundleIdentifier: 'com.myapp.app',
 package: 'com.myapp.app',
 ```
 
-### 2. Theme Colors
+### 2. 테마 색상
 
-Change primary colors in `tailwind.config.js`:
+`tailwind.config.js`에서 primary 색상 변경:
 
 ```javascript
 colors: {
@@ -409,7 +409,7 @@ colors: {
 },
 ```
 
-Edit detailed theme in `src/shared/config/theme.ts`.
+`src/shared/config/theme.ts`에서 상세 테마 수정.
 
 ### 3. API URL
 
@@ -419,13 +419,13 @@ Edit detailed theme in `src/shared/config/theme.ts`.
 API_URL=http://your-api-server:3000
 ```
 
-### 4. EAS Build Setup
+### 4. EAS Build 설정
 
 ```bash
-eas build:configure    # Initial EAS setup
+eas build:configure    # EAS 초기 설정
 ```
 
-Edit build profiles in `eas.json`.
+`eas.json`에서 빌드 프로필 수정.
 
 ---
 
@@ -456,19 +456,19 @@ feature/* ← Feature branches
 
 ## Build & Deploy Optimization
 
-### EAS Build Sequence (Mandatory)
+### EAS Build 순서 (필수)
 
 ```
-1. eas build --local        ← Check for build errors locally first
-2. eas build                ← Proceed to cloud build after success
-3. eas submit               ← Submit to store
+1. eas build --local        ← 로컬에서 먼저 빌드 에러 확인
+2. eas build                ← 성공 확인 후 클라우드 빌드
+3. eas submit               ← 스토어 제출
 ```
 
-> Since cloud build credits are limited, catch Gradle/Xcode errors locally first.
+> 클라우드 빌드 크레딧은 월 제한이 있으므로, 로컬 빌드로 Gradle/Xcode 에러를 먼 저 잡는다.
 
-### .easignore Setup
+### .easignore 설정
 
-Exclude unnecessary files from the build archive to reduce upload time:
+빌드 아카이브에서 불필요한 파일을 제외하여 업로드 시간을 단축한다:
 
 ```
 node_modules/
@@ -485,22 +485,22 @@ plugins/
 *.md
 ```
 
-### App Size Optimization
+### 앱 크기 최적화
 
-| Optimization Item | Method | Effect |
+| 최적화 항목 | 방법 | 효과 |
 |------------|------|------|
-| **Image Format** | PNG → WebP, optimal resolution | 50%+ reduction in assets |
-| **Unused Fonts** | Remove unnecessary `@expo-google-fonts/*` | 0.5-2MB per font |
-| **Unused Packages** | Check `npm ls` and remove | Bundle size reduction |
-| **Lottie Optimization** | Remove unnecessary layers, check file size | Potential 1-5MB reduction |
+| **이미지 포맷** | PNG → WebP, 적정 해상도 | 에셋 50%+ 감소 |
+| **미사용 폰트** | 불필요한 `@expo-google-fonts/*` 제거 | 폰트당 0.5-2MB |
+| **미사용 패키지** | `npm ls` 확인 후 제거 | 번들 크기 감소 |
+| **Lottie 최적화** | 불필요 레이어 제거, 파일 크기 확인 | 1-5MB 가능 |
 
 ---
 
 ## Inspired By
 
-- **[revfactory/harness](https://github.com/revfactory/harness)** — Agent Team & Skill Architect meta-skill. Origin of agent team composition, pipeline patterns, and `_workspace/` data flow.
-- **[Anthropic Harness Design](https://www.anthropic.com/engineering/harness-design-long-running-apps)** — Official design guide for long-running agent tasks, including Context Reset, Sprint decomposition, Hard Thresholds, and Independent Evaluators.
-- **[Feature-Sliced Design](https://feature-sliced.design/)** — Frontend architecture methodology.
+- **[revfactory/harness](https://github.com/revfactory/harness)** — Agent Team & Skill Architect 메타 스킬. 에이전트 팀 구성, 파이프라인 패턴, `_workspace/` 데 이터 흐름 방식의 원천
+- **[Anthropic Harness Design](https://www.anthropic.com/engineering/harness-design-long-running-apps)** — Context Reset, Sprint 분해, Hard Threshold, 독립 Evaluator 등 장시간 에이전트 작업을 위한 공식 설계 가이드.
+- **[Feature-Sliced Design](https://feature-sliced.design/)** — 프론트엔드 아키 텍처 방법론
 
 ---
 
