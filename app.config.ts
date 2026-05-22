@@ -34,6 +34,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           NSAllowsArbitraryLoads: true,
           NSAllowsLocalNetworking: true,
         },
+        // Required for App Tracking Transparency (ATT) prompt on iOS 14.5+.
+        // Customize the wording per app — Apple reviews this string.
+        NSUserTrackingUsageDescription:
+          'This identifier will be used to deliver personalized ads to you.',
       },
     },
     android: {
@@ -51,6 +55,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         {
           androidAppId: 'ca-app-pub-3940256099942544~3347511713',
           iosAppId: 'ca-app-pub-3940256099942544~1458002511',
+          userTrackingUsageDescription:
+            'This identifier will be used to deliver personalized ads to you.',
+        },
+      ],
+      // ATT prompt on iOS 14.5+ — required so AdMob can serve personalized ads.
+      [
+        'expo-tracking-transparency',
+        {
+          userTrackingPermission:
+            'This identifier will be used to deliver personalized ads to you.',
         },
       ],
       'expo-router',

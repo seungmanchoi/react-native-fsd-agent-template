@@ -5,10 +5,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import Toast from 'react-native-toast-message';
-import mobileAds from 'react-native-google-mobile-ads';
 import { QueryProvider, ThemeProvider } from '@core/providers';
 import { toastConfig, ErrorBoundary } from '@shared/ui';
-import { useAdLifecycle, useAppOpenAd, AdDevPanel } from '@/features/ads';
+import {
+  useAdLifecycle,
+  useAppOpenAd,
+  AdDevPanel,
+  initializeAdsWithConsent,
+} from '@/features/ads';
 import '../global.css';
 
 function AdLifecycleManager(): null {
@@ -23,7 +27,10 @@ export default function RootLayout(): React.JSX.Element {
   useEffect(() => {
     const initialize = async (): Promise<void> => {
       try {
-        await mobileAds().initialize();
+        // Runs UMP (GDPR) consent -> iOS ATT prompt -> mobileAds().initialize().
+        // Order matters: AdMob must initialize AFTER consent is gathered so the
+        // first ad request reflects the user's tracking choice.
+        await initializeAdsWithConsent();
         // TODO: Add auth initialization here
       } catch (error) {
         console.error('Failed to initialize:', error);

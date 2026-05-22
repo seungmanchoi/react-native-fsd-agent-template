@@ -7,3 +7,5 @@ export {
   usePremiumGuard,
 } from './hooks';
 export { useAdStore, usePremiumStore } from './store';
+export { initializeAdsWithConsent } from './lib/consent';
+export type { IAdConsentResult } from './lib/consent';
