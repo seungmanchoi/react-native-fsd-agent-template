@@ -55,6 +55,8 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 - Zustand `persist`로 토큰 슬라이스를 저장해야 하는 경우, **storage 어댑터는 SecureStore-backed custom storage**를 주입한다 (AsyncStorage 어댑터 금지)
 - Axios 인터셉터의 토큰 조회는 메모리 또는 `SecureStore`에서만. 로그에 토큰을 출력하지 않는다
 - spec에서 꺼진 항목의 모듈은 생성하지 않는다 (불필요한 의존성/번들 회피)
+- **AdMob SDK 초기화는 표준 시퀀스 헬퍼만 사용** — `mobileAds().initialize()` / `AdsConsent.*` / `expo-tracking-transparency` 를 절대 직접 호출하지 않는다. 반드시 `@features/ads` 의 `initializeAdsWithConsent()` 만 import 해 `_layout.tsx` 에서 await 한다. CLAUDE.md "광고 동의 시퀀스 (MANDATORY)" 섹션 참고.
+- AdMob 통합 시 `app.config.ts` 의 `react-native-google-mobile-ads` plugin / `expo-tracking-transparency` plugin / `infoPlist.NSUserTrackingUsageDescription` 세 곳에 동일 한글 문구를 명시한다 (누락 시 ATT prompt 불가)
 
 ## Patterns
 

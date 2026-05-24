@@ -44,6 +44,9 @@ React Native + Expo template with **Feature-Sliced Design (FSD)** architecture a
 | 토큰/시크릿이 AsyncStorage·MMKV·평문에 저장됨 | **0개** |
 | 평점 요청이 정책 엔진(`canRequestReview`) 미경유 | **0개** |
 | 평점 요청 시 `uiIsIdle` 게이트 누락 / 자체 사전 프롬프트 사용 | **0개** |
+| `mobileAds().initialize()` 직접 호출 (`initializeAdsWithConsent` 미경유) | **0개** |
+| UMP → ATT → `mobileAds().initialize()` 순서 위반 | **0개** |
+| `AdsConsent.*` 직접 호출 (래퍼 미사용) | **0개** |
 
 ### Secure Storage / 민감 데이터 저장 (MANDATORY)
 
@@ -612,6 +615,113 @@ export const useStoreReview = () => {
 - **api-integrator**: `src/shared/store-review/` 모듈 인프라(래퍼/정책/store/triggers/훅) 구축
 - **ui-developer**: 각 화면의 성공 콜백에 `useStoreReview().maybeRequest(...)` 호출 삽입 + `recordKeyAction()` 카운터 호출
 - **qa-reviewer**: 안티패턴/Hard Threshold 검사
+
+## 광고 동의 시퀀스 / eCPM 최적화 (MANDATORY)
+
+**AdMob 광고를 통합하는 모든 앱은 표준 동의 시퀀스를 반드시 따른다.** 순서가 어긋나면 첫 광고 요청이 동의 정보 없이 발사되어 EU eCPM이 사실상 non-personalized 트래픽 수준으로 폭락한다. iOS의 경우 ATT를 받지 못해 IDFA 기반 personalized 광고가 불가능해진다.
+
+### 표준 스택
+
+| 영역 | 패키지 | 비고 |
+|------|--------|------|
+| AdMob SDK | `react-native-google-mobile-ads` (^16) | `AdsConsent` UMP API 포함 |
+| iOS 추적 권한 | `expo-tracking-transparency` | `NSUserTrackingUsageDescription` 필수 |
+| 표준 헬퍼 | `src/features/ads/lib/consent.ts` | `initializeAdsWithConsent()` export |
+
+### 표준 시퀀스 (절대 변경 금지)
+
+```
+UMP (GDPR) consent
+   ↓  (EU 사용자: 동의 폼 노출 / 비 EU: no-op)
+iOS ATT prompt
+   ↓  (Android: skip)
+mobileAds().setRequestConfiguration(...)
+   ↓
+mobileAds().initialize()
+```
+
+**왜 이 순서인가:**
+- UMP가 ATT보다 먼저 와야 → 사용자가 GDPR 동의를 거부하면 ATT 무관하게 personalized ad 불가. 두 다이얼로그가 자연스럽게 연이어 노출됨.
+- `setRequestConfiguration`이 `initialize()` 전이어야 → SDK가 첫 요청부터 child-directed / max content rating을 반영.
+- `initialize()`가 마지막이어야 → 위 모든 동의/설정이 freeze 된 상태로 첫 광고 요청 발사.
+
+### 구현 위치 (FSD)
+
+```
+src/features/ads/
+├── lib/
+│   └── consent.ts                # initializeAdsWithConsent / showAdsConsentForm
+├── hooks/                        # useInterstitialAd / useRewardedAd / useAppOpenAd
+├── ui/AdBanner.tsx
+└── index.ts                      # barrel — initializeAdsWithConsent, isAdsReady, onAdsReady
+```
+
+루트 `_layout.tsx` 에서는 **`initializeAdsWithConsent()` 만 await** 한다. 개별 `AdsConsent.*` API 를 직접 부르거나 `mobileAds().initialize()` 를 직접 호출하지 않는다.
+
+```tsx
+// app/_layout.tsx
+import { initializeAdsWithConsent } from '@features/ads';
+
+useEffect(() => {
+  void initializeAdsWithConsent();
+}, []);
+```
+
+### AdMob 콘솔 사전 설정 (한 번)
+
+UMP가 실제로 폼을 띄우려면 AdMob Console 의 메시지가 **게시(Publish)** 되어야 한다. 게시 안 된 상태면 `requestInfoUpdate()` 가 항상 `NOT_REQUIRED` 로 응답해 코드가 정상이어도 폼이 안 뜬다.
+
+1. **GDPR message**: AdMob Console → Privacy & messaging → European regulations → 메시지 생성 → Publish
+2. **IDFA message** (iOS 권장): Privacy & messaging → IDFA → 생성 → Publish (ATT alert 직전에 사전 설명 노출 가능)
+
+배포 전에 두 메시지가 모두 Published 상태인지 확인한다.
+
+### 추적 권한 / Info.plist
+
+`app.config.ts` 의 `infoPlist` 에 `NSUserTrackingUsageDescription` 을 명시한다. 동일 문구를 `expo-tracking-transparency` plugin 옵션과 `react-native-google-mobile-ads` plugin 의 `userTrackingUsageDescription` 옵션 양쪽에 모두 설정한다.
+
+Android 는 ATT 없이도 `react-native-google-mobile-ads` 가 매니페스트에 `com.google.android.gms.permission.AD_ID` 를 자동 주입하므로 추가 설정 불필요.
+
+### 사용자 추후 변경 (선택 — Privacy Options)
+
+AdMob Console 에서 "Privacy Options" 가 REQUIRED 로 설정되어 있으면 앱 내 설정 화면에 "광고 개인정보 설정" 버튼을 노출하고, 클릭 시 `showAdsConsentForm()` 을 호출해 UMP 폼을 다시 띄운다.
+
+### Analytics 기록 (강력 권장)
+
+- `setUserProperty('ump_status', ...)` — `obtained` / `required` / `not_required` / `error`
+- `setUserProperty('ump_can_request_ads', ...)` — `'true'` / `'false'`
+- `setUserProperty('att_status', ...)` — `granted` / `denied` / `undetermined` / `restricted` / `not_applicable`
+
+이 user property 가 있으면 Firebase / BigQuery 에서 동의 상태별 eCPM·노출률 코호트를 분리해 광고 전략 최적화에 활용 가능.
+
+### eCPM 최적화 체크리스트
+
+| 항목 | 임팩트 | 비고 |
+|------|--------|------|
+| UMP 시퀀스 적용 | EU eCPM +30~50% | 본 섹션의 표준 시퀀스 |
+| `MaxAdContentRating.PG` | 광고 풀 확장 | `setRequestConfiguration` |
+| Adaptive Banner | 배너 수익 +20% | `BannerAdSize.ANCHORED_ADAPTIVE_BANNER` |
+| App Open 광고 | 추가 수익 라인 | Cold start + warm resume |
+| Rewarded 광고 다종 | 사용자 인게이지먼트 ↑ | revive / coins / continue / shuffle 등 |
+| 광고 mediation (선택) | eCPM +20~50% | AppLovin MAX / IronSource 등 (DAU 5K+에서 ROI) |
+
+### Hard Threshold (광고 동의)
+
+| 기준 | 임계값 |
+|------|--------|
+| `mobileAds().initialize()` 직접 호출 (`initializeAdsWithConsent` 미경유) | **0개** |
+| UMP → ATT → `initialize()` 순서 위반 | **0개** |
+| `AdsConsent.*` 또는 `expo-tracking-transparency` 직접 호출 (래퍼 미사용) | **0개** |
+| `NSUserTrackingUsageDescription` 누락 (iOS) | **0개** |
+| AdMob Console GDPR/IDFA 메시지 미게시 상태로 배포 | **0개** |
+
+### 에이전트 책임 분담
+
+- **product-planner**: PRD 에 "광고 정책" 섹션 작성 — 어느 placement (banner/interstitial/rewarded/app-open)을 쓸지, 노출 빈도 제한, EU/non-EU 대상 여부
+- **api-integrator**: `src/features/ads/lib/consent.ts` 구축, `_layout.tsx` 에서 `initializeAdsWithConsent()` await, `app.config.ts` 의 plugin/infoPlist 설정
+- **ui-developer**: `AdBanner` / `useInterstitialAd` / `useRewardedAd` 컴포넌트 배치 — 핵심 액션 직전/진행 중 광고 금지
+- **engagement-architect**: 광고 빈도 정책 (cooldown / 일일 cap / 60% 확률 등) 과 사용자 만족도/리텐션 balance 검토
+- **qa-reviewer**: Hard Threshold 검사 + 동의 시퀀스 위반 탐지
 
 ## EAS Build & Deploy Rules (MANDATORY)
 

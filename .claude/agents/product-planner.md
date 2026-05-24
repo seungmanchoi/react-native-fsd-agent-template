@@ -137,6 +137,38 @@ spec에서 켜진(true) 항목만 PRD에 명시한다:
   - 트리거 배선 → 각 화면의 성공 콜백에서 `useStoreReview().maybeRequest(...)` (ui-developer)
   ```
 
+  ## Ads Strategy — 광고 정책 (monetization.model에 광고 포함 시 필수)
+
+  `monetization.model` 에 광고가 포함된 모든 spec 은 아래 항목을 채워 PRD 에 포함한다. CLAUDE.md "광고 동의 시퀀스 (MANDATORY)" 와 paired 로 동작.
+
+  ### 광고 placement 매트릭스
+  | Placement | 포맷 | 배치 위치 | 빈도 정책 | 수익 임팩트 |
+  |-----------|------|----------|----------|------------|
+  | BANNER_HOME | Adaptive Banner | 홈/설정 하단 (320px reserve) | 상시 노출 | 안정적 기본 수익 |
+  | INTERSTITIAL_AFTER_GAMEOVER | Interstitial | 게임오버 직후 (UI dismiss 전) | cooldown 60s + 일 N회 cap + 확률 게이트 | 가장 큰 단일 수익원 |
+  | REWARDED_REVIVE | Rewarded | 게임 실패 시 부활 옵션 | 세션당 1회 | 리텐션 + 수익 둘 다 |
+  | REWARDED_COINS | Rewarded | 코인 부족 시 시청-획득 | 일 N회 cap | 무과금 사용자 LTV ↑ |
+  | APP_OPEN | App Open | cold-start + warm-resume | 노출 간격 4h | 추가 수익 라인 |
+
+  ### 공통 게이트 (모든 광고 노출 전)
+  - UMP consent 시퀀스 통과 (`initializeAdsWithConsent()` 완료)
+  - 핵심 액션(촬영/저장/결제 등) 직전·진행 중 광고 금지
+  - 광고 미로드 시 graceful fallback (사용자 흐름 차단 금지)
+
+  ### 안티패턴 (이 위치에 광고 배치 금지)
+  - 카메라/촬영 화면 (배너 금지)
+  - 결제 화면, 온보딩, 첫 실행 직후
+  - 에러/크래시 직후
+  - 핵심 액션 직전 (Apple guideline 4.5.4 강제 광고 시청 금지)
+
+  **구현 매핑**
+  - 광고 ID → `src/shared/config/ads.ts` 의 `AdUnitIds` (api-integrator)
+  - 동의 시퀀스 → `src/features/ads/lib/consent.ts` 의 `initializeAdsWithConsent()` (api-integrator)
+  - 빈도 정책 → `src/features/ads/store/` 의 Zustand store (api-integrator)
+  - 광고 컴포넌트 배치 → `AdBanner` / `useInterstitialAd` / `useRewardedAd` (ui-developer)
+  - 빈도 튜닝/평점 prompt 와의 충돌 검토 → engagement-architect (있으면)
+  ```
+
 ## 팀 통신 프로토콜
 - idea-researcher로부터: 선정된 아이디어 상세 정보 수신
 - design-architect에게: 화면 구조, 기능별 UI 요구사항 SendMessage

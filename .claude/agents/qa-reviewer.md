@@ -73,6 +73,16 @@
 - [ ] `maybeRequest()` 반환값에 의존하는 후속 UI/네비게이션 분기 없음 — `requestReview()`는 표시 여부 신호가 없으므로 fire-and-forget
 - [ ] `IReviewState`에 `sessionStartedAt`, `requestHistory: string[]` 필드 존재. `recordLaunch`가 세션 시작 시각 갱신, `markRequested`가 1년 초과 항목 prune
 
+### 5c. AdMob 광고 동의 시퀀스 안티패턴
+- [ ] `mobileAds().initialize()` 를 `@features/ads` 외부에서 직접 호출하는 코드 없음
+- [ ] `AdsConsent.*` (`requestInfoUpdate` / `gatherConsent` / `loadAndShowConsentFormIfRequired` / `showForm`) 를 `@features/ads/lib/consent.ts` 외부에서 직접 호출하지 않음
+- [ ] `expo-tracking-transparency` 의 `requestTrackingPermissionsAsync` 를 `@features/ads/lib/consent.ts` 외부에서 직접 호출하지 않음
+- [ ] `_layout.tsx` 에서 `initializeAdsWithConsent()` 만 await 한다 (개별 초기화 단계 직접 호출 금지)
+- [ ] 동의 시퀀스는 UMP → ATT(iOS) → `mobileAds().initialize()` 순서가 유지된다 — 순서 위반 시 EU eCPM 폭락
+- [ ] `app.config.ts` 의 `plugins` 에 `react-native-google-mobile-ads` / `expo-tracking-transparency` 가 모두 포함되어 있음
+- [ ] `app.config.ts` 의 `infoPlist.NSUserTrackingUsageDescription` 가 설정되어 있고, 두 plugin 의 `userTrackingUsageDescription` / `userTrackingPermission` 과 문구가 일치함
+- [ ] `BannerAd` 컴포넌트는 `@features/ads/ui/AdBanner` 를 통해서만 사용 (직접 import 금지)
+
 ### 6. Common Bug Patterns
 - [ ] **날짜 타임존 버그**: `new Date().toISOString().split('T')[0]`로 로컬 날짜를 구하는 코드 금지 — UTC 기준이라 UTC+9(한국/일본) 지역에서 자정~09시 사이에 "어제" 날짜가 반환됨. 반드시 `dayjs().format('YYYY-MM-DD')` 사용 (로컬 시간 기준)
 - [ ] `new Date()` 기반 날짜 계산(subtract, add) 금지 — `dayjs().subtract(N, 'day')` 사용
@@ -98,6 +108,11 @@
 | 평점 정책 `maxRequestsPerYear`/`cooldownAfterLaunchSec`/`uiIsIdle` 게이트 누락 | **0개** | `policy.ts` 필드/시그니처 확인 | 수동 |
 | 평점 자체 사전 프롬프트 다이얼로그/시트 | **0개** | "평점/리뷰/별점" UI 텍스트 + Alert/Modal/ActionSheet 조합 grep | 수동 |
 | 평점 `maybeRequest` 반환값에 의존한 후속 분기 | **0개** | `maybeRequest(...)` 호출 결과 사용 패턴 검사 | 수동 |
+| `mobileAds().initialize()` 직접 호출 (`@features/ads` 외부) | **0개** | `grep -rE "mobileAds\(\)\.initialize"` 후 경로 확인 | 수동 |
+| `AdsConsent.*` 직접 호출 (`consent.ts` 외부) | **0개** | `grep -rE "AdsConsent\."` 후 경로 확인 | 수동 |
+| `expo-tracking-transparency` 직접 호출 (`consent.ts` 외부) | **0개** | `grep -rn "requestTrackingPermissionsAsync"` 후 경로 확인 | 수동 |
+| UMP → ATT → `initialize()` 순서 위반 | **0개** | `consent.ts` 의 호출 순서 시각 검토 | 수동 |
+| `NSUserTrackingUsageDescription` 누락 (iOS, 광고 통합 시) | **0개** | `app.config.ts` 의 `infoPlist` 키 확인 | 수동 |
 
 ## Active Testing (능동 테스트)
 
