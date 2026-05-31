@@ -27,7 +27,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     ios: {
       supportsTablet: false,
+      // RN Firebase + AdMob 호환성 (Expo issue #39607). 신규 앱은 jsc 유지 권장.
+      jsEngine: 'jsc',
       bundleIdentifier: 'com.myapp.app',
+      googleServicesFile:
+        process.env.GOOGLE_SERVICE_INFO_PLIST ??
+        './firebase/GoogleService-Info.plist',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSAppTransportSecurity: {
@@ -42,6 +47,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: 'com.myapp.app',
+      googleServicesFile:
+        process.env.GOOGLE_SERVICES_JSON ?? './firebase/google-services.json',
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundColor: '#0a0a0a',
@@ -65,6 +72,26 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         {
           userTrackingPermission:
             'This identifier will be used to deliver personalized ads to you.',
+        },
+      ],
+      // Firebase Analytics — restores AdMob audience signals for higher eCPM.
+      // Without this, ads default to non-personalized (NPA) and eCPM drops 3-5x.
+      // Place GoogleService-Info.plist + google-services.json in ./firebase/.
+      '@react-native-firebase/app',
+      [
+        'expo-build-properties',
+        {
+          ios: {
+            // RN Firebase v24 + Expo SDK 54 + RN 0.81 호환성 (Expo issue #39607):
+            // - useFrameworks: 'static' → AdMob(react-native-google-mobile-ads) 요구사항
+            // - forceStaticLinking: RNFB pod들을 prebuilt React framework 대신
+            //   static link 로 빌드 → "include of non-modular header inside
+            //   framework module" 에러 해결
+            // - GoogleUtilities modular_headers → AdMob과의 공유 pod 호환성
+            useFrameworks: 'static',
+            forceStaticLinking: ['RNFBApp', 'RNFBAnalytics'],
+            extraPods: [{ name: 'GoogleUtilities', modular_headers: true }],
+          },
         },
       ],
       'expo-router',

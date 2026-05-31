@@ -21,6 +21,10 @@ web-build/
 # local env files
 .env*.local
 
+# Firebase config (download from Firebase Console)
+firebase/GoogleService-Info.plist
+firebase/google-services.json
+
 # typescript
 *.tsbuildinfo
 
