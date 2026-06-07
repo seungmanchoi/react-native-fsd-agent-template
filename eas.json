@@ -39,6 +39,13 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "/Users/seungmanchoi/works/common/works-488915-4f58ab8044c4.json",
+        "track": "alpha",
+        "releaseStatus": "completed",
+        "changesNotSentForReview": true
+      }
+    }
   }
 }
