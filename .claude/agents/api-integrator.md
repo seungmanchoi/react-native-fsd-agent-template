@@ -57,6 +57,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 - spec에서 꺼진 항목의 모듈은 생성하지 않는다 (불필요한 의존성/번들 회피)
 - **AdMob SDK 초기화는 표준 시퀀스 헬퍼만 사용** — `mobileAds().initialize()` / `AdsConsent.*` / `expo-tracking-transparency` 를 절대 직접 호출하지 않는다. 반드시 `@features/ads` 의 `initializeAdsWithConsent()` 만 import 해 `_layout.tsx` 에서 await 한다. CLAUDE.md "광고 동의 시퀀스 (MANDATORY)" 섹션 참고.
 - AdMob 통합 시 `app.config.ts` 의 `react-native-google-mobile-ads` plugin / `expo-tracking-transparency` plugin / `infoPlist.NSUserTrackingUsageDescription` 세 곳에 동일 한글 문구를 명시한다 (누락 시 ATT prompt 불가)
+- **무효 트래픽 방지 인프라 필수 포함** — 광고 모듈 구축 시 아래 "AdMob 무효 트래픽 방지" 섹션의 테스트 기기 등록 / 클릭 가드 / 전면 광고 공유 쿨다운 / 지수 백오프를 반드시 함께 구현한다
 
 ## Patterns
 
@@ -350,6 +351,47 @@ GDPR보다 단순하다:
 
 - 콘솔 UI 변경으로 selector 실패 → 즉시 중단, `_workspace/implementation/admob-manual.md`에 현재 단계 기록 후 사용자에게 수동 게시 요청
 - GDPR 메시지가 임시저장만 되고 게시 실패 → 7단계("동의하지 않음" → "사용 안 함") 누락 여부 우선 확인
+
+## AdMob 무효 트래픽 방지 (계정 정지 방어)
+
+AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭, 사용자 비정상 클릭)과 구현 정책 위반에서 발생한다. 광고 인프라 구축 시 아래를 함께 구현한다. 정책 수치는 PRD "Ads Strategy → 무효 트래픽 방어 정책"을 따른다.
+
+### 테스트 트래픽 격리 (가장 중요)
+
+Google은 기기 식별자(GAID/IDFA)·AdMob 계정 로그인·IP·CTR 통계로 자기 클릭을 거의 확실하게 탐지한다. 목표는 "숨기기"가 아니라 **개발자/테스터 트래픽을 처음부터 광고 시스템 밖으로 빼는 것**이다.
+
+| 빌드 프로필 | 광고 단위 | 추가 조치 |
+|------------|----------|----------|
+| development (`IS_DEV`) | `TestIds.*` | — |
+| preview / internal / TestFlight | 실제 ID | **테스트 기기 등록 필수** |
+| production | 실제 ID | — |
+
+- `consent.ts`의 `setRequestConfiguration`에 `testDeviceIdentifiers`를 포함한다. 기기 ID는 `src/shared/config/ads.ts`의 `TEST_DEVICE_IDS` 상수로 관리 (기기 ID는 첫 광고 요청 시 네이티브 로그에 출력됨)
+- 에뮬레이터/시뮬레이터는 SDK가 자동으로 테스트 기기 취급하므로 별도 처리 불필요 (우회 코드 작성 금지)
+
+### 클릭/노출 이상 행동 방어 (`ad.store.ts` 확장)
+
+- **배너 클릭 가드**: 배너 클릭(`onAdClicked` — AdBanner가 store로 전달)을 카운트. 일일 N회(기본 5회) 초과 시 `bannerSuppressedUntil` 타임스탬프를 persist하고 그때까지 **배너 렌더링 자체를 차단** (기본 24h). 비정상 클릭러(어린이 연타, 악의적 클릭 폭탄)로부터 계정을 보호한다
+- **전면 포맷 공유 쿨다운**: interstitial / rewarded / app-open이 `lastFullScreenAdTime` **하나를 공유**한다. 어떤 전면 광고든 dismiss 후 최소 N초(기본 30초)는 다른 전면 광고 노출 금지 — "광고 연타" 차단
+- **포맷별 상한**: interstitial 일일 cap(기존) + **rewarded 일일 cap**(기본 10회) + 세션당 전면 광고 절대 상한
+- 모든 일일 카운터의 날짜 키는 `dayjs().format('YYYY-MM-DD')` 사용 (`toISOString().split` 금지 — Hard Threshold)
+
+### 광고 요청 행태
+
+- 로드 실패 재시도는 **지수 백오프** (2s → 4s → 8s, 최대 3회 후 포기). 즉시 무한 재시도 루프는 요청 폭주로 계정 플래그를 유발한다
+- 전면 광고 preload는 포맷당 1개만. 노출 계획 없는 선제 로드 남발 금지 (request-to-impression 비율 관리)
+- 배너 refresh를 클라이언트 타이머로 강제하지 않는다 — refresh 주기는 AdMob 콘솔 설정에 위임
+- 전면 광고 `show()` 호출 전 `AppState.currentState === 'active'` 가드 필수
+
+### 리워드 보상 지급
+
+- 보상은 **`EARNED_REWARD` 콜백 내부에서만** 지급. 시청 완료 전 / `show()` 직후 선지급 금지
+- 광고 "클릭"에 보상을 연결하는 로직 금지 — 시청 보상만 허용 (클릭 유도 = 정지 사유)
+
+### 모니터링 / 킬 스위치
+
+- `ad_impression`(자동)과 별개로 광고 클릭 시 `logEvent('tap_ad', { placement })` 수집 → Firebase에서 CTR 이상치 자가 모니터링 (정지 전에 먼저 발견)
+- `measurement.remote_config=true`인 경우 `ads_enabled` / `ads_{format}_enabled` Remote Config 플래그를 노출 게이트에 연결 — 무효 트래픽 경고 메일 수신 시 앱 업데이트 없이 즉시 차단
 
 ## 팀 통신 프로토콜
 

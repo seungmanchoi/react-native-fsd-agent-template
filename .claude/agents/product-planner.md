@@ -161,6 +161,17 @@ spec에서 켜진(true) 항목만 PRD에 명시한다:
   - 에러/크래시 직후
   - 핵심 액션 직전 (Apple guideline 4.5.4 강제 광고 시청 금지)
 
+  ### 무효 트래픽 방어 정책 (필수 — AdMob 계정 정지 방어)
+  | 정책 | 기본값 | 비고 |
+  |------|--------|------|
+  | 배너 클릭 가드 | 일일 5회 초과 시 24h 배너 숨김 | 비정상 클릭러로부터 계정 보호 |
+  | 전면 광고 공유 쿨다운 | dismiss 후 30초 | interstitial/rewarded/app-open이 하나의 쿨다운 공유 |
+  | interstitial 일일 cap | 10회 | |
+  | rewarded 일일 cap | 10회 | 자발적 반복 시청 상한 |
+  | 세션당 전면 광고 상한 | 앱 성격에 따라 정의 | PRD에 수치 명시 |
+
+  기본값과 다르게 설정할 경우 PRD에 수치를 명시한다. api-integrator가 `ADS_CONFIG` 상수와 `ad.store.ts` 게이트로 구현한다.
+
   **구현 매핑**
   - 광고 ID → `src/shared/config/ads.ts` 의 `AdUnitIds` (api-integrator)
   - 동의 시퀀스 → `src/features/ads/lib/consent.ts` 의 `initializeAdsWithConsent()` (api-integrator)

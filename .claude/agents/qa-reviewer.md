@@ -83,6 +83,20 @@
 - [ ] `app.config.ts` 의 `infoPlist.NSUserTrackingUsageDescription` 가 설정되어 있고, 두 plugin 의 `userTrackingUsageDescription` / `userTrackingPermission` 과 문구가 일치함
 - [ ] `BannerAd` 컴포넌트는 `@features/ads/ui/AdBanner` 를 통해서만 사용 (직접 import 금지)
 
+### 5d. AdMob 무효 트래픽/배치 안티패턴 (계정 정지 방어)
+- [ ] 한 화면(컴포넌트 트리)에 `AdBanner`/`BannerAd`가 2개 이상 렌더링되지 않음
+- [ ] 배너 로드 실패 시 컨테이너가 collapse됨 (고정 높이 빈 placeholder 없음)
+- [ ] 광고 컴포넌트가 오버레이 아래/opacity 0/화면 밖에 렌더링되는 패턴 없음
+- [ ] 빈 상태/에러/로딩/스플래시 화면에 광고 노출 없음
+- [ ] `ad.store.ts`에 배너 클릭 가드 존재 (일일 N회 초과 시 `bannerSuppressedUntil`로 배너 차단)
+- [ ] 전면 포맷(interstitial/rewarded/app-open)이 공유 쿨다운(`lastFullScreenAdTime`)을 거침
+- [ ] rewarded 일일 cap 존재
+- [ ] 광고 로드 실패 재시도에 지수 백오프 존재 — 즉시 무한 재시도 루프 없음
+- [ ] 전면 광고 `show()` 호출 전 `AppState` active 가드 존재
+- [ ] 리워드 지급이 `EARNED_REWARD` 콜백 내부에서만 발생 (선지급/클릭 보상 없음)
+- [ ] preview/internal 빌드 경로에 `testDeviceIdentifiers` 등록 구성 존재 (`TEST_DEVICE_IDS`)
+- [ ] 배너 refresh를 클라이언트 타이머로 강제하는 코드 없음
+
 ### 6. Common Bug Patterns
 - [ ] **날짜 타임존 버그**: `new Date().toISOString().split('T')[0]`로 로컬 날짜를 구하는 코드 금지 — UTC 기준이라 UTC+9(한국/일본) 지역에서 자정~09시 사이에 "어제" 날짜가 반환됨. 반드시 `dayjs().format('YYYY-MM-DD')` 사용 (로컬 시간 기준)
 - [ ] `new Date()` 기반 날짜 계산(subtract, add) 금지 — `dayjs().subtract(N, 'day')` 사용
@@ -113,6 +127,10 @@
 | `expo-tracking-transparency` 직접 호출 (`consent.ts` 외부) | **0개** | `grep -rn "requestTrackingPermissionsAsync"` 후 경로 확인 | 수동 |
 | UMP → ATT → `initialize()` 순서 위반 | **0개** | `consent.ts` 의 호출 순서 시각 검토 | 수동 |
 | `NSUserTrackingUsageDescription` 누락 (iOS, 광고 통합 시) | **0개** | `app.config.ts` 의 `infoPlist` 키 확인 | 수동 |
+| 한 화면에 배너 2개 이상 / 숨겨진·가려진 광고 렌더링 | **0개** | 화면별 `AdBanner` 사용처 + opacity/position 검토 | 수동 |
+| 전면 광고 `show()`가 `canShow*` 게이트(공유 쿨다운·일일 cap) 미경유 | **0개** | `show(` 호출부 grep 후 게이트 경유 확인 | 수동 |
+| 리워드 보상 선지급 (`EARNED_REWARD` 콜백 외부 지급) | **0개** | 보상 지급 코드 위치 검토 | 수동 |
+| 광고 로드 실패 즉시 무한 재시도 (백오프 없음) | **0개** | 재시도 로직 검토 | 가능 |
 
 ## Active Testing (능동 테스트)
 
