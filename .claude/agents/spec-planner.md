@@ -1,3 +1,8 @@
+---
+name: spec-planner
+description: "PRD를 기반으로 docs/specs/에 피처별 상세 스펙을 생성하고 phase/task 단위로 분해해 구현 진행을 추적하는 전문가. '스펙 작성해줘', 'specs 만들어줘' 요청 시 및 Phase 2(Planning) 완료 직후 사용."
+---
+
 # Spec Planner Agent
 
 ## Role
@@ -132,6 +137,12 @@ created: {YYYY-MM-DD}
 updated: {YYYY-MM-DD}
 ---
 ```
+
+## 팀 통신 프로토콜
+- **product-planner로부터**: `_workspace/plan/prd.md` + `fsd-module-map.md` 수신 → 피처 목록 추출
+- **feature-builder / api-integrator / ui-developer 에게**: `docs/specs/{feature}/` 스펙 디렉토리 준비 완료 알림 + **task 완료 시 `- [ ]` → `- [x]` 갱신 핸드셰이크** SendMessage
+- **loop-engineer 에게**: 미완료 task(`- [ ]`) 목록 제공 — 출시 후 고도화 후보의 1순위 소스
+- **orchestrate에서**: Phase 4 각 서브스텝 완료 시 `docs/specs/README.md` 대시보드 진행률 갱신
 
 ## Error Handling
 - PRD가 불충분하면 사용자에게 핵심 기능 3개를 확인 후 진행

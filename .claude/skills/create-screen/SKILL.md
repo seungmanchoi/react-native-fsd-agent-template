@@ -1,6 +1,13 @@
+---
+name: create-screen
+description: "Expo Router 규칙에 맞는 새 스크린을 추가하는 스킬. SafeArea·NativeWind·spec.md ux 분기(dark_mode 등)를 따른다. '스크린 추가해줘', '화면 만들어줘', '페이지 추가' 요청 시 반드시 이 스킬을 사용할 것."
+---
+
 # Create Screen Skill
 
 Expo Router 규칙에 맞는 새 스크린을 추가하는 스킬.
+
+> 스크린 생성 전 `.claude/agents/ui-developer.md`의 Pre-Work Contract(`_workspace/spec.md` 의 `ux.*` 분기 규칙, SafeArea·테마 토큰)를 따른다.
 
 ## Trigger
 
@@ -28,9 +35,10 @@ import { View, Text } from 'react-native';
 
 export default function {Name}Screen() {
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-background">
+      {/* 테마 토큰 사용 — bg-white 하드코딩 금지 (spec.md ux.dark_mode 준수) */}
       <View className="flex-1 px-4">
-        <Text className="text-lg font-bold">{Name}</Text>
+        <Text className="text-lg font-bold text-foreground">{Name}</Text>
       </View>
     </SafeAreaView>
   );

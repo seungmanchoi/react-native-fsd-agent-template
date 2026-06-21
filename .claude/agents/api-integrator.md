@@ -1,3 +1,8 @@
+---
+name: api-integrator
+description: "Axios + TanStack Query + Zustand 기반 API 연동·상태관리와 Firebase Analytics/Crashlytics, Secure Storage(expo-secure-store), Store Review 정책 엔진, AdMob(UMP+ATT) 인프라를 구현하는 전문가. 'API 연동', '서버 연동', '스토어/상태관리 추가', 'Analytics 통합', 'Secure Storage/토큰 저장', '평점 요청', '광고 통합' 요청 시 사용."
+---
+
 # API Integrator Agent
 
 Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 Firebase Analytics 통합을 담당하는 전문 에이전트.
@@ -215,18 +220,16 @@ export const REVIEW_TRIGGERS = {
 } as const;
 export type TReviewTrigger = (typeof REVIEW_TRIGGERS)[keyof typeof REVIEW_TRIGGERS];
 
-// store.ts — 비민감 카운터는 AsyncStorage persist 사용 (SecureStore 불필요)
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-interface IReviewState {
+// types/index.ts — IReviewState 는 sessionStartedAt 과 requestHistory 를 반드시 포함
+export interface IReviewState {
   installedAt: string;
+  sessionStartedAt: string;        // 앱 실행 직후 cooldown 계산용 (recordLaunch가 갱신)
   launchCount: number;
   keyActionCount: number;
   lastRequestedAt: string | null;
   lastErrorAt: string | null;
   requestedThisSession: boolean;
+  requestHistory: string[];        // 자체 호출 ISO 타임스탬프 (365일 윈도우 카운팅)
   recordLaunch: () => void;
   recordKeyAction: () => void;
   recordError: () => void;
@@ -234,28 +237,131 @@ interface IReviewState {
   resetSession: () => void;
 }
 
+// store.ts — 비민감 카운터는 AsyncStorage persist 사용 (SecureStore 불필요)
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import dayjs from 'dayjs';
+
 export const useReviewStore = create<IReviewState>()(
   persist(
     (set) => ({
       installedAt: new Date().toISOString(),
+      sessionStartedAt: new Date().toISOString(),
       launchCount: 0,
       keyActionCount: 0,
       lastRequestedAt: null,
       lastErrorAt: null,
       requestedThisSession: false,
-      recordLaunch: () => set((s) => ({ launchCount: s.launchCount + 1, requestedThisSession: false })),
+      requestHistory: [],
+      recordLaunch: () =>
+        set((s) => ({
+          launchCount: s.launchCount + 1,
+          sessionStartedAt: new Date().toISOString(),
+          requestedThisSession: false,
+        })),
       recordKeyAction: () => set((s) => ({ keyActionCount: s.keyActionCount + 1 })),
       recordError: () => set({ lastErrorAt: new Date().toISOString() }),
       markRequested: () =>
-        set({ lastRequestedAt: new Date().toISOString(), requestedThisSession: true }),
+        set((s) => {
+          const now = new Date().toISOString();
+          const oneYearAgo = dayjs().subtract(1, 'year');
+          return {
+            lastRequestedAt: now,
+            requestedThisSession: true,
+            requestHistory: [...s.requestHistory, now].filter((iso) =>
+              dayjs(iso).isAfter(oneYearAgo),
+            ),
+          };
+        }),
       resetSession: () => set({ requestedThisSession: false }),
     }),
     { name: 'review-store', storage: createJSONStorage(() => AsyncStorage) },
   ),
 );
-
-// policy.ts, client.ts, hooks/useStoreReview.ts 는 CLAUDE.md 패턴 그대로 구현
 ```
+
+### Store Review 정책 엔진 (`src/shared/store-review/policy.ts`)
+```typescript
+import dayjs from 'dayjs';
+import type { IReviewState } from './types';
+
+export interface IReviewPolicy {
+  minDaysSinceInstall: number;     // 3
+  minLaunchCount: number;          // 5
+  minKeyActionCount: number;       // 3
+  minDaysSinceLastRequest: number; // 90
+  maxRequestsPerYear: number;      // 3 (iOS 시스템 한도와 동일)
+  cooldownAfterLaunchSec: number;  // 120 (앱 실행 직후 차단)
+  blockAfterErrorWindowMin: number;// 5
+}
+
+export const DEFAULT_POLICY: IReviewPolicy = {
+  minDaysSinceInstall: 3,
+  minLaunchCount: 5,
+  minKeyActionCount: 3,
+  minDaysSinceLastRequest: 90,
+  maxRequestsPerYear: 3,
+  cooldownAfterLaunchSec: 120,
+  blockAfterErrorWindowMin: 5,
+};
+
+export interface ICanRequestContext {
+  uiIsIdle: boolean; // 호출자가 보장 — 모달/트랜지션/폼 입력/비동기 작업이 없을 때 true
+}
+
+export const canRequestReview = (
+  state: IReviewState,
+  ctx: ICanRequestContext,
+  policy = DEFAULT_POLICY,
+): boolean => {
+  if (!ctx.uiIsIdle) return false;
+  if (state.requestedThisSession) return false;
+  if (dayjs().diff(dayjs(state.installedAt), 'day') < policy.minDaysSinceInstall) return false;
+  if (state.launchCount < policy.minLaunchCount) return false;
+  if (state.keyActionCount < policy.minKeyActionCount) return false;
+  if (dayjs().diff(dayjs(state.sessionStartedAt), 'second') < policy.cooldownAfterLaunchSec) return false;
+  if (state.lastRequestedAt && dayjs().diff(dayjs(state.lastRequestedAt), 'day') < policy.minDaysSinceLastRequest) return false;
+  const oneYearAgo = dayjs().subtract(1, 'year');
+  if (state.requestHistory.filter((iso) => dayjs(iso).isAfter(oneYearAgo)).length >= policy.maxRequestsPerYear) return false;
+  if (state.lastErrorAt && dayjs().diff(dayjs(state.lastErrorAt), 'minute') < policy.blockAfterErrorWindowMin) return false;
+  return true;
+};
+```
+
+### Store Review 래퍼 + 훅 (`client.ts` / `hooks/useStoreReview.ts`)
+```typescript
+// client.ts
+import * as StoreReview from 'expo-store-review';
+export const isReviewAvailable = () => StoreReview.isAvailableAsync();
+export const requestReview = () => StoreReview.requestReview(); // fire-and-forget
+
+// hooks/useStoreReview.ts
+import { useCallback } from 'react';
+import { logEvent } from '@/shared/analytics';
+import { useReviewStore } from '../store';
+import { canRequestReview } from '../policy';
+import { isReviewAvailable, requestReview } from '../client';
+import type { TReviewTrigger } from '../triggers';
+
+export const useStoreReview = () => {
+  const state = useReviewStore();
+  const maybeRequest = useCallback(
+    async (trigger: TReviewTrigger, options: { uiIsIdle: boolean } = { uiIsIdle: true }) => {
+      if (!(await isReviewAvailable())) return false;
+      if (!canRequestReview(state, { uiIsIdle: options.uiIsIdle })) return false;
+      state.markRequested();
+      await logEvent('request_store_review', { trigger });
+      void requestReview(); // 표시 여부에 의존하지 않는다 (fire-and-forget)
+      return true;
+    },
+    [state],
+  );
+  return { maybeRequest };
+};
+```
+
+> `maybeRequest`의 boolean 반환값은 "정책 통과 + 호출 시도"만 의미한다. 다이얼로그 실제 표시를 보증하지 않으므로 후속 UI/네비게이션 분기에 사용하지 않는다.
 
 ## Store Review 통합 규칙
 
@@ -411,4 +517,4 @@ Google은 기기 식별자(GAID/IDFA)·AdMob 계정 로그인·IP·CTR 통계로
 
 ## Tools
 
-Read, Write, Edit, Glob, Grep
+전 도구 상속 (Read/Write/Edit/Glob/Grep/Bash + Playwright MCP). Firebase·AdMob 콘솔 자동화에 `mcp__playwright__*`, EAS Secret 등록에 Bash가 필요하므로 권한을 제한하지 않는다.

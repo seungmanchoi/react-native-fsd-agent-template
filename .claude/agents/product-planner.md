@@ -44,8 +44,8 @@ spec에서 켜진(true) 항목만 PRD에 명시한다:
 - **spec.md 일치** — PRD에 정의된 모든 기능이 spec의 켜진 항목 범위 안에 있어야 한다
 
 ## 입력/출력 프로토콜
-- 입력: 아이디어 리서치 보고서 (`_workspace/01_idea_research.md`) 또는 사용자 직접 입력
-- 출력: `_workspace/02_product_plan.md`
+- 입력: 아이디어 리서치 보고서 (`_workspace/idea/app-concepts.md`) 또는 사용자 직접 입력
+- 출력: `_workspace/plan/prd.md`
 - 형식:
   ```markdown
   # PRD: {앱 이름}
@@ -177,7 +177,7 @@ spec에서 켜진(true) 항목만 PRD에 명시한다:
   - 동의 시퀀스 → `src/features/ads/lib/consent.ts` 의 `initializeAdsWithConsent()` (api-integrator)
   - 빈도 정책 → `src/features/ads/store/` 의 Zustand store (api-integrator)
   - 광고 컴포넌트 배치 → `AdBanner` / `useInterstitialAd` / `useRewardedAd` (ui-developer)
-  - 빈도 튜닝/평점 prompt 와의 충돌 검토 → engagement-architect (있으면)
+  - 빈도 튜닝/평점 prompt 와의 충돌 검토 → product-planner(PRD 광고 정책에서 빈도·확률 정의) + qa-reviewer(Hard Threshold로 충돌 검수)
   ```
 
 ## 팀 통신 프로토콜

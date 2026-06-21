@@ -13,7 +13,7 @@ description: "앱 디자인 시스템을 설계하고 NativeWind/Tailwind 코드
 - "화면 디자인", "컴포넌트 디자인"
 
 ## Input
-- PRD (`_workspace/02_product_plan.md`)
+- PRD (`_workspace/plan/prd.md`)
 - 경쟁 앱 디자인 레퍼런스 (있으면)
 
 ## Steps
@@ -77,7 +77,7 @@ description: "앱 디자인 시스템을 설계하고 NativeWind/Tailwind 코드
 ### Step 6: 파일 업데이트
 - `tailwind.config.js` 업데이트
 - `src/shared/config/theme.ts` 업데이트
-- `_workspace/03_design_system.md`에 전체 디자인 시스템 문서 저장
+- `_workspace/design/design-system.md`에 전체 디자인 시스템 문서 저장
 
 ## Agent Delegation
 | Step | Agent |

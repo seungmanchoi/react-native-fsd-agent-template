@@ -7,8 +7,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-Harness-purple?style=for-the-badge&logo=anthropic&logoColor=white" />
-  <img src="https://img.shields.io/badge/Agents-9_Specialists-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Skills-8_Workflows-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Agents-10_Specialists-blueviolet?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Skills-9_Workflows-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Pattern-Pipeline-yellow?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Vibe_Coding-AI_Driven-ff69b4?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Harness_Engineering-Production-red?style=for-the-badge" />
@@ -49,7 +49,7 @@
 
 AI 에이전트 기반 풀 라이프사이클 개발을 지원하는 React Native + Expo + Feature-Sliced Design 프로덕션 템플릿.
 
-> **What makes this different?** 이 템플릿은 FSD 아키텍처 규칙을 이해하는 9개의 Claude Code 에이전트와 8개의 스킬을 포함합니다. "앱 만들어줘" 한 마디로 아이디어 도출부터 시장 조사 → 기획 → 디자인 시스템 → FSD 모듈 스캐폴딩 → API 연동 → 스크린 개발 → QA 검증까지 전체 파이프라인이 자동으로 실행됩니다.
+> **What makes this different?** 이 템플릿은 FSD 아키텍처 규칙을 이해하는 10개의 Claude Code 에이전트와 9개의 스킬을 포함합니다. "앱 만들어줘" 한 마디로 아이디어 도출부터 시장 조사 → 기획 → 디자인 시스템 → FSD 모듈 스캐폴딩 → API 연동 → 스크린 개발 → QA 검증까지 전체 파이프라인이 자동으로 실행됩니다. 출시 후에는 **지속 개선 루프**(`/iterate-app`)가 현황을 진단하고 KPI 갭·기술부채·커버리지로 순위를 매겨 다음 고도화를 추천한 뒤, 한 슬라이스를 만들고 검증하고 다음 작업을 추천합니다.
 
 ---
 
@@ -73,12 +73,16 @@ Phase 5: QA (병렬)
   5a       qa-reviewer       코드 품질, TypeScript strict, FSD 규칙
   5b       app-inspector     기능/UX 검사, Safe Area, 접근성
            │
-Phase 6: Iteration      Fix Loop (최대 3회)
+Phase 6: Iteration      Fix Loop (최대 3회, 출시 전 수렴)
            │
 Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
+═══════════════════════════════════════════════════════════════════════
+출시 후 지속 개선 루프 (반복):
+  Assess → 다음 고도화 추천 → 한 슬라이스 개발 → 검증 → 회고
+           loop-engineer  (/iterate-app)
 ```
 
-데이터 흐름: 에이전트 간 컨텍스트는 `_workspace/` 디렉토리를 통해 전달됩니다.
+데이터 흐름: 에이전트 간 컨텍스트는 `_workspace/` 디렉토리를 통해 전달됩니다. 출시 후 증분 작업은 일회성 파이프라인을 재실행하지 않고 `/iterate-app` 루프를 사용합니다.
 
 ---
 
@@ -95,6 +99,7 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 | **ui-developer** | NativeWind 스크린 & UI 컴포넌트 | "스크린 만들어줘" |
 | **qa-reviewer** | 코드 품질, TypeScript, FSD 규칙 | 각 Phase 자동 실행 |
 | **app-inspector** | 기능/UX 검사, Safe Area, 접근성 | "앱 검사해줘" |
+| **loop-engineer** | 출시 후 지속 고도화 루프, 다음 작업 추천(KPI 갭·기술부채·커버리지 랭킹) | "다음 뭐 만들지" / "고도화해줘" |
 
 ---
 
@@ -109,7 +114,8 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 | `create-entity` | "엔티티 만들어줘" | FSD entity 도메인 모델 생성 |
 | `create-screen` | "스크린 추가해줘" | Expo Router 스크린 생성 |
 | `inspect-app` | "앱 검사해줘" | 기능/UX 전체 검사 |
-| `orchestrate` | "앱 만들어줘" | 전체 파이프라인 오케스트레이션 |
+| `orchestrate` | "앱 만들어줘" | 전체 파이프라인 오케스트레이션 (일회성 빌드) |
+| `iterate-app` | "다음 뭐 만들지" / "고도화해줘" | 출시 후 개발→검증→다음 추천 지속 루프 |
 
 ---
 
@@ -122,7 +128,8 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 - **Phase 3**: Design — 디자인 시스템, 테마, 화면 레이아웃 설계.
 - **Phase 4**: Fan-out (순차) — feature-builder → api-integrator → ui-developer. **각 task 완료 시 spec 체크박스 업데이트**.
 - **Phase 5**: 병렬 실행 — qa-reviewer와 app-inspector가 동시에 검사.
-- **Phase 6**: Fix Loop — 최대 3회 반복 후 미해결 이슈는 TODO 마킹.
+- **Phase 6**: Fix Loop — 최대 3회 반복(출시 전 수렴) 후 미해결 이슈는 TODO 마킹.
+- **출시 후**: 지속 개선 루프(`/iterate-app`) — 현황 진단 → 다음 고도화 추천 → 한 슬라이스 개발 → 검증 → 회고를 반복. `loop-engineer`가 주도하며 전체 파이프라인을 재실행하지 않음. (`.claude/skills/orchestrate/references/loop-engineering.md`)
 
 ### Harness Design Principles
 
@@ -137,6 +144,7 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 | **디자인 4축 평가** | Design Quality(30%), Originality(25%), Craft(25%), Functionality(20%) |
 | **디자인 가드레일** | Do's & Don'ts로 AI의 오프브랜드 선택을 사전 차단 |
 | **능동 테스트** | 정적 분석 + `npm run typecheck/lint` 실행 + import 순환 참조 탐지 |
+| **지속 개선 루프** | 출시 후 개발→검증→다음 추천을 한 사이클 한 슬라이스씩, KPI 갭·가치·노력·부채·커버리지로 랭킹 |
 
 ---
 
@@ -300,7 +308,8 @@ npm run android    # Android Emulator
 │   │   ├── ui-developer.md             # UI/Screen development
 │   │   ├── spec-planner.md             # Spec docs, phase/task 분해
 │   │   ├── qa-reviewer.md              # Code quality assurance
-│   │   └── app-inspector.md            # Functional/UX inspection
+│   │   ├── app-inspector.md            # Functional/UX inspection
+│   │   └── loop-engineer.md            # 출시 후 고도화 루프, 다음 작업 추천
 │   └── skills/                         # AI Skills
 │       ├── ideate/                     # 아이디어 도출
 │       ├── plan-app/                   # 앱 기획
@@ -309,7 +318,9 @@ npm run android    # Android Emulator
 │       ├── create-entity/              # Entity scaffolding
 │       ├── create-screen/              # Screen creation
 │       ├── inspect-app/                # App inspection
+│       ├── iterate-app/                # 출시 후 지속 개선 루프
 │       └── orchestrate/                # Full pipeline orchestration
+│           └── references/             # harness-principles, loop-engineering, deploy-build-troubleshooting
 │
 ├── docs/
 │   ├── specs/                         # 피처별 스펙 문서 (spec-planner 출력)

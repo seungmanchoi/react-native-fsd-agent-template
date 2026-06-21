@@ -7,8 +7,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-Harness-purple?style=for-the-badge&logo=anthropic&logoColor=white" />
-  <img src="https://img.shields.io/badge/Agents-9_Specialists-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Skills-8_Workflows-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Agents-10_Specialists-blueviolet?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Skills-9_Workflows-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Pattern-Pipeline-yellow?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Vibe_Coding-AI_Driven-ff69b4?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Harness_Engineering-Production-red?style=for-the-badge" />
@@ -49,7 +49,7 @@
 
 A React Native + Expo + Feature-Sliced Design production template that supports AI agent-based full-lifecycle development.
 
-> **What makes this different?** This template includes 9 Claude Code agents and 8 skills that understand FSD architecture rules. With a single "Make an app" command, the entire pipeline—from ideation to market research, planning, design system, FSD module scaffolding, API integration, screen development, and QA verification—runs automatically.
+> **What makes this different?** This template includes 10 Claude Code agents and 9 skills that understand FSD architecture rules. With a single "Make an app" command, the entire pipeline—from ideation to market research, planning, design system, FSD module scaffolding, API integration, screen development, and QA verification—runs automatically. After launch, a **continuous improvement loop** (`/iterate-app`) keeps shipping: it diagnoses the current state, recommends the next highest-value enhancement (ranked by KPI gap, tech debt, and coverage), builds one slice, verifies it, and recommends what to build next.
 
 ---
 
@@ -73,12 +73,16 @@ Phase 5: QA (Parallel)
   5a       qa-reviewer       Code quality, TypeScript strict, FSD rules
   5b       app-inspector     Functional/UX inspection, Safe Area, accessibility
            │
-Phase 6: Iteration      Fix Loop (max 3 times)
+Phase 6: Iteration      Fix Loop (max 3 times, pre-launch convergence)
            │
 Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
+═══════════════════════════════════════════════════════════════════════
+Post-launch Continuous Improvement Loop (repeat):
+  Assess → Recommend next → Develop one slice → Verify → Reflect
+           loop-engineer  (/iterate-app)
 ```
 
-Data Flow: Context between agents is passed through the `_workspace/` directory.
+Data Flow: Context between agents is passed through the `_workspace/` directory. After launch, incremental work uses the `/iterate-app` loop instead of re-running the one-shot pipeline.
 
 ---
 
@@ -95,6 +99,7 @@ Data Flow: Context between agents is passed through the `_workspace/` directory.
 | **ui-developer** | NativeWind screens & UI components | "Create screens" |
 | **qa-reviewer** | Code quality, TypeScript, FSD rules | Auto at each Phase |
 | **app-inspector** | Functional/UX inspection, Safe Area, accessibility | "Inspect app" |
+| **loop-engineer** | Post-launch continuous improvement loop, next-enhancement recommendation (KPI gap / tech-debt / coverage ranking) | "What's next" / "iterate" |
 
 ---
 
@@ -109,7 +114,8 @@ Data Flow: Context between agents is passed through the `_workspace/` directory.
 | `create-entity` | "Create entity" | FSD entity domain model creation |
 | `create-screen` | "Add screen" | Expo Router screen creation |
 | `inspect-app` | "Inspect app" | Full functional/UX inspection |
-| `orchestrate` | "Make an app" | Full pipeline orchestration |
+| `orchestrate` | "Make an app" | Full pipeline orchestration (one-shot build) |
+| `iterate-app` | "What's next" / "Improve it" | Post-launch develop → verify → recommend-next loop |
 
 ---
 
@@ -122,7 +128,8 @@ The pipeline mixes two patterns:
 - **Phase 3**: Design — Design system, theme, and screen layout design.
 - **Phase 4**: Fan-out (Sequential) — feature-builder → api-integrator → ui-developer. **Update spec checkboxes on task completion**.
 - **Phase 5**: Parallel Execution — qa-reviewer and app-inspector inspect simultaneously.
-- **Phase 6**: Fix Loop — Up to 3 iterations; unresolved issues marked as TODO.
+- **Phase 6**: Fix Loop — Up to 3 iterations (pre-launch convergence); unresolved issues marked as TODO.
+- **Post-launch**: Continuous Improvement Loop (`/iterate-app`) — Assess → Recommend next → Develop one slice → Verify → Reflect, repeating. Driven by `loop-engineer`; does **not** re-run the full pipeline. See `.claude/skills/orchestrate/references/loop-engineering.md`.
 
 ### Harness Design Principles
 
@@ -137,6 +144,7 @@ Designed based on [Anthropic's official Harness Engineering Guide](https://www.a
 | **4-Axis Design Evaluation** | Design Quality (30%), Originality (25%), Craft (25%), Functionality (20%). |
 | **Design Guardrails** | Use Do's & Don'ts to prevent off-brand AI choices. |
 | **Active Testing** | Static analysis + `npm run typecheck/lint` + circular dependency detection. |
+| **Continuous Improvement Loop** | Post-launch: develop → verify → recommend-next, one slice per cycle, ranked by KPI gap / value / effort / debt / coverage. |
 
 ---
 
@@ -300,7 +308,8 @@ npm run android    # Android Emulator
 │   │   ├── ui-developer.md             # UI/Screen development
 │   │   ├── spec-planner.md             # Spec docs, phase/task decomposition
 │   │   ├── qa-reviewer.md              # Code quality assurance
-│   │   └── app-inspector.md            # Functional/UX inspection
+│   │   ├── app-inspector.md            # Functional/UX inspection
+│   │   └── loop-engineer.md            # Post-launch improvement loop, next-enhancement recommendation
 │   └── skills/                         # AI Skills
 │       ├── ideate/                     # Ideation
 │       ├── plan-app/                   # App planning
@@ -309,7 +318,9 @@ npm run android    # Android Emulator
 │       ├── create-entity/              # Entity scaffolding
 │       ├── create-screen/              # Screen creation
 │       ├── inspect-app/                # App inspection
+│       ├── iterate-app/                # Post-launch continuous improvement loop
 │       └── orchestrate/                # Full pipeline orchestration
+│           └── references/             # harness-principles, loop-engineering, deploy-build-troubleshooting
 │
 ├── docs/
 │   ├── specs/                         # Feature spec docs (spec-planner output)

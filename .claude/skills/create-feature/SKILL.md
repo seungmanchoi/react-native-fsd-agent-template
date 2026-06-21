@@ -1,6 +1,13 @@
+---
+name: create-feature
+description: "FSD 아키텍처 규칙에 따라 새 feature 모듈(api/hooks/store/types/ui/index)을 스캐폴딩하는 스킬. barrel export·타입 프리픽스·레이어 의존성을 강제한다. '피처 만들어줘', 'feature 추가해줘', '새 기능 만들어줘' 요청 시 반드시 이 스킬을 사용할 것."
+---
+
 # Create Feature Skill
 
 FSD 아키텍처 규칙에 따라 새 feature 모듈을 생성하는 스킬.
+
+> 스캐폴딩 전 `.claude/agents/feature-builder.md`의 Pre-Work Contract(`_workspace/spec.md` 분기 규칙)를 따른다 — spec에서 켜진 모듈만 생성한다(예: `auth.methods=[]`면 `features/auth/` 생성 안 함).
 
 ## Trigger
 
