@@ -395,6 +395,7 @@ src/shared/store-review/
 - **api-integrator**: `src/shared/store-review/` 모듈 인프라(래퍼/정책/store/triggers/훅) 구축
 - **ui-developer**: 각 화면의 성공 콜백에 `useStoreReview().maybeRequest(...)` 호출 삽입 + `recordKeyAction()` 카운터 호출
 - **qa-reviewer**: 안티패턴/Hard Threshold 검사
+- **배포 직전 게이트**: 인앱 리뷰는 **게시된 빌드에서만 표시**되고 출시 후엔 코드로만 고칠 수 있으므로, `store_review=true`인데 `maybeRequest`가 어느 화면에도 배선되지 않았으면 빌드를 보류한다 (orchestrate Phase 7 Step 7.0 — 트리거가 적절한 가치-순간에 들어갔는지 최종 확인)
 
 ## 광고 동의 시퀀스 / eCPM 최적화 (MANDATORY)
 

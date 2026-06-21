@@ -1035,6 +1035,18 @@ Loop 시작 (최대 3회):
 **스킬**: `/store-deploy` 참조 (별도 스킬)
 **입력**: `_workspace/` 전체, `app.config.ts`
 
+#### Step 7.0: 배포 전 확인 — 런타임 트리거 배선 게이트 (Pre-Deploy Gate)
+
+**게시된 빌드에서만 동작하고 출시 후엔 코드 업데이트로만 고칠 수 있는 런타임 기능**은, 빌드 직전에 "적절한 시점에 실제로 배선됐는지"를 반드시 확인한다. 시뮬레이터·dev·TestFlight에선 검증이 안 되므로 **코드 배선 여부로만 판정**한다.
+
+| 확인 항목 | 통과 기준 | 미통과 시 |
+|----------|----------|----------|
+| **스토어 리뷰 트리거** | `spec.md`의 `ux.store_review=true`이면, PRD Review Triggers에 매핑된 화면의 **긍정적 액션 성공 콜백(UI idle)**에 `maybeRequest(REVIEW_TRIGGERS.X)`가 **최소 1곳 이상** 실제 배선됨. (인앱 리뷰는 스토어 콘솔 사전 설정 불필요) | 한 곳도 없으면 평점 수집이 0 → `ui-developer`로 환원, 가치-순간 결정 후 배선 |
+| 광고 동의/초기화 | `monetization.model`에 광고 포함 시 `initializeAdsWithConsent()` await + AdMob Console GDPR/IDFA 메시지 **Published** | `api-integrator`로 환원 |
+| Analytics KPI 배선 | 북극성/4축 이벤트가 화면에 배선(`useScreenTracking` + 커스텀 이벤트) | `api-integrator`/`ui-developer`로 환원 |
+
+> **왜 배포 단계인가**: 위 트리거들은 "어느 화면의 어느 순간에 넣을지"가 UX 품질을 좌우하는데(평점은 잘못 띄우면 ★1 폭격), 그 판단은 전체 화면이 완성된 **배포 직전**에 가장 정확하다. 또한 게시 후엔 즉시 못 고치므로 여기가 마지막 안전망이다. 모두 통과해야 Build/Submit 진행.
+
 ```
 Tasks:
 1. EAS Build (프로덕션 바이너리)

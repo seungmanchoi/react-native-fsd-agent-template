@@ -55,6 +55,7 @@ plugins/
 | **릴리즈 노트** | **Android changelogs는 반드시 500 bytes 이내**. Google Play API 제한. iOS release_notes는 4000자까지 가능하지만, 동일 내용을 Android에도 사용하므로 **500 bytes 기준으로 작성** |
 | 앱 버전 관리 | ASC/Play 기존 버전보다 높은 version 설정 필수 |
 | `.easignore` 설정 | 빌드 아카이브에 불필요한 파일 제외 |
+| **런타임 트리거 배선** | **게시 후엔 코드로만 수정 가능.** 빌드 직전 확인: `ux.store_review=true`면 평점 트리거(`maybeRequest`)가 가치-순간 화면 성공 콜백에 최소 1곳 배선됐는지 / 광고 사용 시 AdMob GDPR·IDFA 메시지 Published 여부 / KPI 이벤트 배선 여부. (시뮬레이터·dev·TestFlight에선 검증 불가 → 코드로만 판정) 상세: orchestrate Phase 7 Step 7.0 |
 
 ## Android 특수 고려사항
 
