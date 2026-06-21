@@ -134,6 +134,34 @@ _workspace/
 **입력**: 사용자 자연어 요청
 **출력**: `_workspace/spec.md`
 
+#### Step 0.0: 코드 인텔리전스(CodeGraph) 초기화 (권장 · 스킵 가능)
+
+**목적**: 이후 모든 phase가 grep 대신 구조 기반 코드 인텔리전스(심볼 정의·호출 관계·영향도)를 사용하도록 인덱스를 준비한다. Step 0.2 컨텍스트 수집, `qa-reviewer`의 FSD 의존성·영향 검사, `loop-engineer`의 impact/callers 기반 "다음 작업" 랭킹이 이 인덱스를 활용한다. **미설치·미빌드여도 파이프라인은 grep fallback으로 정상 진행하며, 절대 차단하지 않는다.**
+
+**판정 흐름** (`AskUserQuestion`으로 인터랙션):
+
+```
+1. CLI 설치 확인:  which codegraph
+   ├─ 미설치  → 질문 "CodeGraph(코드 인텔리전스)가 설치돼 있지 않습니다. 설치할까요?"
+   │     ├─ 설치       → `codegraph install`(현재 에이전트에 MCP 등록) 안내 → 2단계로
+   │     └─ 건너뛰기   → grep fallback으로 Step 0.1 진행
+   └─ 설치됨  → 2단계로
+
+2. 프로젝트 인덱스(.codegraph/) 확인:  codegraph status  (또는 ls .codegraph/)
+   ├─ 인덱스 없음 → 질문 "CodeGraph가 설치돼 있습니다. 이 프로젝트에 인덱스를 빌드하고 진행할까요?"
+   │     ├─ 빌드하고 진행 (권장) → `codegraph init -i` 실행 → Step 0.1 진행
+   │     └─ 인덱스 없이 진행     → grep fallback으로 Step 0.1 진행
+   └─ 인덱스 있음 → `codegraph sync`(변경분만 동기화) 후 Step 0.1 진행
+```
+
+> 핵심 인터랙션: **설치됨 + 인덱스 없음**이면 곧바로 빌드하지 말고 "빌드하고 진행할지"를 한 번 묻는다(인덱싱은 수백~수천 파일에서 시간이 걸릴 수 있으므로 사용자 동의 후 실행).
+
+**무인 실행(`execution.unattended: true`)**: 묻지 않고 자동 처리 —
+- 설치됨 + 인덱스 없음 → `codegraph init -i` 자동 실행
+- 설치됨 + 인덱스 있음 → `codegraph sync`
+- 미설치 → 스킵(grep fallback). 설치를 강제하지 않는다.
+- 선택 결과는 `_workspace/decisions.log`에 기록 (예: `decision=codegraph value=indexed source=unattended`).
+
 #### Step 0.1: spec.md 존재 여부 확인
 
 ```

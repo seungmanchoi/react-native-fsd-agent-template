@@ -45,6 +45,9 @@ android/
 # Playwright MCP artifacts
 .playwright-mcp/
 
+# CodeGraph index (local code-intelligence cache — rebuild with `codegraph init -i`)
+.codegraph/
+
 # IDE
 .idea/
 
