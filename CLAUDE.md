@@ -589,6 +589,25 @@ npm run typecheck    # TypeScript check
 npm run format       # Prettier
 ```
 
+## CodeGraph (코드 인텔리전스 · 선택)
+
+이 프로젝트는 CodeGraph(`codegraph` CLI + `codegraph_*` MCP 도구)를 **선택적으로** 사용한다. tree-sitter로 파싱한 심볼/호출/영향도 그래프로, grep이 줄 수 없는 **구조적** 답을 sub-ms로 준다. 설치·인덱스 빌드는 강제가 아니며, 없으면 모든 작업이 grep fallback으로 정상 진행한다.
+
+- **초기 설정/인덱스 빌드**: orchestrate **Phase 0 Step 0.0**이 CLI 설치·인덱스 존재를 감지해 빌드 여부를 인터랙션으로 처리한다(무인 모드는 자동). 수동: `codegraph init -i`.
+- **사용 원칙**: 구조 질문(무엇이 무엇을 호출/정의/파급하는지)은 codegraph, 리터럴 텍스트(문자열·주석·로그)는 grep. 결과는 신뢰하고 grep으로 재검증하지 않는다.
+
+| 질문 | 도구 |
+|------|------|
+| X 정의 위치 / 심볼 찾기 | `codegraph_search` |
+| 작업/영역 컨텍스트 | `codegraph_context` (PRIMARY) |
+| X→Y 흐름 추적 | `codegraph_trace` |
+| 무엇이 이걸 호출/이게 무엇을 호출 | `codegraph_callers` / `codegraph_callees` |
+| 바꾸면 뭐가 깨지나 | `codegraph_impact` |
+| 여러 심볼 소스 한 번에 | `codegraph_explore` |
+
+- **루프에서**: `/iterate-app`은 매 사이클 진단 전 `codegraph sync`(변경분만)로 최신화하고 `codegraph impact`로 회귀 범위를 산정한다(상세: iterate-app 스킬).
+- **인덱스 캐시(`.codegraph/`)는 `.gitignore`** — 머신 로컬. 클론 후 필요 시 `codegraph init -i`로 재빌드.
+
 ## Architecture: Feature-Sliced Design (FSD)
 
 ```
