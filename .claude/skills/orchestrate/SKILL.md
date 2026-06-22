@@ -1057,6 +1057,10 @@ Tasks:
 
 상세 절차: `~/works/store-deploy-plugin/skills/store-deploy/SKILL.md`
 
+#### Step 7.7: Android 프로덕션 액세스 신청 (개인 계정 한정)
+
+Google Play **개인 계정**으로 만든 신규 앱은, 비공개 테스트 **14일+ / 12명+** 게이트를 충족한 뒤 **"프로덕션 액세스 신청"** 양식을 제출·통과해야 프로덕션 공개가 가능하다. 이 신청 양식 작성·제출은 `api-integrator`의 "Play Console 프로덕션 액세스 신청 자동화" 능력이 담당하며, **답변은 `references/play-production-access-application.md`를 정본으로 참고**해 사용자의 실제 사실로 작성한다(날조 금지, 최종 제출 전 사용자 확인). 승인은 보통 7일 이내, 이메일 통보. 승인 후 비공개 테스트(alpha) 최신 버전을 콘솔에서 프로덕션으로 "버전 승급"(재빌드 불필요).
+
 ---
 
 ## Pipeline Diagram

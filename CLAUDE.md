@@ -565,6 +565,8 @@ AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭,
 
 배포 전 필수 준비(개인정보처리방침/아이콘/스크린샷/메타데이터/**릴리즈 노트 500byte 제한**/버전 관리), Android·iOS 특수 고려(Draft App 첫 제출은 Play Console 웹 수동 업로드 · `eas.json` `ascAppId` · `ITSAppUsesNonExemptEncryption` · ASC API Key 비대화식 제출), iOS/Android 빌드 트러블슈팅(xcodebuild 타임아웃 · `InfoPlist.strings` 중복 · **RNFirebase + RN 0.81 + New Arch + static frameworks 3대 빌드 에러와 `withRNFirebaseStaticBuild` 패치 상세** · reanimated `libworklets` 캐시)은 모두 `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md` 로 이전했다. 배포 시 해당 문서 + `/store-deploy` 스킬을 따른다.
 
+**Android 프로덕션 액세스 신청(개인 계정)**: 비공개 테스트 14일+/12명+ 게이트 충족 후 제출하는 "프로덕션 액세스 신청" 양식의 전체 질문·답변 작성 원칙(사실 기반·날조 금지·300자·worked example)은 `.claude/skills/orchestrate/references/play-production-access-application.md`가 정본이다. 신청서 작성은 `api-integrator`의 "Play Console 프로덕션 액세스 신청 자동화" 능력이 담당하며, 작성 시 반드시 이 문서를 참고한다.
+
 ## Branch Strategy
 
 ```
