@@ -655,6 +655,16 @@ plugins/
 | **미사용 패키지** | `npm ls` 확인 후 제거 | 번들 크기 감소 |
 | **Lottie 최적화** | 불필요 레이어 제거, 파일 크기 확인 | 1-5MB 가능 |
 
+### Android 프로덕션 액세스 신청 (개인 계정)
+
+Google Play **개인 계정**은 신규 앱을 프로덕션 트랙에 올리기 전, 비공개 테스트 게이트(**12명+ × 14일+**)를 충족한 뒤 **프로덕션 액세스 신청**을 통과해야 한다. 신청서는 3단계 설문(비공개 테스트 정보 / 앱 정보 / 프로덕션 준비)이며, Google 심사는 보통 7일 이내(계정 소유자 이메일로 통보)다.
+
+Phase 7에서 **api-integrator** 에이전트가 Playwright MCP로 이 설문을 작성·제출한다. 답변은 개발자의 **실제 사실 기반(날조 금지)**으로, 아래 정본 가이드를 참고해 작성한다:
+
+- 가이드: [`.claude/skills/orchestrate/references/play-production-access-application.md`](./.claude/skills/orchestrate/references/play-production-access-application.md) — 전체 질문·라디오 옵션·답변 작성 원칙·facts 체크리스트·worked example
+
+승인 후에는 이미 테스트된 비공개 테스트(alpha) 빌드를 콘솔에서 프로덕션으로 **승급**하면 된다(재빌드 불필요).
+
 ---
 
 ## Inspired By

@@ -655,6 +655,16 @@ plugins/
 | **Unused Packages** | Check `npm ls` and remove | Bundle size reduction |
 | **Lottie Optimization** | Remove unnecessary layers, check file size | Potential 1-5MB reduction |
 
+### Android Production Access (Personal Accounts)
+
+Personal Google Play accounts must pass a **Production Access Application** before a new app can go to the production track — after meeting the closed-testing gate (**12+ testers × 14+ days**). The application is a 3-step survey (closed-testing info / app info / production readiness), reviewed by Google (usually within 7 days, emailed to the account owner).
+
+During Phase 7, the **api-integrator** agent fills and submits this survey via Playwright MCP. Answers are written from the developer's **real facts (never fabricated)** following the canonical guide:
+
+- Guide: [`.claude/skills/orchestrate/references/play-production-access-application.md`](./.claude/skills/orchestrate/references/play-production-access-application.md) — full question list, radio options, answer-writing principles, facts checklist, and a worked example.
+
+After approval, promote the already-tested closed-testing (alpha) build to production in the console — no rebuild needed.
+
 ---
 
 ## Inspired By
