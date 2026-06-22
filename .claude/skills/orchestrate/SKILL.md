@@ -723,6 +723,12 @@ npm run typecheck && npm run lint
 **입력**: `_workspace/design/screen-layouts.md`, `src/features/` (4a+4b 출력)
 **출력**: `app/` (Expo Router), `src/widgets/`, `src/shared/ui/`
 
+**사전 점검 (4c-Pre): NativeWind 동작 스모크 검증** — 첫 화면을 짜기 전에 1회.
+NativeWind는 6개 파일(`babel.config.js` / `metro.config.js` / `tailwind.config.js` / `global.css` / 루트 `_layout.tsx`의 `import '../global.css'` / `nativewind-env.d.ts`)이 **전부** 맞아야 동작하고, 하나라도 빠지면 `className`이 **에러 없이 조용히 무시**된다. 화면 20개를 만든 뒤 발견하면 전체 스타일을 다시 손봐야 하므로 먼저 확인:
+- 6파일 존재·설정 확인 (CLAUDE.md "NativeWind 필수 설정" 표 기준)
+- 임시 토큰(예: `className="bg-red-500"`)이 실제 렌더에 반영되는지 1회 확인 (또는 기존 화면 시각 확인 + typecheck)
+- 실패 → 6파일 수정 후 재확인. **통과해야 Tasks 진행** (전부-or-전무 설정이므로 조기 차단)
+
 ```
 Tasks:
 1. Expo Router 기반 스크린 파일 생성
@@ -748,8 +754,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Screen() {
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      {/* content */}
+    <SafeAreaView className="flex-1 bg-background">
+      {/* 테마 토큰 사용 — bg-white 하드코딩 금지 (spec.md ux.dark_mode 준수) */}
     </SafeAreaView>
   );
 }
@@ -910,6 +916,16 @@ Tasks:
   → Phase 2 (product-planner) 재실행으로 escalate
 - PRD에 정의된 이벤트와 코드의 EVENTS 상수가 1:1로 일치하지 않으면 FAIL
 
+**부트 시퀀스 정본 확인 (`_layout.tsx`)**:
+Phase 4b(광고·SecureStore)와 4d(Analytics·Crashlytics·Review)가 모두 루트 `_layout.tsx` 한 곳에 init을 모은다. **순서가 어긋나면 첫 이벤트·첫 광고 요청·동의 정보가 누락**되므로(전형적 order-sensitive 지점) 아래 정본 순서를 확인한다:
+1. SecureStore 토큰 하이드레이션 (Providers 마운트 전)
+2. 에러/Crashlytics 핸들러 등록 + `reviewStore.recordError` 연결 — **가장 먼저** (이후 init 중 크래시도 포착)
+3. `await initializeAdsWithConsent()` (UMP → ATT → `mobileAds().initialize()`)
+4. `initAnalytics()` + 동의 결과를 `setUserProperty('ump_status'/'att_status', ...)`로 기록 — **3 이후여야** 동의가 반영됨
+5. `reviewStore.recordLaunch()` (세션당 1회)
+6. Providers(QueryClient/Theme/SafeArea) 마운트
+- 위반(특히 2가 3·4보다 늦거나, 4가 3보다 먼저) 발견 → `api-integrator`로 환원. 미사용 모듈(광고/Analytics 미선택)은 해당 단계 생략 가능.
+
 **Error Handling**:
 - **Firebase 콘솔 미로그인**: Playwright MCP가 로그인 페이지를 감지하면 사용자에게 브라우저 창에서 직접 로그인하라고 요청하고 대기. 절대 자격증명을 자동 입력 시도하지 않는다.
 - **Playwright selector 실패** (콘솔 UI 변경): `_workspace/implementation/firebase-manual.md`에 진행 상태(어느 단계에서 실패했는지, 어떤 앱이 이미 등록되었는지) 기록 후 사용자에게 수동 등록 + 파일 다운로드를 요청. 사용자 확인 후 파일 이동 단계부터 자동화 재개.
@@ -1035,9 +1051,11 @@ Loop 시작 (최대 3회):
 **스킬**: `/store-deploy` 참조 (별도 스킬)
 **입력**: `_workspace/` 전체, `app.config.ts`
 
-#### Step 7.0: 배포 전 확인 — 런타임 트리거 배선 게이트 (Pre-Deploy Gate)
+#### Step 7.0: 배포 전 재검증 게이트 (Pre-Deploy Gate)
 
-**게시된 빌드에서만 동작하고 출시 후엔 코드 업데이트로만 고칠 수 있는 런타임 기능**은, 빌드 직전에 "적절한 시점에 실제로 배선됐는지"를 반드시 확인한다. 시뮬레이터·dev·TestFlight에선 검증이 안 되므로 **코드 배선 여부로만 판정**한다.
+**게시된 빌드에서만 동작하거나 출시 후 코드/콘솔로만 고칠 수 있는 것들**은, 빌드 직전에 "제대로·일관되게 됐는지"를 마지막으로 재확인한다. 시뮬레이터·dev·TestFlight에선 검증되지 않는 항목은 **코드·설정 상태로만 판정**한다. 하나라도 미통과면 Build/Submit 보류.
+
+**(a) 런타임 트리거 배선** — 게시 후 코드로만 수정 가능
 
 | 확인 항목 | 통과 기준 | 미통과 시 |
 |----------|----------|----------|
@@ -1045,7 +1063,19 @@ Loop 시작 (최대 3회):
 | 광고 동의/초기화 | `monetization.model`에 광고 포함 시 `initializeAdsWithConsent()` await + AdMob Console GDPR/IDFA 메시지 **Published** | `api-integrator`로 환원 |
 | Analytics KPI 배선 | 북극성/4축 이벤트가 화면에 배선(`useScreenTracking` + 커스텀 이벤트) | `api-integrator`/`ui-developer`로 환원 |
 
-> **왜 배포 단계인가**: 위 트리거들은 "어느 화면의 어느 순간에 넣을지"가 UX 품질을 좌우하는데(평점은 잘못 띄우면 ★1 폭격), 그 판단은 전체 화면이 완성된 **배포 직전**에 가장 정확하다. 또한 게시 후엔 즉시 못 고치므로 여기가 마지막 안전망이다. 모두 통과해야 Build/Submit 진행.
+**(b) 스토어·콘솔·일관성·시크릿** — 출시 후 수정이 번거롭거나 리젝/정책 위반을 유발
+
+| 확인 항목 | 통과 기준 | 미통과 시 |
+|----------|----------|----------|
+| **앱 이름 4곳 일치** | `app.config.ts` `name` / `withLocalizedAppName` / iOS `name.txt` / Android `title.txt` 가 **언어별로 모두 동일**(30자 이내) | 불일치 → 4곳 동기화 (`prebuild --clean` 재빌드 필요) |
+| **권한 ↔ 사용 설명 일치** | spec `permissions.*`에서 켠 권한마다 Info.plist 사용 설명 문구 존재 + **안 쓰는 권한은 미선언** | 누락/과선언 → 스토어 리젝 사유, `api-integrator`로 환원 |
+| **데이터 안전 라벨 ↔ SDK** | 통합된 데이터 수집 SDK(Analytics/AdMob/Crashlytics)와 Play 데이터 안전 / Apple 개인정보 라벨이 **일치** | 불일치 → 정책 위반/리젝, store-forms로 보정 |
+| **IAP/구독 상품 등록** (조건부) | `monetization.model`에 IAP/구독 포함 시 ASC/Play 콘솔에 상품 생성·승인됨 | 미등록 → 페이월 무동작(수익 0), 콘솔 등록 후 재확인 |
+| **미해결 HIGH QA 이슈** | `_workspace/qa/unresolved.md`에 HIGH 이상 미해결 이슈 **0건** (있으면 사용자가 명시 승인) | 미승인 HIGH 잔존 → 배포 보류 |
+| **app-ads.txt** (조건부) | 광고 사용 시 app-ads.txt 게시 + 스토어 리스팅에 도메인 연결 (store-admob Step 7) | 미게시 → 무효 트래픽 판정·수익 차단 |
+| **EAS Secrets 주입** | `GoogleService-Info.plist`/`google-services.json` 등 시크릿이 EAS Secrets로 주입됨(평문 커밋 0, `eas secret:list` 확인) | 누락 → 런타임 Firebase 실패, Secrets 설정 후 재빌드 |
+
+> **왜 배포 단계인가**: (a)는 "어느 화면의 어느 순간에 넣을지"가 UX 품질을 좌우하고(평점은 잘못 띄우면 ★1 폭격), (b)는 여러 곳에 흩어져 동기화가 깨지거나 콘솔/스토어 설정과 어긋나기 쉽다. 둘 다 **전체가 완성된 배포 직전**에 판단·확인이 가장 정확하고, 게시 후엔 즉시 못 고치므로 여기가 마지막 안전망이다. 모두 통과해야 Build/Submit 진행.
 
 ```
 Tasks:

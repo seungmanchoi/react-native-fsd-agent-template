@@ -56,6 +56,17 @@ plugins/
 | 앱 버전 관리 | ASC/Play 기존 버전보다 높은 version 설정 필수 |
 | `.easignore` 설정 | 빌드 아카이브에 불필요한 파일 제외 |
 | **런타임 트리거 배선** | **게시 후엔 코드로만 수정 가능.** 빌드 직전 확인: `ux.store_review=true`면 평점 트리거(`maybeRequest`)가 가치-순간 화면 성공 콜백에 최소 1곳 배선됐는지 / 광고 사용 시 AdMob GDPR·IDFA 메시지 Published 여부 / KPI 이벤트 배선 여부. (시뮬레이터·dev·TestFlight에선 검증 불가 → 코드로만 판정) 상세: orchestrate Phase 7 Step 7.0 |
+| **배포 게이트 (b) 항목** | 앱 이름 4곳 일치 / 권한↔사용설명 일치(미사용 권한 미선언) / 데이터 안전 라벨↔수집 SDK 일치 / IAP·구독 상품 콘솔 등록 / 미해결 HIGH QA 이슈 0 / app-ads.txt 게시 / EAS Secrets 주입. 상세: orchestrate Phase 7 Step 7.0 (b) |
+
+## 네이티브 설정 변경 → 재빌드 무효화 (재검증 규칙)
+
+`app.config.ts` · config plugin · 네이티브 의존성 · `infoPlist` · 권한 · 앱 이름(`withLocalizedAppName`) 등 **네이티브 레이어에 영향을 주는 변경은 JS 핫리로드로 반영되지 않는다.** 변경 후 반드시 재검증한다:
+
+1. `npx expo prebuild --clean` (ios/android 재생성 — 이전 네이티브 산출물 폐기)
+2. `npm run typecheck && npm run lint`
+3. `eas build --local` 또는 development build로 1회 구동 검증
+
+특히 `withLocalizedAppName`(홈화면 다국어 이름) · plugin 추가/제거 · 권한·Info.plist 문구 변경은 clean prebuild 없이는 **반영 안 된 채 빌드가 성공**해 출시 후에야 발견된다. 변경이 네이티브에 닿는지 애매하면 clean prebuild를 기본값으로 한다.
 
 ## Android 특수 고려사항
 
