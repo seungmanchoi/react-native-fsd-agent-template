@@ -150,6 +150,10 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 
 하네스는 **ponytail**("lazy senior dev") 플러그인을 권장한다: 존재하지 않아도 되는 코드가 최고의 코드. 사다리(YAGNI → 기존 것 재사용 → 표준 라이브러리 → 네이티브 → 설치된 의존성 → 한 줄 → 최소 코드)와 증상이 아닌 **근본 원인** 버그 수정을 강제한다. `.claude/settings.json`에 선언돼 있어 클론 시 `DietrichGebert/ponytail` 마켓플레이스에서 설치 프롬프트가 뜬다. `/ponytail lite|full|ultra`로 토글. 원칙은 `CLAUDE.md`에도 baked-in되어 플러그인 없이도 적용된다.
 
+### 코드 인텔리전스 — codegraph (선택)
+
+구조적 코드 질문(무엇이 무엇을 호출/파급/정의하는지)에는 하네스가 **codegraph**(tree-sitter 지식 그래프, `codegraph_*` MCP 도구)를 사용한다. 선택 사항이며 없으면 grep으로 fallback한다. `codegraph init -i`로 인덱스를 빌드하고(`.codegraph/`는 gitignore), `orchestrate` Phase 0가 감지, `/iterate-app`이 매 사이클 재동기화한다. 도구 선택표는 `CLAUDE.md` 참고.
+
 ---
 
 ## Tech Stack

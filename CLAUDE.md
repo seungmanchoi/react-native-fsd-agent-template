@@ -80,6 +80,10 @@ npx expo install expo-secure-store
 
 #### 코드 통합 위치 (FSD)
 
+템플릿 기본 구현은 **`src/shared/api/client.ts`의 `tokenManager`**가 담당한다 — expo-secure-store 직접 래퍼(`setTokens`/`getAccessToken`/`getRefreshToken`/`clearTokens`), 키는 `TOKEN_KEYS` 상수. Axios 인터셉터가 여기서 토큰을 읽는다.
+
+토큰 외 시크릿(결제·라이선스·PII 결합 토큰 등)이 늘면 아래처럼 전용 모듈로 분리한다:
+
 ```
 src/shared/secure-storage/
 ├── client.ts          # expo-secure-store 래퍼 (getItem/setItem/deleteItem/multiRemove)
@@ -88,13 +92,13 @@ src/shared/secure-storage/
 └── index.ts           # barrel export
 ```
 
-**구현 코드는 `.claude/agents/api-integrator.md`의 "Secure Storage 래퍼 / SecureStore-backed Zustand Persist" 섹션이 정본**이다 (`client.ts` 래퍼, `keys.ts` 키 카탈로그, 토큰 store용 persist 어댑터). 상시 기억할 규칙만: `keychainAccessible = WHEN_UNLOCKED_THIS_DEVICE_ONLY`(iCloud 백업 차단), 키는 `SECURE_KEYS` 상수로만 정의한다.
+**분리 시 구현 코드는 `.claude/agents/api-integrator.md`의 "Secure Storage 래퍼 / SecureStore-backed Zustand Persist" 섹션이 정본**이다. 상시 규칙: `keychainAccessible = WHEN_UNLOCKED_THIS_DEVICE_ONLY`(iCloud 백업 차단), 키는 상수로만 정의한다.
 
 #### 토큰 저장소 통합 규칙
 
-- `features/auth/store/`의 토큰 상태는 메모리에 보관하고, **persist 어댑터는 `expo-secure-store` 기반 custom storage**로 구현한다. Zustand `persist`의 `storage`에 `createJSONStorage(() => secureZustandStorage)`를 주입한다.
+- 템플릿 기본: 토큰은 `src/shared/api/client.ts`의 `tokenManager`로 저장/조회하고, auth 훅(use-login/use-signup)은 `tokenManager.setTokens(...)`만 호출한다. Zustand `persist`로 토큰을 AsyncStorage에 저장하지 않는다. (secure-storage 모듈로 분리한 경우 토큰 store는 `createJSONStorage(() => secureZustandStorage)` 어댑터를 쓴다.)
 - Axios 인터셉터(`src/shared/api/client.ts`)는 토큰을 메모리 또는 SecureStore에서 가져온다. **AsyncStorage 직접 조회 금지**.
-- 토큰 만료/로그아웃 시 `clearAllSecure()` 호출로 모든 시크릿 키를 일괄 삭제한다.
+- 토큰 만료/로그아웃 시 `tokenManager.clearTokens()`(시크릿이 여럿이면 `clearAllSecure()`)로 시크릿을 삭제한다.
 - iOS 옵션: 기본은 `WHEN_UNLOCKED_THIS_DEVICE_ONLY` — 디바이스 잠금 해제 시에만 접근, 백업/iCloud 동기화 제외.
 - Android: `expo-secure-store`가 자동으로 Keystore-backed `EncryptedSharedPreferences`를 사용. 별도 설정 불필요.
 
@@ -264,22 +268,22 @@ Expo plugin 등록: `app.config.ts` → `plugins: ['@react-native-firebase/app',
 ### 코드 통합 위치 (FSD)
 
 ```
-src/shared/analytics/
-├── client.ts          # firebase.analytics() 래퍼 — logEvent, setUserProperty
-├── events.ts          # 이벤트 카탈로그 (상수 + 파라미터 타입)
-├── hooks/
-│   └── useScreenTracking.ts  # 화면 진입 시 screen_view 자동 호출
-├── types/index.ts     # IEventName, TEventParams 등
+src/shared/lib/analytics/
+├── analytics.ts       # 파사드 — initAnalytics, logEvent, logScreenView
+├── firebase.ts        # Firebase 어댑터
+├── noop.ts            # no-op 어댑터 (Expo Go/네이티브 모듈 없을 때 자동 fallback)
+├── events.ts          # 이벤트 카탈로그 (EAnalyticsEvent 상수 + 파라미터 타입)
+├── types.ts           # IEventName, TEventParams 등
 └── index.ts           # barrel export
 ```
 
-- 직접 `firebase.analytics().logEvent()` 호출 금지 — 반드시 `@/shared/analytics`의 래퍼 함수만 사용
+- 직접 `firebase.analytics().logEvent()` 호출 금지 — 반드시 `@shared/lib/analytics`의 래퍼 함수만 사용
 - 이벤트 이름은 `events.ts`의 상수로만 정의 (오타/중복 방지)
 - 개발 환경(`env.IS_DEV`)에서는 Analytics 수집을 비활성화하거나 디버그 모드 사용
 
 ### 통합 단계
 
-Firebase 콘솔 자동화(Playwright MCP) · 설정파일 배치/보안(`.gitignore` + EAS Secrets) · 패키지 설치/plugin 등록 · `src/shared/analytics/` 모듈 작성 · `_layout.tsx` 초기화 · 이벤트 배선 · 빌드 검증의 **전체 절차는 `.claude/agents/api-integrator.md`("Firebase 콘솔 자동화", "Analytics 통합 규칙")** 와 orchestrate Phase 4d가 정본이다.
+Firebase 콘솔 자동화(Playwright MCP) · 설정파일 배치/보안(`.gitignore` + EAS Secrets) · 패키지 설치/plugin 등록 · `src/shared/lib/analytics/` 모듈 작성 · `_layout.tsx` 초기화 · 이벤트 배선 · 빌드 검증의 **전체 절차는 `.claude/agents/api-integrator.md`("Firebase 콘솔 자동화", "Analytics 통합 규칙")** 와 orchestrate Phase 4d가 정본이다.
 
 > 요약 규칙: `app.config.ts` plugins 에 `@react-native-firebase/app`, `@react-native-firebase/crashlytics`, `expo-build-properties`(iOS `useFrameworks: 'static'`), `./plugins/withRNFirebaseStaticBuild`(필수 빌드 패치)를 등록한다. `GoogleService-Info.plist`/`google-services.json`은 절대 커밋하지 않고 EAS Secrets로 주입한다. RNFirebase 빌드 이슈 상세: `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md`.
 
