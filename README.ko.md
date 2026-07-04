@@ -146,6 +146,10 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 | **능동 테스트** | 정적 분석 + `npm run typecheck/lint` 실행 + import 순환 참조 탐지 + `sim-use` 런타임 시뮬레이터 검증(observe → act → verify) |
 | **지속 개선 루프** | 출시 후 개발→검증→다음 추천을 한 사이클 한 슬라이스씩, KPI 갭·가치·노력·부채·커버리지로 랭킹 |
 
+### 코딩 원칙 — ponytail (선택)
+
+하네스는 **ponytail**("lazy senior dev") 플러그인을 권장한다: 존재하지 않아도 되는 코드가 최고의 코드. 사다리(YAGNI → 기존 것 재사용 → 표준 라이브러리 → 네이티브 → 설치된 의존성 → 한 줄 → 최소 코드)와 증상이 아닌 **근본 원인** 버그 수정을 강제한다. `.claude/settings.json`에 선언돼 있어 클론 시 `DietrichGebert/ponytail` 마켓플레이스에서 설치 프롬프트가 뜬다. `/ponytail lite|full|ultra`로 토글. 원칙은 `CLAUDE.md`에도 baked-in되어 플러그인 없이도 적용된다.
+
 ---
 
 ## Tech Stack

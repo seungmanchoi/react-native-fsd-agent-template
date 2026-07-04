@@ -146,6 +146,10 @@ Designed based on [Anthropic's official Harness Engineering Guide](https://www.a
 | **Active Testing** | Static analysis + `npm run typecheck/lint` + circular dependency detection + runtime simulator verification via `sim-use` (observe → act → verify). |
 | **Continuous Improvement Loop** | Post-launch: develop → verify → recommend-next, one slice per cycle, ranked by KPI gap / value / effort / debt / coverage. |
 
+### Coding Philosophy — ponytail (optional)
+
+The harness recommends the **ponytail** "lazy senior dev" plugin: the best code is the code never written. It enforces a ladder (YAGNI → reuse what's here → stdlib → native → existing deps → one line → minimal code) and root-cause (not symptom) bug fixes. It's declared in `.claude/settings.json`, so cloning prompts you to install it from the `DietrichGebert/ponytail` marketplace; toggle with `/ponytail lite|full|ultra`. The principles are also baked into `CLAUDE.md`, so they apply even without the plugin.
+
 ---
 
 ## Tech Stack

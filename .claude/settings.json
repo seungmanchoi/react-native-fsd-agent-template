@@ -1,0 +1,14 @@
+{
+  "$comment": "이 레포의 하네스가 권장하는 플러그인. 클론 시 Claude Code가 신뢰/설치 프롬프트를 띄운다. ponytail = lazy senior dev 코딩 원칙 (상세: CLAUDE.md '코딩 원칙 (ponytail)').",
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true
+  }
+}
