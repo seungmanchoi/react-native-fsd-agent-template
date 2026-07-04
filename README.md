@@ -143,7 +143,7 @@ Designed based on [Anthropic's official Harness Engineering Guide](https://www.a
 | **Hard Threshold** | Strict pass/fail criteria. 0 typecheck errors, 0 any types, 0 FSD violations. |
 | **4-Axis Design Evaluation** | Design Quality (30%), Originality (25%), Craft (25%), Functionality (20%). |
 | **Design Guardrails** | Use Do's & Don'ts to prevent off-brand AI choices. |
-| **Active Testing** | Static analysis + `npm run typecheck/lint` + circular dependency detection. |
+| **Active Testing** | Static analysis + `npm run typecheck/lint` + circular dependency detection + runtime simulator verification via `sim-use` (observe → act → verify). |
 | **Continuous Improvement Loop** | Post-launch: develop → verify → recommend-next, one slice per cycle, ranked by KPI gap / value / effort / debt / coverage. |
 
 ---
@@ -574,6 +574,29 @@ npm run test:watch  # Vitest, watch mode
 
 - Test files live next to source as `src/**/*.test.ts(x)`
 - `npm run typecheck` (0 errors) and `npm run lint` (0 errors) are **Hard Threshold** gates — see `CLAUDE.md`
+
+### Runtime Simulator Testing ([`sim-use`](https://github.com/lycorp-jp/sim-use))
+
+For **runtime** verification — actually driving the app on an iOS Simulator / Android emulator, not just static code review — the harness uses the `sim-use` CLI. It turns the accessibility tree into a compact outline so the agent acts on **element aliases (`@N`) instead of coordinates**, in an `observe → act → verify` loop.
+
+The `app-inspector` agent / `inspect-app` skill **checks for `sim-use` and installs it if missing** before runtime testing:
+
+```bash
+if ! command -v sim-use >/dev/null 2>&1; then
+  brew tap lycorp-jp/tap && brew install lycorp-jp/tap/sim-use
+  sim-use init --client claude --dest .claude/skills   # register the agent skill in this repo
+fi
+```
+
+```bash
+sim-use ui            # observe — element outline with @aliases
+sim-use tap @9        # act — tap by alias (not coordinates)
+sim-use ui            # verify — re-read the screen
+```
+
+- Requires macOS 14+ / current Xcode Command Line Tools (install fails on an outdated CLT).
+- Android needs a one-time bridge per device: `sim-use android init --device <serial>`.
+- Canonical guide: the **"시뮬레이터 런타임 테스트 (sim-use)"** section in `CLAUDE.md`.
 
 ---
 

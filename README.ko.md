@@ -143,7 +143,7 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 | **Hard Threshold** | pass/fail 경성 기준. typecheck 0 에러, any 0개, FSD 위반 0개 |
 | **디자인 4축 평가** | Design Quality(30%), Originality(25%), Craft(25%), Functionality(20%) |
 | **디자인 가드레일** | Do's & Don'ts로 AI의 오프브랜드 선택을 사전 차단 |
-| **능동 테스트** | 정적 분석 + `npm run typecheck/lint` 실행 + import 순환 참조 탐지 |
+| **능동 테스트** | 정적 분석 + `npm run typecheck/lint` 실행 + import 순환 참조 탐지 + `sim-use` 런타임 시뮬레이터 검증(observe → act → verify) |
 | **지속 개선 루프** | 출시 후 개발→검증→다음 추천을 한 사이클 한 슬라이스씩, KPI 갭·가치·노력·부채·커버리지로 랭킹 |
 
 ---
@@ -574,6 +574,29 @@ npm run test:watch  # Vitest, watch 모드
 
 - 테스트 파일은 소스 옆에 `src/**/*.test.ts(x)` 형태로 위치
 - `npm run typecheck`(0 에러)와 `npm run lint`(0 에러)는 **Hard Threshold** 게이트 — `CLAUDE.md` 참고
+
+### 런타임 시뮬레이터 테스트 ([`sim-use`](https://github.com/lycorp-jp/sim-use))
+
+정적 코드 검수를 넘어 **iOS 시뮬레이터 / Android 에뮬레이터에서 앱을 실제로 조작해 검증**할 때는 하네스가 `sim-use` CLI를 사용한다. 접근성 트리를 압축 아웃라인으로 바꿔 **좌표가 아닌 요소 별칭(`@N`)으로** `observe → act → verify` 루프를 돈다.
+
+`app-inspector` 에이전트 / `inspect-app` 스킬은 런타임 테스트 전 **`sim-use` 설치를 확인하고 없으면 설치**한다:
+
+```bash
+if ! command -v sim-use >/dev/null 2>&1; then
+  brew tap lycorp-jp/tap && brew install lycorp-jp/tap/sim-use
+  sim-use init --client claude --dest .claude/skills   # 이 레포에 에이전트 스킬 등록
+fi
+```
+
+```bash
+sim-use ui            # 관찰 — @별칭이 붙은 요소 아웃라인
+sim-use tap @9        # 조작 — 좌표가 아닌 별칭으로 탭
+sim-use ui            # 검증 — 화면 재확인
+```
+
+- macOS 14+ / 최신 Xcode Command Line Tools 필요(CLT가 outdated면 설치 실패).
+- Android는 기기당 1회 브리지 설치 필요: `sim-use android init --device <serial>`.
+- 정본: `CLAUDE.md`의 **"시뮬레이터 런타임 테스트 (sim-use)"** 섹션.
 
 ---
 
