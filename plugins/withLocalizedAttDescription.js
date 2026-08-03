@@ -29,7 +29,7 @@
  *     will only work for English (the app.config.ts fallback).
  */
 
-const { withDangerousMod, IOSConfig } = require('expo/config-plugins');
+const { withXcodeProject } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
@@ -95,50 +95,144 @@ function escapeStrings(str) {
 function withLocalizedAttDescription(config, overrides) {
   const descriptions = Object.assign({}, DEFAULT_ATT_DESCRIPTIONS, overrides || {});
 
-  return withDangerousMod(config, [
-    'ios',
-    async (cfg) => {
-      const projectRoot = cfg.modRequest.projectRoot;
-      let projectName;
-      try {
-        projectName = IOSConfig.XcodeUtils.getProjectName(projectRoot);
-      } catch {
-        return cfg;
+  // xcodeproj mod 는 dangerous mod 가 모두 끝난 뒤 실행된다. withLocalizedAppName 은
+  // dangerous mod 에서 InfoPlist.strings 를 통째로 덮어쓰므로, 여기서 써야 문구가
+  // 살아남는다(plugins 배열 순서와 무관). 이어서 만들어진 .lproj 를 전부 Xcode 에
+  // 등록한다 — AppName 은 "앱 이름을 선언한 언어"만 등록해 나머지는 번들에서 누락된다.
+  return withXcodeProject(config, (cfg) => {
+    const project = cfg.modResults;
+    const projectName = cfg.modRequest.projectName;
+    const iosDir = path.join(cfg.modRequest.platformProjectRoot, projectName);
+    if (!fs.existsSync(iosDir)) return cfg;
+
+    for (const [locale, description] of Object.entries(descriptions)) {
+      const iosLocale = IOS_LOCALE_MAP[locale] || locale;
+      const lprojDir = path.join(iosDir, `${iosLocale}.lproj`);
+
+      if (!fs.existsSync(lprojDir)) {
+        fs.mkdirSync(lprojDir, { recursive: true });
       }
-      const iosDir = path.join(projectRoot, 'ios', projectName);
-      if (!fs.existsSync(iosDir)) return cfg;
 
-      for (const [locale, description] of Object.entries(descriptions)) {
-        const iosLocale = IOS_LOCALE_MAP[locale] || locale;
-        const lprojDir = path.join(iosDir, `${iosLocale}.lproj`);
+      const stringsPath = path.join(lprojDir, 'InfoPlist.strings');
+      const line = `"NSUserTrackingUsageDescription" = "${escapeStrings(description)}";\n`;
 
-        if (!fs.existsSync(lprojDir)) {
-          fs.mkdirSync(lprojDir, { recursive: true });
-        }
-
-        const stringsPath = path.join(lprojDir, 'InfoPlist.strings');
-        const line = `"NSUserTrackingUsageDescription" = "${escapeStrings(description)}";\n`;
-
-        if (fs.existsSync(stringsPath)) {
-          let content = fs.readFileSync(stringsPath, 'utf-8');
-          if (/"NSUserTrackingUsageDescription"\s*=/.test(content)) {
-            content = content.replace(
-              /"NSUserTrackingUsageDescription"\s*=\s*"[^"]*";\n?/,
-              line,
-            );
-          } else {
-            if (!content.endsWith('\n')) content += '\n';
-            content += line;
-          }
-          fs.writeFileSync(stringsPath, content, 'utf-8');
+      if (fs.existsSync(stringsPath)) {
+        let content = fs.readFileSync(stringsPath, 'utf-8');
+        if (/"NSUserTrackingUsageDescription"\s*=/.test(content)) {
+          content = content.replace(
+            /"NSUserTrackingUsageDescription"\s*=\s*"[^"]*";\n?/,
+            line,
+          );
         } else {
-          fs.writeFileSync(stringsPath, line, 'utf-8');
+          if (!content.endsWith('\n')) content += '\n';
+          content += line;
         }
+        fs.writeFileSync(stringsPath, content, 'utf-8');
+      } else {
+        fs.writeFileSync(stringsPath, line, 'utf-8');
       }
+    }
 
-      return cfg;
-    },
-  ]);
+    const locales = fs
+      .readdirSync(iosDir)
+      .filter(
+        (d) =>
+          d.endsWith('.lproj') &&
+          fs.existsSync(path.join(iosDir, d, 'InfoPlist.strings')),
+      )
+      .map((d) => d.replace(/\.lproj$/, ''));
+    if (locales.length === 0) return cfg;
+
+    const objects = project.hash.project.objects;
+    const firstProject = project.getFirstProject().firstProject;
+
+    const knownRegions = firstProject.knownRegions || [];
+    for (const locale of locales) {
+      if (!knownRegions.includes(locale)) knownRegions.push(locale);
+    }
+    firstProject.knownRegions = knownRegions;
+
+    objects['PBXVariantGroup'] = objects['PBXVariantGroup'] || {};
+    objects['PBXFileReference'] = objects['PBXFileReference'] || {};
+
+    let groupKey = Object.keys(objects['PBXVariantGroup']).find(
+      (k) =>
+        !k.endsWith('_comment') &&
+        objects['PBXVariantGroup'][k] &&
+        objects['PBXVariantGroup'][k].name === 'InfoPlist.strings',
+    );
+    const created = !groupKey;
+
+    if (created) {
+      groupKey = project.generateUuid();
+      objects['PBXVariantGroup'][groupKey] = {
+        isa: 'PBXVariantGroup',
+        children: [],
+        name: 'InfoPlist.strings',
+        sourceTree: '"<group>"',
+      };
+      objects['PBXVariantGroup'][`${groupKey}_comment`] = 'InfoPlist.strings';
+    }
+
+    const group = objects['PBXVariantGroup'][groupKey];
+    group.children = group.children || [];
+    const registered = new Set(
+      group.children
+        .map((c) => objects['PBXFileReference'][c.value])
+        .filter(Boolean)
+        .map((ref) => ref.name),
+    );
+
+    for (const locale of locales) {
+      if (registered.has(locale)) continue;
+      const fileRefKey = project.generateUuid();
+      objects['PBXFileReference'][fileRefKey] = {
+        isa: 'PBXFileReference',
+        lastKnownFileType: 'text.plist.strings',
+        name: locale,
+        path: `${projectName}/${locale}.lproj/InfoPlist.strings`,
+        sourceTree: '"<group>"',
+      };
+      objects['PBXFileReference'][`${fileRefKey}_comment`] =
+        `${locale} — InfoPlist.strings`;
+      group.children.push({
+        value: fileRefKey,
+        comment: `${locale} — InfoPlist.strings`,
+      });
+    }
+
+    if (!created) return cfg;
+
+    const mainGroup = (objects['PBXGroup'] || {})[firstProject.mainGroup];
+    if (mainGroup && mainGroup.children) {
+      mainGroup.children.push({ value: groupKey, comment: 'InfoPlist.strings' });
+    }
+
+    const buildFileKey = project.generateUuid();
+    objects['PBXBuildFile'] = objects['PBXBuildFile'] || {};
+    objects['PBXBuildFile'][buildFileKey] = {
+      isa: 'PBXBuildFile',
+      fileRef: groupKey,
+      fileRef_comment: 'InfoPlist.strings',
+    };
+    objects['PBXBuildFile'][`${buildFileKey}_comment`] =
+      'InfoPlist.strings in Resources';
+
+    for (const target of Object.values(objects['PBXNativeTarget'] || {})) {
+      if (!target || !target.buildPhases) continue;
+      const phase = target.buildPhases.find(
+        (p) => objects['PBXResourcesBuildPhase']?.[p.value],
+      );
+      if (!phase) continue;
+      objects['PBXResourcesBuildPhase'][phase.value].files.push({
+        value: buildFileKey,
+        comment: 'InfoPlist.strings in Resources',
+      });
+      break;
+    }
+
+    return cfg;
+  });
 }
 
 module.exports = withLocalizedAttDescription;

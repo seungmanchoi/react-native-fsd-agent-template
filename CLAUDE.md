@@ -492,6 +492,20 @@ AdMob Console 에서 "Privacy Options" 가 REQUIRED 로 설정되어 있으면 �
 | Rewarded 광고 다종 | 사용자 인게이지먼트 ↑ | revive / coins / continue / shuffle 등 |
 | 광고 mediation (선택) | eCPM +20~50% | AppLovin MAX / IronSource 등 (DAU 5K+에서 ROI) |
 
+### ATT 프롬프트 문구 다국어 (iOS — 광고 앱 필수)
+
+`infoPlist.NSUserTrackingUsageDescription` 한 줄만 넣으면 **모든 기기에서 그 언어 하나로만** 뜬다. 언어별 문구는 `ios/<Project>/{locale}.lproj/InfoPlist.strings`에 있어야 하고, 그 파일이 **Xcode `PBXVariantGroup`에 등록**돼야 번들에 들어간다. 둘 중 하나만 빠져도 조용히 영어로 폴백해 한국·일본 사용자 ATT 허용률이 떨어진다.
+
+- 광고를 넣는 앱은 `plugins`에 `'./plugins/withLocalizedAttDescription'`을 **반드시 등록**한다. 배열 내 위치는 무관하다.
+- 이 플러그인은 `withXcodeProject` mod 에서 동작한다. `withDangerousMod`로 옮기지 말 것 — `withLocalizedAppName`이 dangerous mod 에서 `InfoPlist.strings`를 통째로 덮어쓰는데, dangerous mod 는 **plugins 배열의 역순**으로 실행되어 순서 의존 버그가 생긴다. xcodeproj mod 는 항상 dangerous mod 이후라 안전하다.
+- 등록 대상은 "앱 이름을 선언한 언어"가 아니라 **디스크의 모든 `.lproj`**다. `withLocalizedAppName`은 자기가 선언한 언어만 등록하므로, ATT 전용 언어를 이 플러그인이 합집합으로 채운다.
+- 검증: `npx expo prebuild --platform ios --clean` 후
+  ```bash
+  cat ios/<Project>/ko.lproj/InfoPlist.strings   # CFBundleDisplayName + ATT 문구 둘 다 있어야 함
+  grep -oE "[a-zA-Z-]+\.lproj/InfoPlist.strings" ios/<Project>.xcodeproj/project.pbxproj | sort -u | wc -l
+  ```
+  두 번째 값이 `ls -d ios/<Project>/*.lproj | wc -l`과 같아야 한다.
+
 ### Hard Threshold (광고 동의)
 
 | 기준 | 임계값 |
@@ -500,6 +514,8 @@ AdMob Console 에서 "Privacy Options" 가 REQUIRED 로 설정되어 있으면 �
 | UMP → ATT → `initialize()` 순서 위반 | **0개** |
 | `AdsConsent.*` 또는 `expo-tracking-transparency` 직접 호출 (래퍼 미사용) | **0개** |
 | `NSUserTrackingUsageDescription` 누락 (iOS) | **0개** |
+| 광고 앱인데 `withLocalizedAttDescription` plugin 미등록 | **0개** |
+| `.lproj/InfoPlist.strings` 개수 ≠ Xcode 등록 개수 | **0개** |
 | AdMob Console GDPR/IDFA 메시지 미게시 상태로 배포 | **0개** |
 
 ### 무효 트래픽 방지 / 계정 정지 방어 (MANDATORY — 상세는 에이전트 문서)

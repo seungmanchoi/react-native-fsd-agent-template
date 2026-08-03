@@ -55,6 +55,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     },
     plugins: [
+      // ATT 프롬프트 문구 다국어 (InfoPlist.strings). plugins 배열 순서와 무관.
+      './plugins/withLocalizedAttDescription',
       // Google AdMob test app IDs — safe for development/simulator
       // Replace with real IDs from AdMob Console before production build
       [
