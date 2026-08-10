@@ -42,7 +42,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         // Required for App Tracking Transparency (ATT) prompt on iOS 14.5+.
         // Customize the wording per app — Apple reviews this string.
         NSUserTrackingUsageDescription:
-          'This identifier will be used to deliver personalized ads to you.',
+          "MyApp uses your device's advertising identifier to make the ads shown in this app more relevant — for example, showing ads for apps and games similar to MyApp instead of unrelated products — and to measure how many people install an app after seeing its ad. Ads still appear if you decline; they just won't be personalized.",
       },
     },
     android: {
@@ -65,7 +65,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           androidAppId: 'ca-app-pub-3940256099942544~3347511713',
           iosAppId: 'ca-app-pub-3940256099942544~1458002511',
           userTrackingUsageDescription:
-            'This identifier will be used to deliver personalized ads to you.',
+            "MyApp uses your device's advertising identifier to make the ads shown in this app more relevant — for example, showing ads for apps and games similar to MyApp instead of unrelated products — and to measure how many people install an app after seeing its ad. Ads still appear if you decline; they just won't be personalized.",
         },
       ],
       // ATT prompt on iOS 14.5+ — required so AdMob can serve personalized ads.
@@ -73,7 +73,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         'expo-tracking-transparency',
         {
           userTrackingPermission:
-            'This identifier will be used to deliver personalized ads to you.',
+            "MyApp uses your device's advertising identifier to make the ads shown in this app more relevant — for example, showing ads for apps and games similar to MyApp instead of unrelated products — and to measure how many people install an app after seeing its ad. Ads still appear if you decline; they just won't be personalized.",
         },
       ],
       // Firebase Analytics — restores AdMob audience signals for higher eCPM.

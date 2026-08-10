@@ -506,6 +506,31 @@ AdMob Console 에서 "Privacy Options" 가 REQUIRED 로 설정되어 있으면 �
   ```
   두 번째 값이 `ls -d ios/<Project>/*.lproj | wc -l`과 같아야 한다.
 
+#### 문구 내용 — 상투적이면 자동 반려된다 (CRITICAL)
+
+Apple 자동 심사가 목적 문자열을 검사해 **일반적인 문구를 placeholder 로 판정하고 반려**한다.
+실제 반려(poly-dash 1.0.10, 2026-08-06):
+
+> the following purpose strings … include placeholder text or are otherwise insufficient:
+> • NSUserTrackingUsageDescription: "This identifier will be used to deliver personalized ads to you."
+
+`withLocalizedAttDescription.js` 의 `DEFAULT_ATT_DESCRIPTIONS` 는 **형식 예시일 뿐 그대로 쓰면 안 된다.**
+앱마다 아래 4가지를 모두 담아 새로 쓴다:
+
+1. 무엇을 쓰는지 — 기기의 광고 식별자
+2. 왜 쓰는지 — 광고 관련성 향상 + 설치 측정
+3. **구체적인 예시** — "관련 없는 상품 대신 이 앱과 비슷한 앱·게임 광고를 보여준다"
+4. 거부 시 결과 — "광고는 계속 표시되며 맞춤 광고가 아닐 뿐"
+
+`app.config.ts` 만 고치는 것으로는 부족하다. **로케일 테이블도 같이** 고쳐야 `.lproj` 에 상투 문구가
+실려 나가지 않는다. 문구에 아포스트로피(`device's`, `won't`)가 들어가므로 TS/JS 리터럴은
+**큰따옴표로 감싼다** — 작은따옴표로 감싸면 파일이 깨진다.
+
+검증:
+```bash
+grep -rn "deliver personalized ads to you" app.config.ts plugins/ app.json locales/ 2>/dev/null   # 결과 0건이어야 함
+```
+
 ### Hard Threshold (광고 동의)
 
 | 기준 | 임계값 |
@@ -514,6 +539,8 @@ AdMob Console 에서 "Privacy Options" 가 REQUIRED 로 설정되어 있으면 �
 | UMP → ATT → `initialize()` 순서 위반 | **0개** |
 | `AdsConsent.*` 또는 `expo-tracking-transparency` 직접 호출 (래퍼 미사용) | **0개** |
 | `NSUserTrackingUsageDescription` 누락 (iOS) | **0개** |
+| 목적 문자열이 상투 문구(`This identifier will be used to deliver personalized ads to you.` 등) | **0개** |
+| `DEFAULT_ATT_DESCRIPTIONS` 로케일 테이블이 기본값 그대로 배포 | **0개** |
 | 광고 앱인데 `withLocalizedAttDescription` plugin 미등록 | **0개** |
 | `.lproj/InfoPlist.strings` 개수 ≠ Xcode 등록 개수 | **0개** |
 | AdMob Console GDPR/IDFA 메시지 미게시 상태로 배포 | **0개** |
