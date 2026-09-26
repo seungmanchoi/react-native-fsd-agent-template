@@ -20,13 +20,14 @@ export function AppText({
 }: ITypographyProps): React.JSX.Element {
   const getVariantStyle = () => {
     switch (variant) {
-      case 'h1': return 'text-3xl font-bold text-primary dark:text-primary-dark';
-      case 'h2': return 'text-2xl font-bold text-primary dark:text-primary-dark';
-      case 'h3': return 'text-xl font-semibold text-primary dark:text-primary-dark';
-      case 'body': return 'text-base font-normal text-primary dark:text-primary-dark';
-      case 'caption': return 'text-sm font-normal text-text-muted';
-      case 'label': return 'text-sm font-medium text-text-muted';
-      default: return 'text-base';
+      case 'h1': return 'text-3xl font-bold text-text-primary';
+      case 'h2': return 'text-2xl font-bold text-text-primary';
+      case 'h3': return 'text-xl font-semibold text-text-primary';
+      case 'body': return 'text-base font-normal text-text-primary';
+      // text-muted (#525252) fails WCAG contrast on the #0a0a0a background.
+      case 'caption': return 'text-sm font-normal text-text-secondary';
+      case 'label': return 'text-sm font-medium text-text-secondary';
+      default: return 'text-base text-text-primary';
     }
   };
 

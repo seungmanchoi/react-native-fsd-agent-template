@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Button, Input } from '@shared/ui';
 import { Colors, Typography, Spacing } from '@shared/config';
@@ -10,7 +11,7 @@ export default function LoginScreen(): React.JSX.Element {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Welcome Back</Text>
         <Text style={styles.subtitle}>Sign in to continue</Text>
@@ -28,7 +29,7 @@ export default function LoginScreen(): React.JSX.Element {
         <View style={styles.spacerLg} />
         <Button title="Sign In" onPress={handleLogin} fullWidth />
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

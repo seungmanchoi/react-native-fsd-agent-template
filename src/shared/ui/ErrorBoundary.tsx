@@ -1,6 +1,8 @@
 import { Component, ReactNode, ErrorInfo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Colors, Typography, Spacing, BorderRadius } from '@shared/config';
+import { recordError } from '@shared/lib/analytics';
+import { useReviewStore } from '@shared/store-review';
 
 interface IErrorBoundaryProps {
   children: ReactNode;
@@ -23,7 +25,12 @@ export class ErrorBoundary extends Component<IErrorBoundaryProps, IErrorBoundary
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('ErrorBoundary caught:', error, errorInfo);
+    recordError(error);
+    // Blocks store-review prompts for a while after a crash (policy engine gate).
+    useReviewStore.getState().recordError();
+    if (__DEV__) {
+      console.error('ErrorBoundary caught:', error, errorInfo.componentStack);
+    }
   }
 
   handleReset = (): void => {

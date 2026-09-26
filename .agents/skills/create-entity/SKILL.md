@@ -1,6 +1,13 @@
+---
+name: create-entity
+description: "FSD entity(도메인 모델) 레이어에 새 엔티티(api/store/types/index)를 생성하는 스킬. '엔티티 만들어줘', 'entity 추가', '도메인 모델 추가' 요청 시 반드시 이 스킬을 사용할 것."
+---
+
 # Create Entity Skill
 
 FSD 아키텍처의 entity(도메인 모델) 레이어에 새 엔티티를 생성하는 스킬.
+
+> 스캐폴딩 전 `.claude/agents/feature-builder.md`의 Pre-Work Contract(`_workspace/spec.md` 분기 규칙)를 따른다.
 
 ## Trigger
 

@@ -6,4 +6,5 @@ export interface IAnalyticsAdapter {
   setUserProperty: (key: string, value: string | null) => void;
   track: (event: string, props?: TAnalyticsParams) => void;
   screen: (name: string, screenClass?: string) => void;
+  recordError: (error: Error) => void;
 }

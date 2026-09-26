@@ -30,9 +30,9 @@ export function Button({
 
   const getVariantStyle = () => {
     switch (variant) {
-      case 'primary': return 'bg-primary dark:bg-primary-dark';
-      case 'secondary': return 'bg-surface dark:bg-surface-dark';
-      case 'outline': return 'bg-transparent border border-primary dark:border-primary-dark';
+      case 'primary': return 'bg-primary';
+      case 'secondary': return 'bg-surface';
+      case 'outline': return 'bg-transparent border border-primary';
       case 'ghost': return 'bg-transparent';
       default: return 'bg-primary';
     }
@@ -52,8 +52,7 @@ export function Button({
     const sizeStyle = size === 'sm' ? "text-sm" : size === 'lg' ? "text-lg" : "text-base";
     let color = "text-white";
     
-    if (variant === 'secondary') color = "text-primary dark:text-primary-dark";
-    if (variant === 'outline' || variant === 'ghost') color = "text-primary dark:text-primary-dark";
+    if (variant === 'secondary' || variant === 'outline' || variant === 'ghost') color = "text-primary";
     
     return `${base} ${sizeStyle} ${color}`;
   };

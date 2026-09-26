@@ -38,7 +38,8 @@ export default function {Name}Screen() {
     <SafeAreaView className="flex-1 bg-background">
       {/* 테마 토큰 사용 — bg-white 하드코딩 금지 (spec.md ux.dark_mode 준수) */}
       <View className="flex-1 px-4">
-        <Text className="text-lg font-bold text-foreground">{Name}</Text>
+        {/* 본문색은 text-text-*, 브랜드색은 text-primary (tailwind.config.js에 정의된 토큰만 사용) */}
+        <Text className="text-lg font-bold text-text-primary">{Name}</Text>
       </View>
     </SafeAreaView>
   );

@@ -21,7 +21,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 2. **Query Hooks**: `{feature}/hooks/use-{name}.ts`에 useQuery/useMutation 훅 생성
 3. **Store 설정**: `{entity}/store/{name}.store.ts`에 Zustand 스토어 생성
 4. **타입 정의**: Request/Response 인터페이스 자동 생성 (`I{Name}Request`, `I{Name}Response`)
-5. **Analytics 모듈**: `src/shared/analytics/` 에 Firebase 래퍼, 이벤트 카탈로그, 화면 추적 훅 생성
+5. **Analytics 모듈**: 템플릿의 `src/shared/lib/analytics/`(Firebase modular 래퍼·Crashlytics·noop fallback)를 유지하고 PRD 이벤트 카탈로그를 추가. 화면 추적은 루트 `_layout.tsx`가 담당
 6. **이벤트 배선**: PRD의 KPI 카탈로그를 기준으로 각 화면/액션에 `logEvent` 호출 삽입
 7. **Secure Storage 모듈**: `src/shared/secure-storage/` 에 expo-secure-store 래퍼와 키 카탈로그 생성. 토큰 store의 persist 어댑터를 SecureStore-backed으로 구성
 8. **Store Review 모듈**: `src/shared/store-review/` 에 expo-store-review 래퍼, 정책 엔진(`canRequestReview`), 카운터 Zustand store, `REVIEW_TRIGGERS` 카탈로그, `useStoreReview` 훅 구축. PRD의 Review Triggers 섹션을 상수 카탈로그로 변환
@@ -35,7 +35,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 3. `project.context` Read
 
 **모듈 스캐폴딩 분기 규칙:**
-- `measurement.firebase_analytics=false` → `src/shared/analytics/` 생성 안 함, Firebase 콘솔 자동화도 스킵
+- `measurement.firebase_analytics=false` → `src/shared/lib/analytics/`는 noop 어댑터만 쓰도록 Firebase 패키지/plugin 제거, Firebase 콘솔 자동화도 스킵
 - `measurement.crashlytics=false` → `@react-native-firebase/crashlytics` 설치/등록 스킵
 - `measurement.remote_config=true` → `@react-native-firebase/remote-config` 추가
 - `ux.store_review=false` → `src/shared/store-review/` 전체 스킵
@@ -154,61 +154,58 @@ export const useAuthStore = create<IAuthState>()(
 );
 ```
 
-### Firebase Analytics 래퍼 (`src/shared/analytics/client.ts`)
+### Firebase Analytics 래퍼 (`src/shared/lib/analytics/` — 템플릿 구현이 정본)
+
+RN Firebase **v26은 namespaced API(`analytics().logEvent`, `crashlytics().recordError`)를 삭제**했다. 어댑터(`firebase.ts`)만 modular API를 import하고, 외부 코드는 파사드(`@shared/lib/analytics`)만 쓴다.
+
 ```typescript
-import analytics from '@react-native-firebase/analytics';
-import crashlytics from '@react-native-firebase/crashlytics';
-import { env } from '@/shared/config/env';
-import type { TEventName, TEventParams } from './types';
+// src/shared/lib/analytics/firebase.ts (발췌)
+import { getAnalytics, logEvent, setAnalyticsCollectionEnabled } from '@react-native-firebase/analytics';
+import { getCrashlytics, recordError, setCrashlyticsCollectionEnabled } from '@react-native-firebase/crashlytics';
 
-export const initAnalytics = async () => {
-  await analytics().setAnalyticsCollectionEnabled(env.IS_PROD);
-  crashlytics().setCrashlyticsCollectionEnabled(env.IS_PROD);
-};
-
-export const logEvent = async <K extends TEventName>(
-  name: K,
-  params?: TEventParams[K],
-) => {
-  if (!env.IS_PROD) return;
-  await analytics().logEvent(name, params);
-};
-
-export const setUserProperty = async (key: string, value: string | null) => {
-  await analytics().setUserProperty(key, value);
-};
+async init() {
+  // 수집은 production 빌드만 — dev/preview 트래픽이 KPI를 오염시키지 않게
+  await Promise.all([
+    setAnalyticsCollectionEnabled(getAnalytics(), env.IS_PROD),
+    setCrashlyticsCollectionEnabled(getCrashlytics(), env.IS_PROD),
+  ]);
+},
+track(event, props) {
+  logEvent(getAnalytics(), event, sanitize(props)); // v26 logEvent는 동기 함수
+},
+screen(name) {
+  logEvent(getAnalytics(), 'screen_view', { screen_name: name, screen_class: name });
+},
+recordError(error) {
+  recordError(getCrashlytics(), error);
+},
 ```
 
-### 이벤트 카탈로그 (`src/shared/analytics/events.ts`)
+- 파사드: `initAnalytics()` · `logEvent(EAnalyticsEvent.X, params)` · `logScreenView(name)` · `setUserProperty()` · `recordError(error)`
+- Expo Go 등 네이티브 모듈이 없으면 `noop` 어댑터로 자동 fallback
+
+### 이벤트 카탈로그 (`src/shared/lib/analytics/events.ts`)
 ```typescript
-export const EVENTS = {
+export const EAnalyticsEvent = {
   ACTIVATION: 'activation',
   TAP_CAMERA_CAPTURE: 'tap_camera_capture',
   COMPLETE_ONBOARDING: 'complete_onboarding',
 } as const;
 
-export type TEventName = (typeof EVENTS)[keyof typeof EVENTS];
-
-export type TEventParams = {
-  [EVENTS.ACTIVATION]: { feature_id: string };
-  [EVENTS.TAP_CAMERA_CAPTURE]: { mode: string };
-  [EVENTS.COMPLETE_ONBOARDING]: { duration_ms: number };
-};
+export type TAnalyticsEvent = (typeof EAnalyticsEvent)[keyof typeof EAnalyticsEvent];
 ```
 
-### 화면 추적 훅 (`src/shared/analytics/hooks/useScreenTracking.ts`)
+### 화면 추적 (루트 `app/_layout.tsx` — 이미 배선됨)
 ```typescript
-import { useEffect } from 'react';
-import analytics from '@react-native-firebase/analytics';
-import { env } from '@/shared/config/env';
-
-export const useScreenTracking = (screenName: string) => {
+// 라우트 패턴("(tabs)/explore", "user/[id]")을 기록 — ID가 들어간 raw path는 기록하지 않는다
+function useScreenTracking(): void {
+  const screen = useSegments().join('/') || 'index';
   useEffect(() => {
-    if (!env.IS_PROD) return;
-    analytics().logScreenView({ screen_name: screenName, screen_class: screenName });
-  }, [screenName]);
-};
+    void logScreenView(screen);
+  }, [screen]);
+}
 ```
+- 네이티브 자동 화면 수집은 `firebase.json`의 `google_analytics_automatic_screen_reporting_enabled: false`로 끈다(중복 `screen_view` 방지). 화면별로 `useScreenTracking`을 따로 만들지 않는다.
 
 ### Store Review 모듈 (`src/shared/store-review/`)
 ```typescript
@@ -338,24 +335,27 @@ export const requestReview = () => StoreReview.requestReview(); // fire-and-forg
 
 // hooks/useStoreReview.ts
 import { useCallback } from 'react';
-import { logEvent } from '@/shared/analytics';
+import { EAnalyticsEvent, logEvent } from '@/shared/lib/analytics';
 import { useReviewStore } from '../store';
 import { canRequestReview } from '../policy';
 import { isReviewAvailable, requestReview } from '../client';
 import type { TReviewTrigger } from '../triggers';
 
 export const useStoreReview = () => {
-  const state = useReviewStore();
   const maybeRequest = useCallback(
     async (trigger: TReviewTrigger, options: { uiIsIdle: boolean } = { uiIsIdle: true }) => {
       if (!(await isReviewAvailable())) return false;
+      // 카운터(마지막 요청·연간 쿼터)는 hydration 전엔 알 수 없다
+      if (!useReviewStore.persist.hasHydrated()) return false;
+      // 호출 시점의 최신 상태를 읽는다 — store 전체 구독(리렌더)을 하지 않는다
+      const state = useReviewStore.getState();
       if (!canRequestReview(state, { uiIsIdle: options.uiIsIdle })) return false;
       state.markRequested();
-      await logEvent('request_store_review', { trigger });
+      await logEvent(EAnalyticsEvent.REQUEST_STORE_REVIEW, { trigger });
       void requestReview(); // 표시 여부에 의존하지 않는다 (fire-and-forget)
       return true;
     },
-    [state],
+    [],
   );
   return { maybeRequest };
 };
@@ -374,11 +374,11 @@ export const useStoreReview = () => {
 
 ## Analytics 통합 규칙
 
-- 외부 코드는 `firebase.analytics()`를 직접 호출하지 않는다. 반드시 `@/shared/analytics`의 래퍼만 사용
-- 이벤트 이름은 `EVENTS` 상수에서만 가져온다 (매직 스트링 금지)
+- 외부 코드는 `@react-native-firebase/*`를 직접 호출하지 않는다. 반드시 `@shared/lib/analytics`의 래퍼만 사용
+- 이벤트 이름은 `EAnalyticsEvent` 상수에서만 가져온다 (매직 스트링 금지)
 - 파라미터 키 ≤ 40자, 값 ≤ 100자, 이벤트당 ≤ 25개
 - PII(이메일/전화/실명/정확한 위치) 금지
-- `GoogleService-Info.plist`, `google-services.json`은 `.gitignore` 처리. EAS Secrets로 빌드 시점에 주입
+- `GoogleService-Info.plist`, `google-services.json`은 `./firebase/`에 두고 `.gitignore` 처리. EAS 클라우드 빌드에는 file 타입 EAS 환경변수로 주입
 
 ## Firebase 콘솔 자동화 (Playwright MCP)
 
@@ -391,16 +391,19 @@ Firebase 앱 등록은 일반 OAuth scope로 호출이 불가능하므로 **AdMo
 4. iOS 앱 등록 — bundle ID는 `app.config.ts` `ios.bundleIdentifier`
 5. Android 앱 등록 — 패키지명은 `app.config.ts` `android.package`, SHA-1 비워둠
 6. **`GoogleService-Info.plist` 및 `google-services.json` 다운로드 버튼 클릭** → `~/Downloads/`로 저장됨
-7. 다운로드 파일을 프로젝트로 이동
-   - `~/Downloads/GoogleService-Info.plist` → `ios/GoogleService-Info.plist`
-   - `~/Downloads/google-services.json` → `android/app/google-services.json`
-   - `ios/`/`android/` 없으면 `firebase/` 임시 폴더 보관 후 `expo prebuild --clean` 후 정식 배치
-8. `.gitignore`에 두 파일 + `firebase/` 즉시 추가
-9. EAS Secrets 등록
+7. 다운로드 파일을 `./firebase/`로 이동 — `app.config.ts`의 `googleServicesFile`이 이 경로를 읽고 prebuild가 네이티브 프로젝트로 복사한다(`ios/`·`android/`는 생성물이라 직접 두지 않는다)
+   - `~/Downloads/GoogleService-Info.plist` → `firebase/GoogleService-Info.plist`
+   - `~/Downloads/google-services.json` → `firebase/google-services.json`
+   - 번들 ID/패키지명이 `app.config.ts`와 일치하는지 확인 (`com.seungmanchoi.{slug}`)
+8. `.gitignore`에 두 파일이 있는지 확인 (템플릿에 포함됨)
+9. EAS 클라우드 빌드용 file 환경변수 등록 (`eas secret:*`은 deprecated). 이름은 `app.config.ts`가 읽는 두 개와 정확히 같아야 한다
    ```bash
-   eas secret:create --scope project --name GOOGLE_SERVICES_PLIST --type file --value ./ios/GoogleService-Info.plist
-   eas secret:create --scope project --name GOOGLE_SERVICES_JSON  --type file --value ./android/app/google-services.json
+   eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./firebase/GoogleService-Info.plist \
+     --visibility secret --environment production --environment preview --environment development --non-interactive
+   eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./firebase/google-services.json \
+     --visibility secret --environment production --environment preview --environment development --non-interactive
    ```
+   (eas-cli 21+에서는 `eas env:set`이 권장되지만 `env:create`도 동작한다. 로컬 fastlane 빌드는 `./firebase/` 파일을 그대로 쓴다)
 
 ### 실패 시 fallback
 - Selector 실패 → 즉시 중단, `_workspace/implementation/firebase-manual.md`에 진행 상태 기록 후 사용자에게 수동 등록 요청. 파일 다운로드 완료 확인 후 7단계부터 재개.
@@ -493,9 +496,10 @@ Google은 기기 식별자(GAID/IDFA)·AdMob 계정 로그인·IP·CTR 통계로
 
 | 빌드 프로필 | 광고 단위 | 추가 조치 |
 |------------|----------|----------|
-| development (`IS_DEV`) | `TestIds.*` | — |
-| preview / internal / TestFlight | 실제 ID | **테스트 기기 등록 필수** |
-| production | 실제 ID | — |
+| development (`APP_ENV=development`) | `TestIds.*` | — |
+| preview (`APP_ENV=preview`, 내부 배포) | `TestIds.*` (템플릿 기본) | 실광고 검증이 필요할 때만 `IS_PROD` 분기를 바꾸고 테스트 기기 등록 |
+| production 바이너리를 TestFlight / 내부 테스트 트랙으로 설치 | 실제 ID | **테스트 기기 등록 필수** |
+| production (스토어) | 실제 ID | — |
 
 - `consent.ts`의 `setRequestConfiguration`에 `testDeviceIdentifiers`를 포함한다. 기기 ID는 `src/shared/config/ads.ts`의 `TEST_DEVICE_IDS` 상수로 관리 (기기 ID는 첫 광고 요청 시 네이티브 로그에 출력됨)
 - 에뮬레이터/시뮬레이터는 SDK가 자동으로 테스트 기기 취급하므로 별도 처리 불필요 (우회 코드 작성 금지)
@@ -542,4 +546,4 @@ Google은 기기 식별자(GAID/IDFA)·AdMob 계정 로그인·IP·CTR 통계로
 
 ## Tools
 
-전 도구 상속 (Read/Write/Edit/Glob/Grep/Bash + Playwright MCP). Firebase·AdMob 콘솔 자동화에 `mcp__playwright__*`, EAS Secret 등록에 Bash가 필요하므로 권한을 제한하지 않는다.
+전 도구 상속 (Read/Write/Edit/Glob/Grep/Bash + Playwright MCP). Firebase·AdMob 콘솔 자동화에 `mcp__playwright__*`, EAS 환경변수 등록에 Bash가 필요하므로 권한을 제한하지 않는다.

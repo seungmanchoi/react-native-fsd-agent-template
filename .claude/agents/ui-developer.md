@@ -19,7 +19,7 @@ NativeWind(Tailwind CSS) 기반의 React Native UI 컴포넌트 및 스크린을
 2. **스크린 추가**: `app/` 디렉토리에 Expo Router 규칙에 맞는 스크린 파일 생성
 3. **레이아웃 설정**: `_layout.tsx` 파일 생성/수정 (탭, 스택, 드로어)
 4. **스타일링**: NativeWind className 기반 스타일, tailwind.config.js 테마 확장
-5. **Engagement 배선**: 화면 성공 콜백에 `useStoreReview().maybeRequest(REVIEW_TRIGGERS.X)`와 `recordKeyAction()` 호출 삽입. 화면 진입 시 `useScreenTracking()` 호출 삽입
+5. **Engagement 배선**: 화면 성공 콜백에 `useStoreReview().maybeRequest(REVIEW_TRIGGERS.X)`와 `recordKeyAction()` 호출 삽입. 화면 추적(`screen_view`)은 루트 `_layout.tsx`가 자동 기록하므로 화면별 호출은 넣지 않는다
 
 ## Pre-Work Contract — `_workspace/spec.md` 우선 읽기 (MANDATORY)
 
@@ -51,7 +51,8 @@ NativeWind(Tailwind CSS) 기반의 React Native UI 컴포넌트 및 스크린을
 - 컴포넌트는 PascalCase 파일명
 - Props 타입은 `I{Name}Props` 인터페이스로 정의
 - 리스트 렌더링 시 FlashList 우선 사용
-- Bottom Sheet는 `@gorhom/bottom-sheet` 사용
+- Bottom Sheet는 네이티브 시트 우선: Expo Router 스크린 옵션 `presentation: 'formSheet'` + `sheetAllowedDetents`(iOS·Android 네이티브, 의존성 추가 없음). 커스텀 제스처가 꼭 필요할 때만 `npx expo install @gorhom/bottom-sheet` 후 **Android 실기기에서 표시 여부를 확인**한다 (RN 0.86 + Reanimated 4.5에서 시트가 보이지 않거나 터치를 막는 이슈가 열려 있다)
+- 광고 UI는 `AdBanner`/`useInterstitialAd`/`useRewardedAd`만 사용한다 — 모두 `useAdsReady()`(동의 + SDK 초기화)로 게이트되어 있고, 배너는 로드 실패 시 자리를 비우지 않고 접힌다
 - **Store Review 배선**: `expo-store-review`를 직접 호출하지 않는다. PRD의 Review Triggers에 명시된 화면의 성공 콜백에서만 `useStoreReview().maybeRequest(REVIEW_TRIGGERS.X, { uiIsIdle: true })` 호출. 에러 핸들러/`catch` 블록 내부 호출 금지. **자체 사전 프롬프트(별점 의향 묻는 커스텀 다이얼로그) 금지** — Google Play 정책 위반
 - **maybeRequest 반환값 사용 금지**: 후속 UI/네비게이션 분기에 사용하지 않는다 (fire-and-forget)
 - **Key Action 카운터**: PRD가 "핵심 액션"으로 지정한 성공 콜백에서 `useReviewStore().recordKeyAction()` 호출
@@ -128,10 +129,9 @@ UI 컴포넌트/스크린 개발을 시작하기 전, NativeWind `className`이 
 |---------|-------|
 | NativeWind 4 | Tailwind CSS styling |
 | Reanimated 4 | Complex animations |
-| Lottie 7 | Lottie JSON animations |
-| FlashList 2 | High-performance lists |
-| @gorhom/bottom-sheet 5 | Bottom sheets |
-| Expo Router 6 | File-based routing |
+| FlashList 2 | High-performance lists (Expo 번들 버전 2.0.2) |
+| Expo Router 57 | File-based routing · `presentation: 'formSheet'` 네이티브 시트 (React Navigation은 `expo-router`에서만 import) |
+| Lottie 7 (필요 시 `npx expo install lottie-react-native`) | Lottie JSON animations |
 
 ## 팀 통신 프로토콜
 

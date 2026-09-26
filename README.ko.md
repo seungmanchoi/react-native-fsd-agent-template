@@ -1,7 +1,7 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/React_Native-0.81-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
-  <img src="https://img.shields.io/badge/Expo-54-000020?style=for-the-badge&logo=expo&logoColor=white" />
-  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/React_Native-0.86-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/Expo-SDK_57-000020?style=for-the-badge&logo=expo&logoColor=white" />
+  <img src="https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
   <img src="https://img.shields.io/badge/Feature--Sliced_Design-FSD-orange?style=for-the-badge" />
 </p>
 
@@ -160,22 +160,22 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 
 | Category | Technology |
 |----------|-----------|
-| Framework | React Native 0.81 + Expo 54 |
-| Language | TypeScript 5.9 (strict mode) |
-| Routing | Expo Router 6 (file-based) |
+| Framework | React Native 0.86 + Expo SDK 57 (React 19.2, New Architecture, Hermes) |
+| Language | TypeScript 6.0 (strict mode) |
+| Routing | Expo Router 57 (file-based) |
 | Global State | Zustand 5 |
 | Server State | TanStack Query 5 |
 | Styling | NativeWind 4 (Tailwind CSS 3.4) |
 | Form & Validation | React Hook Form 7 + Zod 4 |
 | API Client | Axios (auto token refresh) |
-| Animation | Reanimated 4 + Lottie 7 |
+| Animation | Reanimated 4 |
 | List | FlashList 2 (Shopify) |
-| Bottom Sheet | @gorhom/bottom-sheet 5 |
+| Bottom Sheet | Native `formSheet` (Expo Router) |
 | Date | Day.js |
 | Lint & Format | ESLint 9 + Prettier 3 |
 | Testing | Vitest 4 |
-| Ads | react-native-google-mobile-ads 16 (UMP consent + ATT) |
-| Analytics | Firebase Analytics 24 (adapter, Expo Go 자동 no-op) |
+| Ads | react-native-google-mobile-ads 17.0.0 (UMP consent + ATT) |
+| Analytics | Firebase Analytics + Crashlytics 26 (modular API, Expo Go 자동 no-op) |
 | Secure Storage | expo-secure-store (Keychain / Keystore) |
 | In-App Review | expo-store-review (policy-gated) |
 | i18n | i18n-js |
@@ -209,13 +209,13 @@ UMP(GDPR) 동의  →  iOS ATT 프롬프트  →  mobileAds().initialize()
 
 ### Analytics — Firebase (`src/shared/lib/analytics/`)
 
-**Firebase / no-op 어댑터**를 가진 얇은 래퍼 — Expo Go(네이티브 모듈 없음)에서는 자동으로 no-op으로 폴백하고, 개발 환경에서는 수집이 비활성화됩니다.
+**Firebase / no-op 어댑터**를 가진 얇은 래퍼(RN Firebase v26 modular API) — Expo Go(네이티브 모듈 없음)에서는 자동으로 no-op으로 폴백하고, 수집은 production 빌드에서만 켜집니다. 화면 조회는 루트 레이아웃이 자동 기록하고, `recordError()`는 Crashlytics로 보냅니다.
 
 ```ts
 import { initAnalytics, logEvent, logScreenView } from '@shared/lib/analytics';
 ```
 
-- 래퍼만 사용 — `firebase.analytics()` 직접 호출 금지
+- 래퍼만 사용 — `@react-native-firebase/*` 직접 import 금지
 - 이벤트 이름은 `EAnalyticsEvent`에 정의(매직 스트링 금지), 파라미터에 PII 금지
 
 ### 보안 토큰 저장 (`src/shared/api/client.ts`)
@@ -246,7 +246,6 @@ await maybeRequest(REVIEW_TRIGGERS.AFTER_TASK_COMPLETE, { uiIsIdle: true });
 
 | Plugin | 역할 |
 |--------|------|
-| `withRNFirebaseStaticBuild` | RN 0.81 + New Arch + static frameworks iOS 빌드 패치(3종 에러 자동 해결) |
 | `withLocalizedAppName` | 홈화면 다국어 앱 이름(iOS `InfoPlist.strings` / Android `strings.xml`) |
 | `withLocalizedAttDescription` | iOS ATT 프롬프트 다국어 메시지(Android no-op) |
 
@@ -392,7 +391,6 @@ npm run android    # Android Emulator
 │       └── ui/                         # UI components
 │
 ├── plugins/                            # Expo config plugins
-│   ├── withRNFirebaseStaticBuild.js    # RN 0.81 + New Arch iOS build patch
 │   ├── withLocalizedAppName.js         # Localized home-screen app name
 │   └── withLocalizedAttDescription.js  # Localized iOS ATT prompt
 ├── firebase/                           # GoogleService-*.{plist,json} (gitignored)
@@ -482,7 +480,6 @@ npm run start:local       # Dev server (localhost)
 npm run start:tunnel      # Dev server (tunnel)
 npm run ios               # Run on iOS
 npm run android           # Run on Android
-npm run web               # Run on Web
 npm run lint              # ESLint 9 check
 npm test                  # Vitest unit tests (run once)
 npm run test:watch        # Vitest watch mode
@@ -491,7 +488,7 @@ npm run format            # Prettier format
 npm run eas:build:dev     # EAS development build
 npm run eas:build:preview # EAS preview build
 npm run eas:build:prod    # EAS production build
-npm run eas:update        # EAS Update (preview branch)
+npm run sync:codex        # .claude/ 원본에서 Codex 하네스 사본 재생성
 ```
 
 ---
@@ -506,10 +503,9 @@ npm run eas:update        # EAS Update (preview branch)
 name: 'MyApp',              // 앱 이름
 slug: 'my-app',             // URL slug
 scheme: 'myapp',            // Deep link scheme
-// iOS
-bundleIdentifier: 'com.myapp.app',
-// Android
-package: 'com.myapp.app',
+// iOS bundleIdentifier / Android package는 slug에서 자동 생성:
+// com.seungmanchoi.{slug에서 '-' 제거} — 두 스토어에서 미사용인지 확인하고,
+// 첫 업로드 이후에는 절대 바꾸지 않는다
 ```
 
 ### 2. 테마 색상
@@ -552,7 +548,7 @@ eas build:configure    # EAS 초기 설정
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `API_URL` | `http://localhost:3000/api/v1` | 백엔드 base URL |
-| `NODE_ENV` | `development` | 환경 모드 |
+| `APP_ENV` | 미설정 | `development` / `preview` / `production` — EAS 프로필이 지정. 미설정이면 dev 번들은 development, release 번들은 production(로컬 fastlane 빌드). `.env`에 넣지 않는다 |
 | `DEBUG` | `false` | 디버그 플래그 |
 | `LOG_LEVEL` | `debug` | 로그 레벨 |
 | `APP_VERSION` | `1.0.0` | 앱 버전 (iOS/Android) |
@@ -564,11 +560,11 @@ eas build:configure    # EAS 초기 설정
 | `GOOGLE_SERVICE_INFO_PLIST` | `firebase/GoogleService-Info.plist` (iOS) |
 | `GOOGLE_SERVICES_JSON` | `firebase/google-services.json` (Android) |
 
-EAS 클라우드 빌드에서는 시크릿으로 주입합니다:
+EAS 클라우드 빌드에서는 file 타입 환경변수로 주입합니다 (`eas secret:*`은 deprecated):
 
 ```bash
-eas secret:create --scope project --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./firebase/GoogleService-Info.plist
-eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value ./firebase/google-services.json
+eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./firebase/GoogleService-Info.plist --visibility secret --environment production --environment preview --environment development
+eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./firebase/google-services.json --visibility secret --environment production --environment preview --environment development
 ```
 
 ---
@@ -654,28 +650,13 @@ feature/* ← Feature branches
 | `preview` | 내부 배포용 |
 | `production` | 스토어 배포용 (빌드 번호 자동 증가) |
 
-### iOS — Firebase Static Build
+### iOS — Firebase (SPM + dynamic frameworks)
 
-RN Firebase + RN 0.81 + New Architecture + static frameworks 조합은 iOS 빌드에서 알려진 3종 에러를 유발한다. 템플릿에 포함된 **`withRNFirebaseStaticBuild`** 플러그인이 이를 모두 자동으로 해결한다 — `app.config.ts`의 plugins에 유지하고 `npx expo prebuild --clean`만 실행하면 된다. 자세한 내용은 [`docs/troubleshooting.md`](./docs/troubleshooting.md)와 `CLAUDE.md` 참고.
+RN Firebase 26은 Firebase iOS SDK를 Swift Package Manager로 가져오며, SPM은 `expo-build-properties` → `ios.useFrameworks: 'dynamic'`(템플릿 기본)이 필수다. `'static'`만 단독으로 쓰면 `pod install`이 실패한다. `patches/@react-native-firebase+crashlytics+26.4.0.patch`(`postinstall`에서 적용)가 RNFB 26.4.0 Crashlytics dSYM 단계가 모든 iOS 빌드를 실패시키는 문제를 막는다 — RN Firebase를 올리면 패치를 지운다. 상세: [`firebase/README.md`](./firebase/README.md).
 
 ### .easignore 설정
 
-빌드 아카이브에서 불필요한 파일을 제외하여 업로드 시간을 단축한다:
-
-```
-node_modules/
-assets/store-screenshots/
-fastlane/
-scripts/
-build-output/
-_workspace/
-.claude/
-plugins/
-.git/
-.idea/
-.vscode/
-*.md
-```
+EAS는 프로젝트를 압축할 때 `.gitignore` **대신** `.easignore`를 쓰므로, 템플릿의 [`.easignore`](./.easignore)는 모든 시크릿 패턴(`.env*`, `*.p12`, `*.jks`, `credentials.json` 등)을 반복하고 스토어 에셋·툴링도 제외한다. `plugins/`와 `patches/`는 절대 제외하지 않는다 — 빌드 서버의 prebuild와 `postinstall`에 필요하다.
 
 ### 앱 크기 최적화
 

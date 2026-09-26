@@ -14,4 +14,9 @@ export const noopAnalytics: IAnalyticsAdapter = {
       console.log('[analytics:dev] screen', name);
     }
   },
+  recordError: (error) => {
+    if (__DEV__) {
+      console.log('[crashlytics:dev]', error.message);
+    }
+  },
 };

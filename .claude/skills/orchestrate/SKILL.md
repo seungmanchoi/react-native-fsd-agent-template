@@ -16,7 +16,7 @@ description: "React Native + Expo + FSD 앱의 전체 라이프사이클(아이�
 
 이 스킬은 React Native + Expo + FSD 아키텍처 기반 앱의 **전체 라이프사이클**을 10개의 AI 에이전트와 9개의 스킬을 통해 자동으로 오케스트레이션한다.
 
-**Tech Stack**: React Native 0.81 + Expo 54 + FSD + NativeWind + Zustand + TanStack Query + Axios + TypeScript
+**Tech Stack**: React Native 0.86 + Expo SDK 57 + FSD + NativeWind + Zustand + TanStack Query + Axios + TypeScript 6
 
 ### Harness Design Principles (Anthropic)
 
@@ -738,7 +738,7 @@ Tasks:
 5. 로딩/에러/빈 상태 처리
 6. React Hook Form + Zod 폼 구현
 7. Engagement 배선
-   - 모든 스크린에 useScreenTracking() 삽입 (Phase 4d에서 모듈은 구축됨)
+   - 화면 추적(screen_view)은 루트 _layout.tsx가 라우트 패턴으로 자동 기록 — 화면별 호출 불필요
    - PRD Review Triggers에 매핑된 화면의 성공 콜백에서
      useReviewStore().recordKeyAction() 호출 후
      useStoreReview().maybeRequest(REVIEW_TRIGGERS.X) 호출
@@ -777,7 +777,7 @@ npm run typecheck && npm run lint
 
 **에이전트**: `api-integrator`
 **입력**: `_workspace/plan/kpis.md`, `_workspace/plan/prd.md`, `app/`, `src/features/`
-**출력**: `src/shared/analytics/`, 각 화면/액션의 `logEvent` 호출 삽입
+**출력**: `src/shared/lib/analytics/events.ts`(PRD KPI 카탈로그), 각 화면/액션의 `logEvent` 호출 삽입 — 래퍼·Crashlytics·화면 추적·Store Review 인프라는 템플릿에 이미 있다
 
 이 단계는 **PRD의 KPI를 실제로 측정 가능하게 만드는 단계**이다. KPI가 정의되지 않은 채로 Phase 4d에 진입하면 즉시 Phase 2로 돌아간다.
 
@@ -810,20 +810,21 @@ Tasks:
         - "앱 등록"
         - "google-services.json 다운로드" 버튼 클릭
         - SDK 단계 "다음"으로 스킵
-   1-6. 다운로드 파일을 프로젝트로 이동
-        - ~/Downloads/GoogleService-Info.plist → ios/GoogleService-Info.plist
-        - ~/Downloads/google-services.json → android/app/google-services.json
-        - ios/ 또는 android/ 폴더가 없으면 firebase/ 임시 폴더에 보관 후
-          expo prebuild --clean 이후 정식 위치로 이동
-   1-7. .gitignore에 즉시 추가
-        - ios/GoogleService-Info.plist
-        - android/app/google-services.json
-        - firebase/
-   1-8. EAS Secrets 등록 (클라우드 빌드용)
-        eas secret:create --scope project --name GOOGLE_SERVICES_PLIST \
-          --type file --value ./ios/GoogleService-Info.plist
-        eas secret:create --scope project --name GOOGLE_SERVICES_JSON \
-          --type file --value ./android/app/google-services.json
+   1-6. 다운로드 파일을 ./firebase/로 이동 (app.config.ts googleServicesFile 기본 경로 —
+        prebuild가 네이티브 프로젝트로 복사하므로 ios/·android/에 직접 두지 않는다)
+        - ~/Downloads/GoogleService-Info.plist → firebase/GoogleService-Info.plist
+        - ~/Downloads/google-services.json → firebase/google-services.json
+   1-7. .gitignore 확인 (템플릿에 firebase/GoogleService-Info.plist,
+        firebase/google-services.json 포함) — git status에 노출되면 즉시 중단
+   1-8. EAS 클라우드 빌드용 file 환경변수 등록 (eas secret:* 은 deprecated).
+        이름은 app.config.ts가 읽는 두 개와 정확히 같아야 한다:
+        eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file \
+          --value ./firebase/GoogleService-Info.plist --visibility secret \
+          --environment production --environment preview --environment development
+        eas env:create --name GOOGLE_SERVICES_JSON --type file \
+          --value ./firebase/google-services.json --visibility secret \
+          --environment production --environment preview --environment development
+        (로컬 fastlane 빌드는 ./firebase/ 파일을 그대로 쓰므로 env 등록 불필요)
 
    Playwright selector 실패 fallback:
    - Firebase 콘솔 UI가 변경되어 자동화가 실패하면 즉시 중단
@@ -832,35 +833,36 @@ Tasks:
      ~/Downloads/ 에 받아두었다"는 확인 요청
    - 확인 후 1-6단계부터 자동화 재개
 
-2. 패키지 설치
-   npm install @react-native-firebase/app \
-     @react-native-firebase/analytics \
-     @react-native-firebase/crashlytics
-   npx expo install expo-build-properties
+2. 패키지 확인 — 템플릿에 @react-native-firebase/{app,analytics,crashlytics} 26.x 와
+   expo-build-properties 가 이미 있다. measurement.crashlytics=false 면 crashlytics
+   패키지·plugin 을 제거한다.
 
-3. Expo plugin 등록 (app.config.ts)
+3. Expo plugin 확인 (app.config.ts — 템플릿 기본값 유지)
    plugins:
      - '@react-native-firebase/app'
      - '@react-native-firebase/crashlytics'
-     - ['expo-build-properties', { ios: { useFrameworks: 'static' } }]
-   ios.googleServicesFile / android.googleServicesFile 경로도 지정
+     - ['expo-build-properties', { ios: { useFrameworks: 'dynamic' } }]
+       RNFB 26 은 Firebase iOS SDK 를 SPM 으로 받으며 SPM 은 dynamic 필수.
+       'static' 단독 금지(pod install 실패) — 정적이 꼭 필요하면 RNFB app plugin
+       { ios: { disableSPM: true } } + 'static' + 모든 RNFB pod forceStaticLinking.
+   ios.googleServicesFile / android.googleServicesFile = ./firebase/* (env 로 오버라이드)
 
-4. src/shared/analytics/ 모듈 작성
-   - client.ts (logEvent, setUserProperty, initAnalytics 래퍼)
-   - events.ts (PRD의 KPI 카탈로그를 상수로 정의)
-   - hooks/useScreenTracking.ts
-   - types/index.ts, index.ts (barrel export)
+4. src/shared/lib/analytics/ (템플릿 구현 확장)
+   - events.ts 에 PRD KPI 카탈로그를 EAnalyticsEvent 상수로 추가
+   - firebase.ts 는 RNFB v26 modular API 만 사용 (namespaced analytics() 는 삭제됨)
 
-5. 루트 _layout.tsx에서 initAnalytics() 호출
-   - env.IS_PROD 기준으로 수집 활성/비활성 토글
+5. 루트 _layout.tsx 의 void initAnalytics() 유지
+   - env.IS_PROD 에서만 Analytics·Crashlytics 수집 (dev/preview 는 끔)
 
 6. PRD KPI 매핑 적용
-   - 모든 스크린에 useScreenTracking() 삽입
-   - 핵심 액션(F-NNN)에 logEvent() 삽입
+   - screen_view 는 루트 _layout.tsx 가 라우트 패턴으로 자동 기록 (추가 작업 없음)
+   - 핵심 액션(F-NNN)에 logEvent(EAnalyticsEvent.X, ...) 삽입
    - 활성/유지/수익화 축 이벤트가 모두 1개 이상 코드에 존재하는지 검증
 
-7. Crashlytics 초기화
-   - crashlytics().setCrashlyticsCollectionEnabled(env.IS_PROD)
+7. Crashlytics
+   - 수집 토글은 initAnalytics() 가 처리, 비치명 에러는 recordError(error)
+   - 루트 ErrorBoundary 가 recordError + reviewStore.recordError 를 이미 호출
+   - 로컬 release 빌드 후 dSYM 업로드 빌드 단계 존재 확인
 
 8. Store Review 모듈 구축 (engagement 인프라)
    - npx expo install expo-store-review
@@ -886,15 +888,13 @@ Tasks:
 
 ## Done 조건
 - [ ] Playwright MCP로 Firebase 콘솔에 iOS/Android 앱 등록 완료
-- [ ] ios/GoogleService-Info.plist 파일이 프로젝트에 존재
-- [ ] android/app/google-services.json 파일이 프로젝트에 존재
+- [ ] firebase/GoogleService-Info.plist, firebase/google-services.json 존재 (번들 ID/패키지명 일치)
 - [ ] 두 파일이 .gitignore에 등록되어 git status에 untracked로도 노출되지 않음
-- [ ] EAS Secrets에 GOOGLE_SERVICES_PLIST, GOOGLE_SERVICES_JSON 업로드 완료
-- [ ] @react-native-firebase/{app,analytics,crashlytics} + expo-build-properties 설치
+- [ ] (EAS 클라우드 빌드 시) EAS env 에 GOOGLE_SERVICE_INFO_PLIST, GOOGLE_SERVICES_JSON (file) 등록
+- [ ] @react-native-firebase/{app,analytics,crashlytics} 26.x + expo-build-properties (dynamic) 유지
 - [ ] app.config.ts에 plugins 및 googleServicesFile 경로 등록
-- [ ] src/shared/analytics/{client,events,types,index}.ts 생성
-- [ ] src/shared/analytics/hooks/useScreenTracking.ts 생성
-- [ ] 루트 _layout.tsx에서 initAnalytics() 호출
+- [ ] src/shared/lib/analytics/events.ts 에 PRD KPI 이벤트 상수 추가
+- [ ] 루트 _layout.tsx에서 initAnalytics() 호출 + 화면 추적(useSegments) 유지
 - [ ] PRD의 north-star 이벤트 + 4축 이벤트 각 1개 이상 logEvent 호출 존재
 - [ ] env.IS_PROD 기반 dev/prod 분기 동작
 - [ ] src/shared/store-review/{client,policy,store,triggers,hooks/useStoreReview,types,index}.ts 생성
@@ -907,31 +907,32 @@ Tasks:
 - npm run typecheck 0 에러
 - npm run lint 0 에러
 - grep으로 매직 스트링 logEvent 호출 0건 확인
-- grep으로 외부 코드의 firebase.analytics() 직접 호출 0건 확인
-- eas secret:list 결과에 GOOGLE_SERVICES_PLIST, GOOGLE_SERVICES_JSON 존재
+- grep으로 외부 코드의 @react-native-firebase/* 직접 import / namespaced analytics() 호출 0건 확인
+- (EAS 사용 시) eas env:list 결과에 GOOGLE_SERVICE_INFO_PLIST, GOOGLE_SERVICES_JSON 존재
 ```
 
 **KPI 정의 검증 (Go/No-Go)**:
 - `_workspace/plan/kpis.md`가 존재하지 않거나 north-star + 4축이 빠져 있으면
   → Phase 2 (product-planner) 재실행으로 escalate
-- PRD에 정의된 이벤트와 코드의 EVENTS 상수가 1:1로 일치하지 않으면 FAIL
+- PRD에 정의된 이벤트와 코드의 EAnalyticsEvent 상수가 1:1로 일치하지 않으면 FAIL
 
 **부트 시퀀스 정본 확인 (`_layout.tsx`)**:
 Phase 4b(광고·SecureStore)와 4d(Analytics·Crashlytics·Review)가 모두 루트 `_layout.tsx` 한 곳에 init을 모은다. **순서가 어긋나면 첫 이벤트·첫 광고 요청·동의 정보가 누락**되므로(전형적 order-sensitive 지점) 아래 정본 순서를 확인한다:
-1. SecureStore 토큰 하이드레이션 (Providers 마운트 전)
-2. 에러/Crashlytics 핸들러 등록 + `reviewStore.recordError` 연결 — **가장 먼저** (이후 init 중 크래시도 포착)
-3. `await initializeAdsWithConsent()` (UMP → ATT → `mobileAds().initialize()`)
-4. `initAnalytics()` + 동의 결과를 `setUserProperty('ump_status'/'att_status', ...)`로 기록 — **3 이후여야** 동의가 반영됨
-5. `reviewStore.recordLaunch()` (세션당 1회)
-6. Providers(QueryClient/Theme/SafeArea) 마운트
-- 위반(특히 2가 3·4보다 늦거나, 4가 3보다 먼저) 발견 → `api-integrator`로 환원. 미사용 모듈(광고/Analytics 미선택)은 해당 단계 생략 가능.
+1. `ErrorBoundary`가 트리 최상단 (Crashlytics `recordError` + `reviewStore.recordError`) — init 중 크래시도 포착
+2. `void initializeAdsWithConsent()` — UMP → ATT → `mobileAds().initialize()`. **첫 렌더를 막지 않는다**(await 금지). UMP 결과(`ump_status`/`att_status`)는 consent.ts가 직접 user property로 기록
+3. `void initAnalytics()` — 수집 토글(IS_PROD). 동의 흐름과 병렬이어도 된다 (UMP가 Firebase consent mode를 직접 갱신)
+4. `useReviewStore.persist.rehydrate()` **완료 후** `recordLaunch()` (세션당 1회)
+5. `setAuthFailureCallback` (auth 사용 앱)
+6. 광고 컴포넌트/훅은 `useAdsReady()`가 true가 된 뒤에만 로드
+- 위반(특히 동의 전에 광고 로드, 렌더를 막는 await, hydrate 전 recordLaunch) 발견 → `api-integrator`로 환원. 미사용 모듈(광고/Analytics 미선택)은 해당 단계 생략 가능.
 
 **Error Handling**:
 - **Firebase 콘솔 미로그인**: Playwright MCP가 로그인 페이지를 감지하면 사용자에게 브라우저 창에서 직접 로그인하라고 요청하고 대기. 절대 자격증명을 자동 입력 시도하지 않는다.
 - **Playwright selector 실패** (콘솔 UI 변경): `_workspace/implementation/firebase-manual.md`에 진행 상태(어느 단계에서 실패했는지, 어떤 앱이 이미 등록되었는지) 기록 후 사용자에게 수동 등록 + 파일 다운로드를 요청. 사용자 확인 후 파일 이동 단계부터 자동화 재개.
 - **다운로드 파일 누락**: `~/Downloads/GoogleService-Info.plist`, `~/Downloads/google-services.json`이 없으면 1-4 / 1-5단계의 "다운로드" 버튼 클릭이 실패한 것. 콘솔에서 해당 앱 설정 → "GoogleService-Info.plist/google-services.json" 다시 다운로드.
-- **EAS Secrets 충돌**: 동일 이름 secret이 이미 있으면 `eas secret:delete` 후 재생성 (사용자 확인 필요).
-- **빌드 실패 — Multiple commands produce duplicate**: `useFrameworks: 'static'` 누락 또는 `@react-native-firebase/app` plugin 등록 누락 우선 확인.
+- **EAS env 충돌**: 동일 이름 변수가 이미 있으면 `eas env:create ... --force`로 덮어쓴다 (사용자 확인 필요).
+- **pod install 실패 — "SPM + static linkage is not supported"**: `useFrameworks: 'static'`이 RNFB 기본 SPM 모드와 충돌한 것. `'dynamic'`으로 되돌린다.
+- **빌드 실패 — Multiple commands produce duplicate**: `@react-native-firebase/app` plugin 등록 누락 또는 `ios/`에 수동 배치한 GoogleService-Info.plist 중복 우선 확인.
 - **Firebase 콘솔 접근 권한 부재**: `_workspace/implementation/error-4d.md`에 차단 사유 기록 후 사용자에게 Firebase 프로젝트 권한 부여 요청.
 
 **Quick QA Checkpoint (4d-QA)**:
@@ -940,8 +941,8 @@ Phase 4d 완료 후 qa-reviewer가 경량 검증을 실행한다:
 npm run typecheck && npm run lint
 ```
 추가 검사 (qa-reviewer가 수동 수행):
-- 외부 코드에서 `firebase.analytics()` 직접 호출 0건 (반드시 `@/shared/analytics` 래퍼 사용)
-- `logEvent(`'string'`, ...)` 매직 스트링 호출 0건 (반드시 `EVENTS.*` 상수 사용)
+- 외부 코드에서 `@react-native-firebase/*` 직접 호출 0건 (반드시 `@shared/lib/analytics` 래퍼 사용)
+- `logEvent(`'string'`, ...)` 매직 스트링 호출 0건 (반드시 `EAnalyticsEvent.*` 상수 사용)
 - 이벤트 파라미터에 이메일/전화/실명/정확 위치 PII 0건
 - `expo-store-review` 직접 호출 0건 (반드시 `@/shared/store-review` 훅 사용)
 - 정책 엔진 미경유 `requestReview()` 호출 0건
@@ -1060,8 +1061,9 @@ Loop 시작 (최대 3회):
 | 확인 항목 | 통과 기준 | 미통과 시 |
 |----------|----------|----------|
 | **스토어 리뷰 트리거** | `spec.md`의 `ux.store_review=true`이면, PRD Review Triggers에 매핑된 화면의 **긍정적 액션 성공 콜백(UI idle)**에 `maybeRequest(REVIEW_TRIGGERS.X)`가 **최소 1곳 이상** 실제 배선됨. (인앱 리뷰는 스토어 콘솔 사전 설정 불필요) | 한 곳도 없으면 평점 수집이 0 → `ui-developer`로 환원, 가치-순간 결정 후 배선 |
-| 광고 동의/초기화 | `monetization.model`에 광고 포함 시 `initializeAdsWithConsent()` await + AdMob Console GDPR/IDFA 메시지 **Published** | `api-integrator`로 환원 |
-| Analytics KPI 배선 | 북극성/4축 이벤트가 화면에 배선(`useScreenTracking` + 커스텀 이벤트) | `api-integrator`/`ui-developer`로 환원 |
+| 광고 동의/초기화 | `monetization.model`에 광고 포함 시 루트에서 `initializeAdsWithConsent()` 호출(렌더 비차단) + 모든 광고 로드가 `useAdsReady()` 경유 + AdMob Console GDPR/IDFA 메시지 **Published** | `api-integrator`로 환원 |
+| Analytics KPI 배선 | 북극성/4축 커스텀 이벤트가 화면에 배선(`screen_view`는 루트 `_layout.tsx`가 자동 기록) | `api-integrator`/`ui-developer`로 환원 |
+| **빌드 환경 (APP_ENV)** | 스토어 제출 바이너리의 `extra.appEnv`가 없거나 `production` (EAS: 프로필 `APP_ENV=production` / 로컬 fastlane: 미설정 → release 번들이 production으로 판정). CLAUDE.md "빌드 환경 (APP_ENV)" 검증 명령 | `development`/`preview`면 테스트 광고로 출시됨 → 재빌드 |
 
 **(b) 스토어·콘솔·일관성·시크릿** — 출시 후 수정이 번거롭거나 리젝/정책 위반을 유발
 
@@ -1073,7 +1075,7 @@ Loop 시작 (최대 3회):
 | **IAP/구독 상품 등록** (조건부) | `monetization.model`에 IAP/구독 포함 시 ASC/Play 콘솔에 상품 생성·승인됨 | 미등록 → 페이월 무동작(수익 0), 콘솔 등록 후 재확인 |
 | **미해결 HIGH QA 이슈** | `_workspace/qa/unresolved.md`에 HIGH 이상 미해결 이슈 **0건** (있으면 사용자가 명시 승인) | 미승인 HIGH 잔존 → 배포 보류 |
 | **app-ads.txt** (조건부) | 광고 사용 시 app-ads.txt 게시 + 스토어 리스팅에 도메인 연결 (store-admob Step 7) | 미게시 → 무효 트래픽 판정·수익 차단 |
-| **EAS Secrets 주입** | `GoogleService-Info.plist`/`google-services.json` 등 시크릿이 EAS Secrets로 주입됨(평문 커밋 0, `eas secret:list` 확인) | 누락 → 런타임 Firebase 실패, Secrets 설정 후 재빌드 |
+| **Firebase 설정 주입** | `GoogleService-Info.plist`/`google-services.json` 평문 커밋 0. EAS 클라우드 빌드면 file 환경변수 `GOOGLE_SERVICE_INFO_PLIST`/`GOOGLE_SERVICES_JSON` 등록(`eas env:list`), 로컬 빌드면 `./firebase/` 파일 존재 | 누락 → prebuild 실패/런타임 Firebase 실패, 설정 후 재빌드 |
 
 > **왜 배포 단계인가**: (a)는 "어느 화면의 어느 순간에 넣을지"가 UX 품질을 좌우하고(평점은 잘못 띄우면 ★1 폭격), (b)는 여러 곳에 흩어져 동기화가 깨지거나 콘솔/스토어 설정과 어긋나기 쉽다. 둘 다 **전체가 완성된 배포 직전**에 판단·확인이 가장 정확하고, 게시 후엔 즉시 못 고치므로 여기가 마지막 안전망이다. 모두 통과해야 Build/Submit 진행.
 

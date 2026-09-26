@@ -1,12 +1,13 @@
-const expo = require('eslint-config-expo/flat');
+// https://docs.expo.dev/guides/using-eslint/
+const { defineConfig } = require('eslint/config');
+const expoConfig = require('eslint-config-expo/flat');
 
-module.exports = [
-  ...expo,
+module.exports = defineConfig([
+  expoConfig,
   {
     files: ['**/*.ts', '**/*.tsx'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
-      'react/react-in-jsx-scope': 'off',
     },
   },
   {
@@ -15,6 +16,8 @@ module.exports = [
       '.expo/**',
       '.idea/**',
       '.vscode/**',
+      'ios/**',
+      'android/**',
       'build-output/**',
       'dist/**',
       '.claude/**',
@@ -22,4 +25,4 @@ module.exports = [
       '_workspace/**',
     ],
   },
-];
+]);

@@ -40,14 +40,9 @@ Anthropic의 공식 하네스 설계 가이드 기반 원칙.
 
 > "어떤 하나의 기준이라도 임계값 이하이면 해당 스프린트는 실패"
 
-| 기준 | 임계값 | 측정 방법 |
-|------|--------|---------|
-| TypeScript 타입 오류 | 0개 | `npm run typecheck` |
-| ESLint 에러 | 0개 | `npm run lint` |
-| FSD 의존성 위반 | 0개 | import 경로 분석 |
-| SafeAreaView 누락 (스크린) | 0개 | 코드 분석 |
-| 빈 상태 처리 누락 | 0개 | 코드 분석 |
-| `any` 타입 사용 | 0개 | 코드 분석 |
+**Hard Threshold 전체 목록은 `CLAUDE.md`의 "Hard Thresholds" 표가 정본이다** (TypeScript/ESLint/`any`/FSD 의존성/SafeArea/barrel export/날짜 키/SecureStore/평점 정책/광고 동의 시퀀스 등). 측정 방법·자동 수정 가능 여부 열은 `.claude/agents/qa-reviewer.md`의 표를 참조한다. **이 파일에 표를 중복 유지하지 않는다** (3중 드리프트 방지).
+
+> 참고: "빈 상태(empty state) 처리 누락"은 전역 Hard Threshold가 아니라 app-inspector가 **리스트 화면 단위**로 판정하는 항목이다 (`.claude/agents/app-inspector.md`).
 
 ## 5. 디자인 Grading Criteria (4축 평가)
 
@@ -75,3 +70,15 @@ Anthropic의 공식 하네스 설계 가이드 기반 원칙.
 - 처음엔 복잡하게 시작하고, 성능이 떨어지지 않는 구성 요소를 점진적으로 제거
 - 모델이 개선될수록 이전 스캐폴딩이 불필요한 오버헤드가 될 수 있음
 - 새 모델 출시 시 하네스 재평가 필요
+
+## 8. 지속 개선 루프 (Continuous Improvement Loop)
+
+출시는 끝이 아니라 루프의 한 바퀴다. 일회성 빌드(Phase 1~7) 이후에는 **개발 → 검증 → 다음 고도화 추천**을 반복한다.
+
+- **한 사이클 = 한 슬라이스** — 작게 만들고 빨리 검증한다 (Sprint 분해의 연장)
+- **데이터가 우선순위를 정한다** — "다음에 만들 것"은 직감이 아니라 KPI 갭·사용자 가치·노력·부채·커버리지의 가중 점수로 결정
+- **검증은 협상 불가** — 모든 사이클은 Hard Threshold + 회귀 없음 게이트를 통과해야 닫힌다 (독립 Evaluator)
+- **전체 재빌드 금지** — 건드리는 슬라이스만 구현/검증 (멀티 에이전트는 단일 대비 20배 토큰)
+- **루프는 닫혀야 한다** — 모든 사이클은 "다음 1개 추천"으로 끝나 다음 사이클의 입력이 된다
+
+주체: `loop-engineer` 에이전트 · 진입점: `/iterate-app` 스킬 · 상세 메커니즘: `loop-engineering.md`.

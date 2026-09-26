@@ -7,33 +7,37 @@
     "development-simulator": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "ios": {
         "simulator": true
       },
       "env": {
-        "NODE_ENV": "development",
+        "APP_ENV": "development",
         "API_URL": "http://localhost:3000/api/v1"
       }
     },
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "env": {
-        "NODE_ENV": "development",
+        "APP_ENV": "development",
         "API_URL": "http://localhost:3000/api/v1"
       }
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
       "env": {
-        "NODE_ENV": "development",
+        "APP_ENV": "preview",
         "API_URL": "http://localhost:3000/api/v1"
       }
     },
     "production": {
       "autoIncrement": true,
+      "environment": "production",
       "env": {
-        "NODE_ENV": "production",
+        "APP_ENV": "production",
         "API_URL": "https://api.myapp.com/api/v1"
       }
     }

@@ -1,7 +1,7 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/React_Native-0.81-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
-  <img src="https://img.shields.io/badge/Expo-54-000020?style=for-the-badge&logo=expo&logoColor=white" />
-  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/React_Native-0.86-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/Expo-SDK_57-000020?style=for-the-badge&logo=expo&logoColor=white" />
+  <img src="https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
   <img src="https://img.shields.io/badge/Feature--Sliced_Design-FSD-orange?style=for-the-badge" />
 </p>
 
@@ -160,22 +160,22 @@ For structural code questions (what calls what, what a change would break, where
 
 | Category | Technology |
 |----------|-----------|
-| Framework | React Native 0.81 + Expo 54 |
-| Language | TypeScript 5.9 (strict mode) |
-| Routing | Expo Router 6 (file-based) |
+| Framework | React Native 0.86 + Expo SDK 57 (React 19.2, New Architecture, Hermes) |
+| Language | TypeScript 6.0 (strict mode) |
+| Routing | Expo Router 57 (file-based) |
 | Global State | Zustand 5 |
 | Server State | TanStack Query 5 |
 | Styling | NativeWind 4 (Tailwind CSS 3.4) |
 | Form & Validation | React Hook Form 7 + Zod 4 |
 | API Client | Axios (auto token refresh) |
-| Animation | Reanimated 4 + Lottie 7 |
+| Animation | Reanimated 4 |
 | List | FlashList 2 (Shopify) |
-| Bottom Sheet | @gorhom/bottom-sheet 5 |
+| Bottom Sheet | Native `formSheet` (Expo Router) |
 | Date | Day.js |
 | Lint & Format | ESLint 9 + Prettier 3 |
 | Testing | Vitest 4 |
-| Ads | react-native-google-mobile-ads 16 (UMP consent + ATT) |
-| Analytics | Firebase Analytics 24 (adapter, auto no-op on Expo Go) |
+| Ads | react-native-google-mobile-ads 17.0.0 (UMP consent + ATT) |
+| Analytics | Firebase Analytics + Crashlytics 26 (modular API, auto no-op on Expo Go) |
 | Secure Storage | expo-secure-store (Keychain / Keystore) |
 | In-App Review | expo-store-review (policy-gated) |
 | i18n | i18n-js |
@@ -209,13 +209,13 @@ UMP (GDPR) consent  →  iOS ATT prompt  →  mobileAds().initialize()
 
 ### Analytics — Firebase (`src/shared/lib/analytics/`)
 
-A thin wrapper with a **Firebase / no-op adapter** — on Expo Go (no native module) it falls back to a no-op automatically, and collection is off in dev.
+A thin wrapper with a **Firebase / no-op adapter** (RN Firebase v26 modular API) — on Expo Go (no native module) it falls back to a no-op automatically, and collection runs only in production builds. Screen views are logged by the root layout; `recordError()` reports to Crashlytics.
 
 ```ts
 import { initAnalytics, logEvent, logScreenView } from '@shared/lib/analytics';
 ```
 
-- Use the wrapper only — never call `firebase.analytics()` directly
+- Use the wrapper only — never import `@react-native-firebase/*` directly
 - Event names live in `EAnalyticsEvent` (no magic strings); never put PII in params
 
 ### Secure Token Storage (`src/shared/api/client.ts`)
@@ -246,7 +246,6 @@ await maybeRequest(REVIEW_TRIGGERS.AFTER_TASK_COMPLETE, { uiIsIdle: true });
 
 | Plugin | Role |
 |--------|------|
-| `withRNFirebaseStaticBuild` | Patches the RN 0.81 + New Arch + static-frameworks iOS build (fixes 3 known errors automatically) |
 | `withLocalizedAppName` | Localized home-screen app name (iOS `InfoPlist.strings` / Android `strings.xml`) |
 | `withLocalizedAttDescription` | Localized iOS ATT prompt message (no-op on Android) |
 
@@ -392,7 +391,6 @@ npm run android    # Android Emulator
 │       └── ui/                         # UI components
 │
 ├── plugins/                            # Expo config plugins
-│   ├── withRNFirebaseStaticBuild.js    # RN 0.81 + New Arch iOS build patch
 │   ├── withLocalizedAppName.js         # Localized home-screen app name
 │   └── withLocalizedAttDescription.js  # Localized iOS ATT prompt
 ├── firebase/                           # GoogleService-*.{plist,json} (gitignored)
@@ -482,7 +480,6 @@ npm run start:local       # Dev server (localhost)
 npm run start:tunnel      # Dev server (tunnel)
 npm run ios               # Run on iOS
 npm run android           # Run on Android
-npm run web               # Run on Web
 npm run lint              # ESLint 9 check
 npm test                  # Vitest unit tests (run once)
 npm run test:watch        # Vitest watch mode
@@ -491,7 +488,7 @@ npm run format            # Prettier format
 npm run eas:build:dev     # EAS development build
 npm run eas:build:preview # EAS preview build
 npm run eas:build:prod    # EAS production build
-npm run eas:update        # EAS Update (preview branch)
+npm run sync:codex        # Regenerate the Codex harness copies from .claude/
 ```
 
 ---
@@ -506,10 +503,9 @@ Edit in `app.config.ts`:
 name: 'MyApp',              // App name
 slug: 'my-app',             // URL slug
 scheme: 'myapp',            // Deep link scheme
-// iOS
-bundleIdentifier: 'com.myapp.app',
-// Android
-package: 'com.myapp.app',
+// iOS bundleIdentifier and Android package are derived from the slug:
+// com.seungmanchoi.{slug without dashes} — check it is free on both stores,
+// then never change it after the first upload
 ```
 
 ### 2. Theme Colors
@@ -552,7 +548,7 @@ App config flows through `app.config.ts` → `extra` → `src/shared/config/env.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `API_URL` | `http://localhost:3000/api/v1` | Backend base URL |
-| `NODE_ENV` | `development` | Environment mode |
+| `APP_ENV` | unset | `development` / `preview` / `production`, set by the EAS profile. Unset = dev bundle → development, release bundle → production (local fastlane builds). Don't put it in `.env` |
 | `DEBUG` | `false` | Debug flag |
 | `LOG_LEVEL` | `debug` | Log verbosity |
 | `APP_VERSION` | `1.0.0` | App version (iOS/Android) |
@@ -564,11 +560,11 @@ App config flows through `app.config.ts` → `extra` → `src/shared/config/env.
 | `GOOGLE_SERVICE_INFO_PLIST` | `firebase/GoogleService-Info.plist` (iOS) |
 | `GOOGLE_SERVICES_JSON` | `firebase/google-services.json` (Android) |
 
-For EAS cloud builds, inject them as secrets:
+For EAS cloud builds, inject them as file environment variables (`eas secret:*` is deprecated):
 
 ```bash
-eas secret:create --scope project --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./firebase/GoogleService-Info.plist
-eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value ./firebase/google-services.json
+eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./firebase/GoogleService-Info.plist --visibility secret --environment production --environment preview --environment development
+eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./firebase/google-services.json --visibility secret --environment production --environment preview --environment development
 ```
 
 ---
@@ -654,28 +650,13 @@ feature/* ← Feature branches
 | `preview` | Internal distribution |
 | `production` | Store release (auto-increments build number) |
 
-### iOS — Firebase Static Build
+### iOS — Firebase (SPM + dynamic frameworks)
 
-RN Firebase + RN 0.81 + New Architecture + static frameworks triggers 3 known iOS build errors. The bundled **`withRNFirebaseStaticBuild`** plugin fixes all of them automatically — keep it in `app.config.ts` plugins and run `npx expo prebuild --clean`. See [`docs/troubleshooting.md`](./docs/troubleshooting.md) and `CLAUDE.md` for details.
+RN Firebase 26 pulls the Firebase iOS SDK through Swift Package Manager, which requires `expo-build-properties` → `ios.useFrameworks: 'dynamic'` (the template default). Never set `'static'` alone — `pod install` fails. `patches/@react-native-firebase+crashlytics+26.4.0.patch` (applied on `postinstall`) fixes the RNFB 26.4.0 Crashlytics dSYM phase that otherwise fails every iOS build; delete it after upgrading RN Firebase. Details: [`firebase/README.md`](./firebase/README.md).
 
 ### .easignore Setup
 
-Exclude unnecessary files from the build archive to reduce upload time:
-
-```
-node_modules/
-assets/store-screenshots/
-fastlane/
-scripts/
-build-output/
-_workspace/
-.claude/
-plugins/
-.git/
-.idea/
-.vscode/
-*.md
-```
+EAS uses `.easignore` **instead of** `.gitignore` when it packs the project, so the template's [`.easignore`](./.easignore) repeats every secret pattern (`.env*`, `*.p12`, `*.jks`, `credentials.json`, …) and also drops store assets and tooling. Never exclude `plugins/` or `patches/` — prebuild and `postinstall` need them on the build server.
 
 ### App Size Optimization
 

@@ -87,5 +87,16 @@ export async function setUserProperty(
   }
 }
 
+/** Non-fatal error report (Crashlytics). Fatal JS errors are captured by Crashlytics itself. */
+export function recordError(error: unknown): void {
+  try {
+    adapter.recordError(error instanceof Error ? error : new Error(String(error)));
+  } catch (e) {
+    if (env.DEBUG) {
+      console.warn('[analytics] recordError failed:', e);
+    }
+  }
+}
+
 export { EAnalyticsEvent };
 export type { TAnalyticsEvent, TAnalyticsParams };

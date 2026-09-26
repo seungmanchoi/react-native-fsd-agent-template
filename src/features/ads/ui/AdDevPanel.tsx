@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { env, ADS_CONFIG } from '@/shared/config';
 import { useAdStore } from '../store/ad.store';
@@ -86,10 +86,17 @@ export function AdDevPanel(): React.JSX.Element | null {
 
   const adState = useAdStore();
   const premiumState = usePremiumStore();
+  // Ticks once a second so countdowns stay live (render itself must stay pure).
+  const [now, setNow] = useState(Date.now);
+
+  useEffect(() => {
+    if (env.IS_PROD) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   if (env.IS_PROD) return null;
 
-  const now = Date.now();
   const timeSinceStart = now - adState.appStartTime;
   const timeSinceLastAd = adState.lastInterstitialTime > 0
     ? now - adState.lastInterstitialTime

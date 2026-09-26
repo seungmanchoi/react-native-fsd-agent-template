@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 
-export function useAppState(onForeground?: () => void, onBackground?: () => void): AppStateStatus {
+/** Calls `onForeground` on inactive/background → active and `onBackground` on the reverse. */
+export function useAppState(onForeground?: () => void, onBackground?: () => void): void {
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
@@ -21,6 +22,4 @@ export function useAppState(onForeground?: () => void, onBackground?: () => void
       subscription.remove();
     };
   }, [onForeground, onBackground]);
-
-  return appState.current;
 }

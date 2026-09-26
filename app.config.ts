@@ -1,8 +1,23 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
+const SLUG = 'my-app';
+// Owner rule: com.seungmanchoi.{slug}. Android package segments cannot contain '-'.
+// Check it is unused on both stores before the first upload, then never change it.
+const BUNDLE_ID = `com.seungmanchoi.${SLUG.replace(/-/g, '')}`;
+
+// ATT purpose string — rewrite per app. Apple auto-rejects generic wording
+// (CLAUDE.md "ATT 목적 문자열 규칙"). Also update plugins/withLocalizedAttDescription.js.
+const TRACKING_PERMISSION_TEXT =
+  "MyApp uses your device's advertising identifier to make the ads shown in this app more relevant — " +
+  'for example, showing ads for apps and games similar to MyApp instead of unrelated products — ' +
+  'and to measure how many people install an app after seeing its ad. ' +
+  "Ads still appear if you decline; they just won't be personalized.";
+
 export default ({ config }: ConfigContext): ExpoConfig => {
   const API_URL = process.env.API_URL || 'http://localhost:3000/api/v1';
-  const NODE_ENV = process.env.NODE_ENV || 'development';
+  // Left undefined when unset: src/shared/config/env.ts then treats release
+  // bundles as production (local fastlane builds have no EAS profile env).
+  const APP_ENV = process.env.APP_ENV;
   const DEBUG = process.env.DEBUG === 'true';
   const LOG_LEVEL = process.env.LOG_LEVEL || 'debug';
   const APP_VERSION = process.env.APP_VERSION || '1.0.0';
@@ -10,87 +25,78 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return {
     ...config,
     name: 'MyApp',
-    slug: 'my-app',
+    slug: SLUG,
     version: APP_VERSION,
     orientation: 'portrait',
-    userInterfaceStyle: 'automatic',
+    // The theme is dark-only (src/shared/config/theme.ts) — keep native UI (keyboard, alerts) dark too.
+    userInterfaceStyle: 'dark',
     scheme: 'myapp',
     icon: './assets/images/icon.png',
-    splash: {
-      image: './assets/images/splash-icon.png',
-      resizeMode: 'contain',
-      backgroundColor: '#0a0a0a',
-    },
-    web: {
-      bundler: 'metro',
-      output: 'static',
-    },
     ios: {
       supportsTablet: false,
-      // RN Firebase + AdMob 호환성 (Expo issue #39607). 신규 앱은 jsc 유지 권장.
-      jsEngine: 'jsc',
-      bundleIdentifier: 'com.myapp.app',
+      bundleIdentifier: BUNDLE_ID,
       googleServicesFile:
-        process.env.GOOGLE_SERVICE_INFO_PLIST ??
-        './firebase/GoogleService-Info.plist',
+        process.env.GOOGLE_SERVICE_INFO_PLIST ?? './firebase/GoogleService-Info.plist',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        // Plain HTTP only for local dev servers; everything else must be HTTPS.
         NSAppTransportSecurity: {
-          NSAllowsArbitraryLoads: true,
           NSAllowsLocalNetworking: true,
         },
-        // Required for App Tracking Transparency (ATT) prompt on iOS 14.5+.
-        // Customize the wording per app — Apple reviews this string.
-        NSUserTrackingUsageDescription:
-          'This identifier will be used to deliver personalized ads to you.',
+        // Required for the App Tracking Transparency (ATT) prompt on iOS 14.5+.
+        NSUserTrackingUsageDescription: TRACKING_PERMISSION_TEXT,
       },
     },
     android: {
-      package: 'com.myapp.app',
-      googleServicesFile:
-        process.env.GOOGLE_SERVICES_JSON ?? './firebase/google-services.json',
+      package: BUNDLE_ID,
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './firebase/google-services.json',
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundColor: '#0a0a0a',
       },
     },
     plugins: [
-      // Google AdMob test app IDs — safe for development/simulator
-      // Replace with real IDs from AdMob Console before production build
+      [
+        'expo-splash-screen',
+        {
+          image: './assets/images/splash-icon.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+          backgroundColor: '#0a0a0a',
+        },
+      ],
+      // ATT prompt 문구 다국어 (InfoPlist.strings). plugins 배열 순서와 무관.
+      './plugins/withLocalizedAttDescription',
+      // Google AdMob test app IDs — safe for development/simulator.
+      // Replace with real IDs from AdMob Console before production build.
       [
         'react-native-google-mobile-ads',
         {
           androidAppId: 'ca-app-pub-3940256099942544~3347511713',
           iosAppId: 'ca-app-pub-3940256099942544~1458002511',
-          userTrackingUsageDescription:
-            'This identifier will be used to deliver personalized ads to you.',
+          userTrackingUsageDescription: TRACKING_PERMISSION_TEXT,
+          // Keep Google app measurement off until mobileAds().initialize(), which only
+          // runs after UMP consent (src/features/ads/lib/consent.ts).
+          delayAppMeasurementInit: true,
         },
       ],
-      // ATT prompt on iOS 14.5+ — required so AdMob can serve personalized ads.
-      [
-        'expo-tracking-transparency',
-        {
-          userTrackingPermission:
-            'This identifier will be used to deliver personalized ads to you.',
-        },
-      ],
-      // Firebase Analytics — restores AdMob audience signals for higher eCPM.
-      // Without this, ads default to non-personalized (NPA) and eCPM drops 3-5x.
-      // Place GoogleService-Info.plist + google-services.json in ./firebase/.
+      ['expo-tracking-transparency', { userTrackingPermission: TRACKING_PERMISSION_TEXT }],
+      // Firebase Analytics + Crashlytics. Place GoogleService-Info.plist and
+      // google-services.json in ./firebase/ (gitignored) or inject them as EAS file env vars.
       '@react-native-firebase/app',
+      '@react-native-firebase/crashlytics',
       [
         'expo-build-properties',
         {
           ios: {
-            // RN Firebase v24 + Expo SDK 54 + RN 0.81 호환성 (Expo issue #39607):
-            // - useFrameworks: 'static' → AdMob(react-native-google-mobile-ads) 요구사항
-            // - forceStaticLinking: RNFB pod들을 prebuilt React framework 대신
-            //   static link 로 빌드 → "include of non-modular header inside
-            //   framework module" 에러 해결
-            // - GoogleUtilities modular_headers → AdMob과의 공유 pod 호환성
-            useFrameworks: 'static',
-            forceStaticLinking: ['RNFBApp', 'RNFBAnalytics'],
-            extraPods: [{ name: 'GoogleUtilities', modular_headers: true }],
+            // RN Firebase 26 pulls the Firebase iOS SDK via Swift Package Manager, which
+            // requires dynamic frameworks. Never set 'static' alone — pod install fails.
+            // Static opt-out: RNFB app plugin { ios: { disableSPM: true } } + 'static'
+            // + forceStaticLinking listing every RNFB pod (RNFBApp, RNFBAnalytics, ...).
+            useFrameworks: 'dynamic',
+            // UIScene life cycle (opt-in on SDK 57, default on SDK 58). Apps built with the
+            // iOS 27 SDK (Xcode 27) don't launch correctly without it.
+            enableSceneSupport: true,
           },
         },
       ],
@@ -98,21 +104,23 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-secure-store',
       // Localized app name — shown on home screen matching store listing
       // Add/remove languages as needed. Keys are locale codes.
-      ['./plugins/withLocalizedAppName', {
-        en: 'MyApp',
-        ko: '마이앱',
-        ja: 'マイアプリ',
-        'zh-Hans': '我的应用',
-      }],
+      [
+        './plugins/withLocalizedAppName',
+        {
+          en: 'MyApp',
+          ko: '마이앱',
+          ja: 'マイアプリ',
+          'zh-Hans': '我的应用',
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
       reactCompiler: false,
     },
-    newArchEnabled: true,
     extra: {
       apiUrl: API_URL,
-      nodeEnv: NODE_ENV,
+      appEnv: APP_ENV,
       debug: DEBUG,
       logLevel: LOG_LEVEL,
       appVersion: APP_VERSION,

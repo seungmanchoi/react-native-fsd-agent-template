@@ -13,8 +13,8 @@ description: "구현된 앱의 기능, UX, 디자인을 종합 검수하는 스�
 - "출시 전 점검", "앱 리뷰해줘"
 
 ## Input
-- PRD: `_workspace/02_product_plan.md`
-- 디자인 시스템: `_workspace/03_design_system.md`
+- PRD: `_workspace/plan/prd.md`
+- 디자인 시스템: `_workspace/design/design-system.md`
 - 구현 코드: `src/`, `app/`
 
 ## Steps
@@ -30,6 +30,12 @@ description: "구현된 앱의 기능, UX, 디자인을 종합 검수하는 스�
 - 화면 간 네비게이션 연결 확인
 - 에러 상태, 로딩 상태, 빈 상태 처리 확인
 - 키보드 회피(KeyboardAvoidingView) 확인
+
+### Step 2.5: 런타임 검증 (sim-use)
+- 시작 전 sim-use 설치 확인 → 없으면 설치 (`command -v sim-use || brew install lycorp-jp/tap/sim-use && sim-use init --client claude --dest .claude/skills`)
+- 시뮬레이터에서 앱 실행 후 `sim-use ui` → `tap @N`/`type`/`swipe` → `sim-use ui`로 observe-act-verify
+- PRD happy path를 실제 조작으로 밟아 화면 전환/상태 처리 검증 (정본: CLAUDE.md "시뮬레이터 런타임 테스트")
+- 설치 불가 시 skip 표시 후 정적 검수만 진행
 
 ### Step 3: 디자인 일관성 검수
 - 디자인 시스템의 토큰 값과 실제 className 비교
@@ -51,7 +57,7 @@ description: "구현된 앱의 기능, UX, 디자인을 종합 검수하는 스�
 - 종합 점수 (0~100)
 - CRITICAL / WARNING / INFO 분류
 - 각 이슈에 파일:라인, 설명, 수정 방법 포함
-- `_workspace/05_inspection_report.md`에 저장
+- `_workspace/qa/inspection-report.md`에 저장
 
 ## Agent Delegation
 | Step | Agent |

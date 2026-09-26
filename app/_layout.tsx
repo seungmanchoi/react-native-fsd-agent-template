@@ -1,19 +1,22 @@
-import { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, router, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { QueryProvider, ThemeProvider } from '@core/providers';
-import { toastConfig, ErrorBoundary } from '@shared/ui';
+import { useUserStore } from '@entities/user';
 import {
   useAdLifecycle,
   useAppOpenAd,
   AdDevPanel,
   initializeAdsWithConsent,
-} from '@/features/ads';
-import { useReviewStore } from '@/shared/store-review';
+} from '@features/ads';
+import { setAuthFailureCallback } from '@shared/api';
+import { initAnalytics, logScreenView } from '@shared/lib/analytics';
+import { useReviewStore } from '@shared/store-review';
+import { toastConfig, ErrorBoundary } from '@shared/ui';
 import '../global.css';
 
 function AdLifecycleManager(): null {
@@ -22,36 +25,33 @@ function AdLifecycleManager(): null {
   return null;
 }
 
-export default function RootLayout(): React.JSX.Element {
-  const [isInitialized, setIsInitialized] = useState(false);
-
+// Logs the route pattern ("(tabs)/explore", "user/[id]") — never raw paths with IDs.
+function useScreenTracking(): void {
+  const screen = useSegments().join('/') || 'index';
   useEffect(() => {
-    const initialize = async (): Promise<void> => {
-      try {
-        // Runs UMP (GDPR) consent -> iOS ATT prompt -> mobileAds().initialize().
-        // Order matters: AdMob must initialize AFTER consent is gathered so the
-        // first ad request reflects the user's tracking choice.
-        await initializeAdsWithConsent();
-        // Hydrate persisted review counters, then count this launch.
-        await useReviewStore.persist.rehydrate();
-        useReviewStore.getState().recordLaunch();
-        // TODO: Add auth initialization here
-      } catch (error) {
-        console.error('Failed to initialize:', error);
-      } finally {
-        setIsInitialized(true);
-      }
-    };
-    initialize();
+    void logScreenView(screen);
+  }, [screen]);
+}
+
+export default function RootLayout(): React.JSX.Element {
+  // Declared first: effects run in order, so the collection flags are set before the first screen_view.
+  useEffect(() => {
+    // Nothing here blocks the first frame; the native splash hides as soon as it renders.
+    // UMP (GDPR) → iOS ATT → mobileAds().initialize(). Ad components wait for useAdsReady().
+    void initializeAdsWithConsent();
+    void initAnalytics();
+    // Count this launch only after the persisted counters are loaded.
+    void Promise.resolve(useReviewStore.persist.rehydrate()).then(() =>
+      useReviewStore.getState().recordLaunch(),
+    );
+    // Refresh token rejected: the session is gone, send the user back to sign in.
+    setAuthFailureCallback(() => {
+      useUserStore.getState().clearUser();
+      router.replace('/login');
+    });
   }, []);
 
-  if (!isInitialized) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0ea5e9" />
-      </View>
-    );
-  }
+  useScreenTracking();
 
   return (
     <ErrorBoundary>
@@ -76,12 +76,6 @@ export default function RootLayout(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0a0a0a',
-  },
   flex: {
     flex: 1,
   },

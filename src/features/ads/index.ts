@@ -5,6 +5,7 @@ export {
   useAppOpenAd,
   useAdLifecycle,
   usePremiumGuard,
+  useAdsReady,
 } from './hooks';
 export { useAdStore, usePremiumStore } from './store';
 export {

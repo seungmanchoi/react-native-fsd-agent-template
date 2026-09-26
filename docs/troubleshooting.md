@@ -31,8 +31,8 @@ or you have embedded a JS bundle in your application bundle.
 
 #### 1. 네이티브 플러그인 설정 변경 후 잔여 빌드 아티팩트
 
-`expo-build-properties`의 `useFrameworks: 'static'` 같은 네이티브 플러그인 설정을 변경한 후,
-`app.config.ts`에서 제거해도 `ios/` 디렉토리에 이전 설정의 캐시가 남아 문제를 일으킬 수 있다.
+`expo-build-properties`의 `useFrameworks` 같은 네이티브 플러그인 설정을 변경한 후,
+`ios/` 디렉토리와 DerivedData에 이전 설정의 캐시가 남아 문제를 일으킬 수 있다.
 
 **해결**:
 
@@ -42,21 +42,10 @@ npx expo prebuild --platform ios --clean
 npx expo run:ios --device
 ```
 
-#### 2. expo-build-properties의 useFrameworks: 'static'
+#### 2. expo-build-properties의 useFrameworks 값
 
-`useFrameworks: 'static'`은 CocoaPods 의존성을 static framework로 링킹한다.
-이 설정이 네이티브 모듈 초기화 순서에 영향을 줘서 Metro 연결 체크가 실패할 수 있다.
-
-특별한 이유가 없다면 이 설정을 사용하지 않는 것을 권장.
-
-```typescript
-// app.config.ts - 이 설정이 문제를 일으킬 수 있음
-plugins: [
-  ['expo-build-properties', {
-    ios: { useFrameworks: 'static' }  // 주의!
-  }]
-]
-```
+템플릿은 `useFrameworks: 'dynamic'`을 쓴다. RN Firebase 26이 Firebase iOS SDK를 SPM으로 가져오며 SPM은 dynamic frameworks가 필수이기 때문이다.
+`'static'`으로 바꾸지 않는다 — RNFB 기본 SPM 모드와 충돌해 `pod install`이 실패한다. 링크 방식을 바꾼 뒤에는 위 1번처럼 `ios/`를 지우고 clean prebuild 한다.
 
 #### 3. 패키지 버전 불일치
 
@@ -70,7 +59,7 @@ npx expo install --check
 npx expo install --fix
 ```
 
-예시: Expo SDK 54에서 `expo-localization`은 `~17.0.8`이어야 하는데 `^55.0.8`로 설치된 경우.
+예시: Expo SDK 57에서 `expo-router`는 `~57.0.23`이어야 하는데 다른 SDK 라인(`~6.0.x` 등)으로 설치된 경우. SDK 55부터 Expo 패키지 버전은 SDK 번호를 따른다.
 
 ---
 
