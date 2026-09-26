@@ -56,20 +56,35 @@ function getPlatformTestAdUnits(): IAdUnitIds {
   return Platform.OS === 'ios' ? IOS_TEST_AD_UNITS : ANDROID_TEST_AD_UNITS;
 }
 
+// Real units only in production builds. Development and preview builds get Google
+// test units, so internal testers can never generate invalid traffic.
 export const AdUnitIds: IAdUnitIds = env.IS_PROD
   ? getPlatformAdUnits()
   : getPlatformTestAdUnits();
+
+/**
+ * Physical devices that install production (real-ad) builds — TestFlight, internal
+ * Play tracks, your own phone. The SDK prints the device ID in the native log on the
+ * first ad request. Simulators/emulators are test devices automatically.
+ */
+export const TEST_DEVICE_IDS: string[] = [];
 
 export const ADS_CONFIG = {
   INTERSTITIAL_INTERVAL: 3,
   INTERSTITIAL_COOLDOWN_MS: 60_000,
   MAX_INTERSTITIALS_PER_DAY: 10,
   FIRST_AD_DELAY_MS: 180_000,
+  /** Shared by interstitial / rewarded / app open: no full-screen ad within this window after one closes. */
+  FULLSCREEN_COOLDOWN_MS: 30_000,
+  /** App open ads only after the app was in the background at least this long. */
+  APP_OPEN_MIN_BACKGROUND_MS: 30_000,
+  /** Load-failure retries: 2s → 4s → 8s, then give up until the next successful show. */
+  LOAD_RETRY_DELAYS_MS: [2_000, 4_000, 8_000],
   /** Duration of premium access granted by a rewarded ad (ms) */
   REWARDED_PREMIUM_DURATION_MS: 30 * 60_000, // 30 minutes
   /** Interval to check premium expiry while app is in foreground (ms) */
   PREMIUM_CHECK_INTERVAL_MS: 10_000, // 10 seconds
-  /** AsyncStorage keys */
+  /** AsyncStorage keys (zustand persist) */
   STORAGE_KEYS: {
     AD_STATE: '@ads/ad_state',
     PREMIUM_STATE: '@ads/premium_state',

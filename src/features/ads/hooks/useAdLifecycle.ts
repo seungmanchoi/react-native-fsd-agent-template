@@ -24,7 +24,9 @@ export function useAdLifecycle(
   const [premiumSecondsLeft, setPremiumSecondsLeft] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const onPremiumExpiredRef = useRef(onPremiumExpired);
-  onPremiumExpiredRef.current = onPremiumExpired;
+  useEffect(() => {
+    onPremiumExpiredRef.current = onPremiumExpired;
+  });
 
   const adHydrate = useAdStore((s) => s.hydrate);
   const checkDailyReset = useAdStore((s) => s.checkDailyReset);

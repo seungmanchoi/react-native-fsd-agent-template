@@ -2,7 +2,9 @@ export interface IPersistedAdData {
   actionCount: number;
   lastInterstitialTime: number;
   interstitialsToday: number;
-  lastDailyResetDate: string; // YYYY-MM-DD
+  lastDailyResetDate: string; // YYYY-MM-DD, device-local (dayjs)
+  /** When the last full-screen ad (any format) closed — shared cooldown anchor. */
+  lastFullScreenAdTime: number;
   appStartTime: number;
 }
 
@@ -10,6 +12,8 @@ export interface IAdState extends IPersistedAdData {
   isHydrated: boolean;
   incrementAction: () => void;
   recordInterstitial: () => void;
+  recordFullScreenClosed: () => void;
+  canShowFullScreen: () => boolean;
   canShowInterstitial: () => boolean;
   resetDaily: () => void;
   checkDailyReset: () => void;

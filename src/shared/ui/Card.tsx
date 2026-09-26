@@ -15,9 +15,9 @@ export function Card({
   className 
 }: ICardProps): React.JSX.Element {
   const baseStyle = "rounded-2xl p-4";
-  const variantStyle = variant === 'glass' 
-    ? "bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-md"
-    : "bg-surface dark:bg-surface-dark shadow-sm";
+  const variantStyle = variant === 'glass'
+    ? "bg-surface-glass border border-border shadow-md"
+    : "bg-surface shadow-sm";
 
   return (
     <View 

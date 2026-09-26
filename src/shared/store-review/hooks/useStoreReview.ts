@@ -15,14 +15,16 @@ import type { IMaybeRequestOptions } from '../types';
  * Do not branch follow-up UI/navigation on it.
  */
 export const useStoreReview = () => {
-  const state = useReviewStore();
-
   const maybeRequest = useCallback(
     async (
       trigger: TReviewTrigger,
       options: IMaybeRequestOptions = { uiIsIdle: true },
     ): Promise<boolean> => {
       if (!(await isReviewAvailable())) return false;
+      // Counters (last request, yearly quota) are unknown until hydration finishes.
+      if (!useReviewStore.persist.hasHydrated()) return false;
+      // Read the live store at call time — no re-render on every counter change.
+      const state = useReviewStore.getState();
       if (!canRequestReview(state, { uiIsIdle: options.uiIsIdle })) return false;
 
       state.markRequested();
@@ -31,7 +33,7 @@ export const useStoreReview = () => {
       void requestReview();
       return true;
     },
-    [state],
+    [],
   );
 
   return { maybeRequest };

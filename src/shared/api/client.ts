@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { env } from '@shared/config';
 
@@ -15,53 +15,64 @@ const TOKEN_KEYS = {
   REFRESH_TOKEN: 'refreshToken',
 } as const;
 
+// Keychain items readable only while unlocked, never restored to another device
+// (excluded from iCloud/iTunes backups). CLAUDE.md "Secure Storage".
+const SECURE_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
 export const tokenManager = {
   setAccessToken: async (token: string): Promise<void> => {
-    await SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, token);
+    await SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, token, SECURE_OPTIONS);
   },
 
   getAccessToken: async (): Promise<string | null> => {
-    return SecureStore.getItemAsync(TOKEN_KEYS.ACCESS_TOKEN);
+    return SecureStore.getItemAsync(TOKEN_KEYS.ACCESS_TOKEN, SECURE_OPTIONS);
   },
 
   setRefreshToken: async (token: string): Promise<void> => {
-    await SecureStore.setItemAsync(TOKEN_KEYS.REFRESH_TOKEN, token);
+    await SecureStore.setItemAsync(TOKEN_KEYS.REFRESH_TOKEN, token, SECURE_OPTIONS);
   },
 
   getRefreshToken: async (): Promise<string | null> => {
-    return SecureStore.getItemAsync(TOKEN_KEYS.REFRESH_TOKEN);
+    return SecureStore.getItemAsync(TOKEN_KEYS.REFRESH_TOKEN, SECURE_OPTIONS);
   },
 
   setTokens: async (accessToken: string, refreshToken: string): Promise<void> => {
     await Promise.all([
-      SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, accessToken),
-      SecureStore.setItemAsync(TOKEN_KEYS.REFRESH_TOKEN, refreshToken),
+      SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, accessToken, SECURE_OPTIONS),
+      SecureStore.setItemAsync(TOKEN_KEYS.REFRESH_TOKEN, refreshToken, SECURE_OPTIONS),
     ]);
   },
 
   clearTokens: async (): Promise<void> => {
     await Promise.all([
-      SecureStore.deleteItemAsync(TOKEN_KEYS.ACCESS_TOKEN),
-      SecureStore.deleteItemAsync(TOKEN_KEYS.REFRESH_TOKEN),
+      SecureStore.deleteItemAsync(TOKEN_KEYS.ACCESS_TOKEN, SECURE_OPTIONS),
+      SecureStore.deleteItemAsync(TOKEN_KEYS.REFRESH_TOKEN, SECURE_OPTIONS),
     ]);
   },
 
   hasTokens: async (): Promise<boolean> => {
-    const accessToken = await SecureStore.getItemAsync(TOKEN_KEYS.ACCESS_TOKEN);
+    const accessToken = await SecureStore.getItemAsync(TOKEN_KEYS.ACCESS_TOKEN, SECURE_OPTIONS);
     return !!accessToken;
   },
 };
 
+type TRetriableRequest = InternalAxiosRequestConfig & { _retry?: boolean };
+
+interface IRefreshWaiter {
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+}
+
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+let refreshWaiters: IRefreshWaiter[] = [];
 
-const onRefreshed = (token: string): void => {
-  refreshSubscribers.forEach((callback) => callback(token));
-  refreshSubscribers = [];
-};
-
-const addRefreshSubscriber = (callback: (token: string) => void): void => {
-  refreshSubscribers.push(callback);
+// Every request queued behind a refresh must settle — success or failure.
+const settleRefreshWaiters = (token: string | null, error?: unknown): void => {
+  const waiters = refreshWaiters;
+  refreshWaiters = [];
+  waiters.forEach((waiter) => (token ? waiter.resolve(token) : waiter.reject(error)));
 };
 
 const PUBLIC_ENDPOINTS = ['/auth/login', '/auth/signup', '/auth/refresh'];
@@ -108,7 +119,7 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as TRetriableRequest | undefined;
 
     if (error.response?.status !== 401) {
       console.error('[API Response Error]', {
@@ -118,65 +129,63 @@ apiClient.interceptors.response.use(
       });
     }
 
-    if (error.response?.status === 401 && originalRequest) {
-      if (isPublicEndpoint(originalRequest.url)) {
-        return Promise.reject(error);
-      }
+    // Public endpoints and requests already retried once with a fresh token
+    // must not trigger another refresh (infinite refresh loop otherwise).
+    if (
+      error.response?.status !== 401 ||
+      !originalRequest ||
+      originalRequest._retry ||
+      isPublicEndpoint(originalRequest.url)
+    ) {
+      return Promise.reject(error);
+    }
+    originalRequest._retry = true;
 
-      if (originalRequest.url?.includes('/auth/refresh')) {
-        await tokenManager.clearTokens();
-        if (onAuthFailure) {
-          onAuthFailure();
-        }
-        return Promise.reject(error);
-      }
-
-      if (isRefreshing) {
-        return new Promise((resolve) => {
-          addRefreshSubscriber((token: string) => {
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        refreshWaiters.push({
+          resolve: (token: string) => {
             originalRequest.headers.Authorization = `Bearer ${token}`;
             resolve(apiClient(originalRequest));
-          });
+          },
+          reject,
         });
-      }
-
-      isRefreshing = true;
-
-      try {
-        const refreshToken = await tokenManager.getRefreshToken();
-
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-
-        const response = await axios.post<{
-          success: boolean;
-          accessToken: string;
-          refreshToken: string;
-        }>(`${env.API_URL}/auth/refresh`, { refreshToken });
-
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
-
-        await tokenManager.setTokens(accessToken, newRefreshToken);
-        onRefreshed(accessToken);
-
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        return apiClient(originalRequest);
-      } catch {
-        await tokenManager.clearTokens();
-        refreshSubscribers = [];
-
-        if (onAuthFailure) {
-          onAuthFailure();
-        }
-
-        return Promise.reject(new Error('Session expired'));
-      } finally {
-        isRefreshing = false;
-      }
+      });
     }
 
-    return Promise.reject(error);
+    isRefreshing = true;
+    try {
+      const refreshToken = await tokenManager.getRefreshToken();
+      // Never signed in (or an app without auth): nothing to refresh, no auth-failure redirect.
+      if (!refreshToken) {
+        settleRefreshWaiters(null, error);
+        return Promise.reject(error);
+      }
+
+      const response = await axios.post<{
+        success: boolean;
+        accessToken: string;
+        refreshToken: string;
+      }>(`${env.API_URL}/auth/refresh`, { refreshToken }, { timeout: 10000 });
+
+      const { accessToken, refreshToken: newRefreshToken } = response.data;
+
+      await tokenManager.setTokens(accessToken, newRefreshToken);
+      settleRefreshWaiters(accessToken);
+
+      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+      return apiClient(originalRequest);
+    } catch (refreshError) {
+      settleRefreshWaiters(null, refreshError);
+      try {
+        await tokenManager.clearTokens();
+      } finally {
+        onAuthFailure?.();
+      }
+      return Promise.reject(new Error('Session expired'));
+    } finally {
+      isRefreshing = false;
+    }
   },
 );
 
