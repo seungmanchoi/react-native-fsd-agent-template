@@ -602,6 +602,8 @@ AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭,
 
 - **EAS 빌드**: `eas.json` 프로필의 `env.APP_ENV` + `environment`로 지정한다.
 - **APP_ENV가 없는 빌드**(로컬 fastlane/xcodebuild/gradle release): release 번들은 `production`, dev 번들은 `development`로 자동 판정된다(`__DEV__` 기준).
+- 개발용 npm 스크립트(`start*`, `ios`, `android`, `build:*`)는 `APP_ENV=development`를 붙여 둔다 — `expo start --no-dev`나 기기 release 실행이 실광고·Analytics로 새지 않게. fallback은 fastlane 같은 스토어 빌드 경로에서만 쓰인다.
+- 로컬 fastlane lane은 `eas.json` 프로필 env를 읽지 않는다 — `API_URL` 등 프로필 값을 lane에서 export한다 (안 하면 `app.config.ts` 기본값 localhost로 빌드된다).
 - `.env`에 `APP_ENV`를 넣지 않는다 — `.env`는 로컬 release 빌드의 앱 설정에도 로드된다.
 - 앱 환경 구분에 `NODE_ENV`를 쓰지 않는다. 과거 템플릿의 `NODE_ENV` 방식은 로컬 fastlane 빌드에 `nodeEnv: "development"`가 박혀 **스토어 빌드가 테스트 광고 ID로 출시**됐다.
 - 검증: `unzip -p build-output/*.ipa 'Payload/*.app/EXConstants.bundle/app.config' | grep -o '"appEnv":"[a-z]*"'` → 출력이 없거나(`production`으로 판정) `"appEnv":"production"`이어야 한다.

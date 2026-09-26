@@ -1,4 +1,10 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, {
+  AxiosInstance,
+  AxiosRequestConfig,
+  AxiosError,
+  InternalAxiosRequestConfig,
+  isAxiosError,
+} from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { env } from '@shared/config';
 
@@ -176,13 +182,18 @@ apiClient.interceptors.response.use(
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
       return apiClient(originalRequest);
     } catch (refreshError) {
-      settleRefreshWaiters(null, refreshError);
+      // Only an auth rejection ends the session; network errors, timeouts and 5xx keep
+      // the tokens so the next request can refresh again.
+      const status = isAxiosError(refreshError) ? refreshError.response?.status : undefined;
+      const sessionRejected = status === 400 || status === 401 || status === 403;
       try {
-        await tokenManager.clearTokens();
+        if (sessionRejected) await tokenManager.clearTokens();
       } finally {
-        onAuthFailure?.();
+        // Settle after the await: a 401 that queued meanwhile must not be left pending.
+        settleRefreshWaiters(null, refreshError);
+        if (sessionRejected) onAuthFailure?.();
       }
-      return Promise.reject(new Error('Session expired'));
+      return Promise.reject(sessionRejected ? new Error('Session expired') : refreshError);
     } finally {
       isRefreshing = false;
     }

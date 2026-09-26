@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { AdUnitIds } from '@/shared/config';
 import { keepLoaded, presentFullScreenAd } from '../lib/fullscreen';
@@ -17,23 +17,24 @@ import { useAdsReady } from './useAdsReady';
 export function useInterstitialAd(): { showAfterAction: () => void } {
   const adsReady = useAdsReady();
   const adRef = useRef<InterstitialAd | null>(null);
+  // Bumped to replace an instance whose show() got stuck (see presentFullScreenAd).
+  const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
     if (!adsReady) return;
     const ad = InterstitialAd.createForAdRequest(AdUnitIds.INTERSTITIAL_AFTER_ACTION);
     // Count the impression only once the ad really opened.
-    const unsubOpened = ad.addAdEventListener(AdEventType.OPENED, () => {
+    ad.addAdEventListener(AdEventType.OPENED, () => {
       useAdStore.getState().recordInterstitial();
     });
     const release = keepLoaded(ad);
     adRef.current = ad;
 
     return () => {
-      unsubOpened();
-      release();
       adRef.current = null;
+      release();
     };
-  }, [adsReady]);
+  }, [adsReady, generation]);
 
   const showAfterAction = useCallback(() => {
     const adStore = useAdStore.getState();
@@ -45,7 +46,7 @@ export function useInterstitialAd(): { showAfterAction: () => void } {
 
     const ad = adRef.current;
     if (ad && adStore.canShowInterstitial()) {
-      presentFullScreenAd(ad);
+      presentFullScreenAd(ad, () => setGeneration((g) => g + 1));
     }
   }, []);
 

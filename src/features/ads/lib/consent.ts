@@ -131,6 +131,20 @@ async function requestAtt(): Promise<IAdConsentResult['attStatus']> {
   }
 }
 
+// UMP could not refresh (offline, SDK error): run the whole flow again on the next
+// foreground instead of keeping a stale "no ads" result until the app restarts.
+function retryOnNextForeground(): void {
+  // Only a real background → active return; the ATT alert causes inactive → active.
+  let wasInBackground = false;
+  const subscription = AppState.addEventListener('change', (next) => {
+    if (next === 'background') wasInBackground = true;
+    if (next !== 'active' || !wasInBackground) return;
+    subscription.remove();
+    consentPromise = null;
+    void initializeAdsWithConsent();
+  });
+}
+
 async function runConsentFlow(): Promise<IAdConsentResult> {
   let info: AdsConsentInfo | null = null;
 
@@ -141,6 +155,7 @@ async function runConsentFlow(): Promise<IAdConsentResult> {
     if (__DEV__) {
       console.warn('[ads] UMP consent flow failed:', error);
     }
+    retryOnNextForeground();
     // Offline / UMP error: consent stored by a previous session may still allow ads.
     try {
       info = await AdsConsent.getConsentInfo();

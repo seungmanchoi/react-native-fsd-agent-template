@@ -9,12 +9,14 @@ interface IAdBannerProps {
 
 /**
  * Anchored adaptive banner. Renders nothing until consent + SDK init allow ads,
- * and collapses (no empty slot) when a load fails; the next foreground retries.
+ * and collapses (no empty slot) when the first load fails; the next foreground retries.
+ * A failed auto-refresh keeps the previous creative on screen.
  */
 export function AdBanner({ unitId }: IAdBannerProps): React.JSX.Element | null {
   const adsReady = useAdsReady();
   const [failed, setFailed] = useState(false);
   const bannerRef = useRef<BannerAd>(null);
+  const hasLoadedRef = useRef(false);
 
   useForeground(() => {
     if (failed) {
@@ -33,7 +35,12 @@ export function AdBanner({ unitId }: IAdBannerProps): React.JSX.Element | null {
         ref={bannerRef}
         unitId={unitId}
         size={BannerAdSize.LARGE_ANCHORED_ADAPTIVE_BANNER}
-        onAdFailedToLoad={() => setFailed(true)}
+        onAdLoaded={() => {
+          hasLoadedRef.current = true;
+        }}
+        onAdFailedToLoad={() => {
+          if (!hasLoadedRef.current) setFailed(true);
+        }}
       />
     </View>
   );

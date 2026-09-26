@@ -24,22 +24,21 @@ export function useAppOpenAd(): void {
   const adsReady = useAdsReady();
   const adRef = useRef<AppOpenAd | null>(null);
   const loadedAtRef = useRef(0);
-  // Bumped to replace a stale ad (a loaded instance can't be reloaded).
+  // Bumped to replace a stale or stuck ad (a loaded instance can't be reloaded).
   const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
     if (!adsReady) return;
     const ad = AppOpenAd.createForAdRequest(AdUnitIds.APP_OPEN);
-    const unsubLoaded = ad.addAdEventListener(AdEventType.LOADED, () => {
+    ad.addAdEventListener(AdEventType.LOADED, () => {
       loadedAtRef.current = Date.now();
     });
     const release = keepLoaded(ad);
     adRef.current = ad;
 
     return () => {
-      unsubLoaded();
-      release();
       adRef.current = null;
+      release();
     };
   }, [adsReady, generation]);
 
@@ -64,7 +63,7 @@ export function useAppOpenAd(): void {
       const premium = usePremiumStore.getState();
       if (!premium.isHydrated || premium.isPremiumActive()) return;
       if (!useAdStore.getState().canShowFullScreen()) return;
-      presentFullScreenAd(ad);
+      presentFullScreenAd(ad, () => setGeneration((g) => g + 1));
     });
     return () => subscription.remove();
   }, []);

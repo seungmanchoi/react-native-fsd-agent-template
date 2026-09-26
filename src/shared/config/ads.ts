@@ -78,7 +78,7 @@ export const ADS_CONFIG = {
   FULLSCREEN_COOLDOWN_MS: 30_000,
   /** App open ads only after the app was in the background at least this long. */
   APP_OPEN_MIN_BACKGROUND_MS: 30_000,
-  /** Load-failure retries: 2s → 4s → 8s, then give up until the next successful show. */
+  /** Load-failure retries: 2s → 4s → 8s, then wait until the app returns to the foreground. */
   LOAD_RETRY_DELAYS_MS: [2_000, 4_000, 8_000],
   /** Duration of premium access granted by a rewarded ad (ms) */
   REWARDED_PREMIUM_DURATION_MS: 30 * 60_000, // 30 minutes

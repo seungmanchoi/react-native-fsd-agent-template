@@ -34,8 +34,7 @@ function useScreenTracking(): void {
 }
 
 export default function RootLayout(): React.JSX.Element {
-  useScreenTracking();
-
+  // Declared first: effects run in order, so the collection flags are set before the first screen_view.
   useEffect(() => {
     // Nothing here blocks the first frame; the native splash hides as soon as it renders.
     // UMP (GDPR) → iOS ATT → mobileAds().initialize(). Ad components wait for useAdsReady().
@@ -51,6 +50,8 @@ export default function RootLayout(): React.JSX.Element {
       router.replace('/login');
     });
   }, []);
+
+  useScreenTracking();
 
   return (
     <ErrorBoundary>

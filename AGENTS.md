@@ -67,7 +67,7 @@ Full-app builds follow the `orchestrate` skill's phases; post-launch work uses `
 
 ## Flows That Must Not Be Skipped
 
-- **APP_ENV**: `IS_DEV`/`IS_PROD` come from `APP_ENV` (`development` | `preview` | `production`) set by the EAS profile. Unset means dev bundle → development, release bundle → production (local fastlane builds). Never put `APP_ENV` in `.env`, never use `NODE_ENV` for app environments.
+- **APP_ENV**: `IS_DEV`/`IS_PROD` come from `APP_ENV` (`development` | `preview` | `production`) set by the EAS profile; the dev npm scripts pin `APP_ENV=development`. Unset means dev bundle → development, release bundle → production (local fastlane builds, which must also export `API_URL` and other profile env). Never put `APP_ENV` in `.env`, never use `NODE_ENV` for app environments.
 - **Firebase config**: files live in `./firebase/` (gitignored). EAS cloud builds get file env vars named exactly `GOOGLE_SERVICE_INFO_PLIST` / `GOOGLE_SERVICES_JSON` (`eas env:create --type file --visibility secret`; `eas secret:*` is deprecated).
 - **iOS linking**: `expo-build-properties` `ios.useFrameworks: 'dynamic'` (RNFB 26 uses SPM) and `ios.enableSceneSupport: true`. Never `'static'` alone. No Podfile-patching plugins, no `jsEngine: 'jsc'`.
 - **Pins**: `react-native-google-mobile-ads` stays at 17.0.0 until invertase/react-native-google-mobile-ads#903 is fixed. `patches/@react-native-firebase+crashlytics+26.4.0.patch` must stay until RN Firebase is upgraded past 26.4.0.

@@ -20,42 +20,59 @@ function release(ad: TFullScreenAd): void {
 
 /**
  * Owns `ad` until the returned cleanup runs: loads it now, reloads after every close,
- * and retries failed loads with backoff (ADS_CONFIG.LOAD_RETRY_DELAYS_MS, then stops
- * until the next close — no request storms). The cleanup cancels retries and destroys the ad.
+ * retries failed loads with backoff (ADS_CONFIG.LOAD_RETRY_DELAYS_MS — no request storms)
+ * and starts over whenever the app returns to the foreground.
+ *
+ * Cleanup cancels retries and destroys the ad (which drops every listener). If the ad is
+ * on screen, destroying is deferred to its CLOSED / show-ERROR event so the reward, the
+ * shared cooldown and the presenting lock still resolve after the owner unmounted.
  */
 export function keepLoaded(ad: TFullScreenAd): () => void {
   let attempt = 0;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let disposed = false;
 
-  const unsubscribers = [
-    ad.addAdEventListener(AdEventType.ERROR, (error) => {
-      if (error.phase === 'show') {
-        // Presentation failed: this instance is spent, fetch a fresh one right away.
-        release(ad);
-        ad.load();
-        return;
-      }
-      const delay = ADS_CONFIG.LOAD_RETRY_DELAYS_MS[attempt];
-      attempt += 1;
-      if (delay !== undefined) {
-        retryTimer = setTimeout(() => ad.load(), delay);
-      }
-    }),
-    ad.addAdEventListener(AdEventType.CLOSED, () => {
+  const reloadOrDispose = (): void => {
+    if (disposed) ad.destroy();
+    else ad.load();
+  };
+
+  ad.addAdEventListener(AdEventType.ERROR, (error) => {
+    if (error.phase === 'show') {
+      // Presentation failed: this instance is spent, fetch a fresh one right away.
       release(ad);
-      attempt = 0;
-      useAdStore.getState().recordFullScreenClosed();
-      ad.load();
-    }),
-  ];
+      reloadOrDispose();
+      return;
+    }
+    const delay = ADS_CONFIG.LOAD_RETRY_DELAYS_MS[attempt];
+    attempt += 1;
+    if (delay !== undefined) {
+      retryTimer = setTimeout(() => ad.load(), delay);
+    }
+  });
+  ad.addAdEventListener(AdEventType.CLOSED, () => {
+    release(ad);
+    attempt = 0;
+    useAdStore.getState().recordFullScreenClosed();
+    reloadOrDispose();
+  });
+  // Offline starts and no-fill streaks exhaust the backoff; try again when the user is back.
+  const appState = AppState.addEventListener('change', (next) => {
+    if (next !== 'active' || ad.loaded) return;
+    attempt = 0;
+    clearTimeout(retryTimer);
+    ad.load(); // no-op while a load is already in flight
+  });
 
   ad.load();
 
   return () => {
     clearTimeout(retryTimer);
-    unsubscribers.forEach((unsubscribe) => unsubscribe());
-    // A destroyed ad never delivers CLOSED — don't leave the lock held.
-    release(ad);
+    appState.remove();
+    if (presentingAd === ad) {
+      disposed = true;
+      return;
+    }
     ad.destroy();
   };
 }
@@ -63,13 +80,20 @@ export function keepLoaded(ad: TFullScreenAd): () => void {
 /**
  * Shows `ad` if it is loaded, the app is in the foreground and no other full-screen
  * ad is up. Frequency gates (cooldowns, caps, premium) stay with the caller.
- * A failed presentation arrives as an ERROR (phase 'show') handled by keepLoaded.
+ *
+ * A normal presentation failure arrives as an ERROR (phase 'show') handled by keepLoaded.
+ * `onStuck` runs when show() is rejected without that event (iOS: no view controller,
+ * Android: no activity): the instance keeps a pending show, can never show or reload
+ * again, and must be replaced by its owner.
  */
-export function presentFullScreenAd(ad: TFullScreenAd): boolean {
+export function presentFullScreenAd(ad: TFullScreenAd, onStuck?: () => void): boolean {
   if (presentingAd || !ad.loaded || AppState.currentState !== 'active') return false;
   presentingAd = ad;
   try {
-    ad.show().catch(() => release(ad));
+    ad.show().catch(() => {
+      release(ad);
+      if (ad.loaded) onStuck?.();
+    });
   } catch {
     release(ad);
     return false;
