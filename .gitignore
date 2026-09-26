@@ -3,6 +3,7 @@ node_modules/
 dist/
 npm-debug.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
@@ -21,12 +22,17 @@ web-build/
 # local env files
 .env*.local
 
+# EAS local credentials (credentials.json holds signing passwords)
+credentials.json
+credentials/
+
 # Firebase config (download from Firebase Console)
 firebase/GoogleService-Info.plist
 firebase/google-services.json
 
 # typescript
 *.tsbuildinfo
+expo-env.d.ts
 
 # Native
 ios/

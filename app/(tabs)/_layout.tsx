@@ -1,3 +1,4 @@
+import type { ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@shared/config';
@@ -6,7 +7,7 @@ type TIoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 interface ITabIconProps {
   name: TIoniconName;
-  color: string;
+  color: ColorValue;
   size: number;
 }
 

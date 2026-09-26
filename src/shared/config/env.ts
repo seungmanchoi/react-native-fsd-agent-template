@@ -1,8 +1,10 @@
 import Constants from 'expo-constants';
 
+type TAppEnv = 'development' | 'preview' | 'production';
+
 interface IExpoConfigExtra {
   apiUrl?: string;
-  nodeEnv?: string;
+  appEnv?: string;
   debug?: boolean;
   logLevel?: string;
   appVersion?: string;
@@ -22,20 +24,32 @@ function getApiUrl(): string {
   return `${normalizedUrl}/api/v1`;
 }
 
+// APP_ENV comes from the EAS build profile. A release bundle built without it
+// (local fastlane/xcodebuild) must still count as production — otherwise it
+// ships test ad units and disabled analytics to the store.
+function getAppEnv(): TAppEnv {
+  if (extra.appEnv === 'development' || extra.appEnv === 'preview' || extra.appEnv === 'production') {
+    return extra.appEnv;
+  }
+  return __DEV__ ? 'development' : 'production';
+}
+
+const APP_ENV = getAppEnv();
+
 export const env = {
   API_URL: getApiUrl(),
-  NODE_ENV: extra.nodeEnv || 'development',
+  APP_ENV,
   DEBUG: extra.debug ?? false,
   LOG_LEVEL: extra.logLevel || 'debug',
   APP_VERSION: extra.appVersion || '1.0.0',
   EAS_PROJECT_ID: extra.eas?.projectId || '',
-  IS_DEV: (extra.nodeEnv || 'development') === 'development',
-  IS_PROD: (extra.nodeEnv || 'development') === 'production',
+  IS_DEV: APP_ENV === 'development',
+  IS_PROD: APP_ENV === 'production',
   IS_EXPO_GO: Constants.appOwnership === 'expo',
 } as const;
 
 export function validateEnv(): void {
-  const requiredVars: (keyof typeof env)[] = ['API_URL', 'NODE_ENV'];
+  const requiredVars: (keyof typeof env)[] = ['API_URL', 'APP_ENV'];
   const missingVars = requiredVars.filter((key) => !env[key]);
 
   if (missingVars.length > 0) {

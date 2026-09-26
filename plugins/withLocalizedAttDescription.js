@@ -20,20 +20,22 @@
  *   ]
  *
  * Notes:
- *   - This plugin should be ordered AFTER withLocalizedAppName so the
- *     .lproj directories already exist. It also tolerates missing files.
+ *   - Position in the plugins array does not matter: this runs in the
+ *     withXcodeProject mod, which always executes after withLocalizedAppName's
+ *     dangerous mod (keep it there — see CLAUDE.md "ATT 프롬프트 문구 다국어").
+ *   - Registers every `*.lproj/InfoPlist.strings` on disk in the Xcode
+ *     PBXVariantGroup (union with the app-name languages), so each locale ships.
  *   - Android does not require ATT; this plugin is a no-op there.
- *   - Plugin DOES NOT modify Xcode project (variant group). It relies on
- *     withLocalizedAppName having already registered InfoPlist.strings as a
- *     resource. If you don't use withLocalizedAppName, ATT localization
- *     will only work for English (the app.config.ts fallback).
+ *   - DEFAULT_ATT_DESCRIPTIONS below are FORMAT EXAMPLES for "MyApp". Rewrite
+ *     them per app (all 4 required parts) — shipping them unchanged gets the
+ *     build auto-rejected under Guideline 5.1.1.
  */
 
 const { withXcodeProject } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
-// Default ATT messages — generic enough to use across all apps with AdMob
+// Format examples only — rewrite per app before shipping (see header).
 const DEFAULT_ATT_DESCRIPTIONS = {
   en: "MyApp uses your device's advertising identifier to make the ads shown in this app more relevant — for example, showing ads for apps and games similar to MyApp instead of unrelated products — and to measure how many people install an app after seeing its ad. Ads still appear if you decline; they just won't be personalized.",
   ko: '이 앱은 기기의 광고 식별자를 사용해 표시되는 광고를 더 관련성 있게 만듭니다. 예를 들어 관련 없는 상품 대신 MyApp 앱과 비슷한 앱·게임 광고를 보여주고, 광고를 본 뒤 앱을 설치한 사용자 수를 측정합니다. 허용하지 않아도 광고는 계속 표시되며, 맞춤 광고가 아닐 뿐입니다.',

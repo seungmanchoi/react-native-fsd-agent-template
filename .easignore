@@ -1,51 +1,67 @@
-# EAS Build ignore - exclude files not needed for app binary
-# This reduces archive size and upload time significantly
+# EAS uses this file INSTEAD of .gitignore when it packs the project for a build,
+# so every secret pattern from .gitignore must be repeated here.
+# https://docs.expo.dev/build-reference/easignore/
 
-# Native builds (EAS generates these)
+# Native builds (EAS generates these via prebuild)
 ios/
 android/
 
-# Dependencies (EAS cloud installs from package.json)
+# Dependencies (EAS installs from package.json)
 node_modules/
 
 # Build artifacts
 .expo/
+dist/
+web-build/
 build-output/
+*.aab
+*.ipa
+*.apk
 *.log
+*.tsbuildinfo
+npm-debug.*
 
-# Store assets (not needed for app binary)
+# Secrets & signing — never upload
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+credentials.json
+credentials/
+keys/
+# NOTE: firebase/GoogleService-Info.plist and firebase/google-services.json are
+# uploaded on purpose so cloud builds work without EAS file env vars. They only hold
+# public client config that ships inside the app binary anyway.
+
+# Store assets & tooling (not needed for the app binary)
 assets/store-screenshots/
 assets/store-listing/
 assets/icons-original/
 screenshots/
 fastlane/
 docs/
-
-# Scripts & tooling (dev only)
 scripts/
 _workspace/
+forms_config.json
+*.md
 
-# IDE & editor
+# IDE, agents & automation
 .git/
 .claude/
+.codex/
+.agents/
+.codegraph/
 .github/
 .idea/
 .vscode/
-
-# Playwright / browser automation
 .playwright-mcp/
-
-# Docs & secrets
-*.md
-*.tsbuildinfo
-*.p8
-*.key
-*.pem
-keys/
 
 # OS files
 .DS_Store
 Thumbs.db
-
-# Misc
-forms_config.json
