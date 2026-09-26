@@ -1,3 +1,8 @@
+---
+name: orchestrate
+description: "React Native + Expo + FSD 앱의 전체 라이프사이클(아이디어→기획→스펙→디자인→구현→QA→배포)을 10개 에이전트·9개 스킬로 오케스트레이션하는 일회성 빌드 파이프라인. '앱 만들어줘', '풀스택으로 만들어줘', '프로덕션 앱 만들어줘', 'end-to-end 개발', '처음부터 끝까지 만들어줘' 요청 시 반드시 이 스킬을 사용할 것. (출시 후 반복 개선은 /iterate-app)"
+---
+
 # Orchestrate Skill — Full App Lifecycle Pipeline
 
 ## Trigger Phrases
@@ -9,9 +14,9 @@
 
 ## Overview
 
-이 스킬은 React Native + Expo + FSD 아키텍처 기반 앱의 **전체 라이프사이클**을 8개의 AI 에이전트와 8개의 스킬을 통해 자동으로 오케스트레이션한다.
+이 스킬은 React Native + Expo + FSD 아키텍처 기반 앱의 **전체 라이프사이클**을 10개의 AI 에이전트와 9개의 스킬을 통해 자동으로 오케스트레이션한다.
 
-**Tech Stack**: React Native 0.81 + Expo 54 + FSD + NativeWind + Zustand + TanStack Query + Axios + TypeScript
+**Tech Stack**: React Native 0.86 + Expo SDK 57 + FSD + NativeWind + Zustand + TanStack Query + Axios + TypeScript 6
 
 ### Harness Design Principles (Anthropic)
 
@@ -23,6 +28,7 @@
 3. **독립 Evaluator** — Generator(feature-builder, api-integrator, ui-developer)와 Evaluator(qa-reviewer, app-inspector)를 분리. 자체 평가 지양.
 4. **Hard Threshold** — 소프트 점수가 아닌 pass/fail 경성 기준. 하나라도 임계값 이하면 스프린트 FAIL.
 5. **디자인 4축 평가** — Design Quality, Originality, Craft, Functionality 축으로 디자인 산출물 평가.
+6. **지속 개선 루프(Continuous Improvement Loop)** — 출시는 끝이 아니라 루프의 한 바퀴다. 개발→검증→**다음 고도화 추천**을 반복한다. 일회성 빌드(Phase 1~7) 이후의 반복은 `/iterate-app` 스킬과 `loop-engineer` 에이전트가 담당한다. 상세: `references/loop-engineering.md`.
 
 ---
 
@@ -87,7 +93,7 @@ No-Go 조건:
 
 모든 에이전트는 `_workspace/` 디렉토리를 통해 데이터를 주고받는다.
 
-> **`_workspace/` 는 `.gitignore` 됨.** Phase 0 산출물(`spec.md`)도 로컬 전용. 템플릿은 `.Codex/skills/orchestrate/templates/spec.template.yml`에 위치하며, Phase 0 Step 0.1에서 필요 시 `_workspace/spec.md`로 복사한다.
+> **`_workspace/` 는 `.gitignore` 됨.** Phase 0 산출물(`spec.md`)도 로컬 전용. 템플릿은 `.claude/skills/orchestrate/templates/spec.template.yml`에 위치하며, Phase 0 Step 0.1에서 필요 시 `_workspace/spec.md`로 복사한다.
 
 ```
 _workspace/
@@ -128,6 +134,34 @@ _workspace/
 **입력**: 사용자 자연어 요청
 **출력**: `_workspace/spec.md`
 
+#### Step 0.0: 코드 인텔리전스(CodeGraph) 초기화 (권장 · 스킵 가능)
+
+**목적**: 이후 모든 phase가 grep 대신 구조 기반 코드 인텔리전스(심볼 정의·호출 관계·영향도)를 사용하도록 인덱스를 준비한다. Step 0.2 컨텍스트 수집, `qa-reviewer`의 FSD 의존성·영향 검사, `loop-engineer`의 impact/callers 기반 "다음 작업" 랭킹이 이 인덱스를 활용한다. **미설치·미빌드여도 파이프라인은 grep fallback으로 정상 진행하며, 절대 차단하지 않는다.**
+
+**판정 흐름** (`AskUserQuestion`으로 인터랙션):
+
+```
+1. CLI 설치 확인:  which codegraph
+   ├─ 미설치  → 질문 "CodeGraph(코드 인텔리전스)가 설치돼 있지 않습니다. 설치할까요?"
+   │     ├─ 설치       → `codegraph install`(현재 에이전트에 MCP 등록) 안내 → 2단계로
+   │     └─ 건너뛰기   → grep fallback으로 Step 0.1 진행
+   └─ 설치됨  → 2단계로
+
+2. 프로젝트 인덱스(.codegraph/) 확인:  codegraph status  (또는 ls .codegraph/)
+   ├─ 인덱스 없음 → 질문 "CodeGraph가 설치돼 있습니다. 이 프로젝트에 인덱스를 빌드하고 진행할까요?"
+   │     ├─ 빌드하고 진행 (권장) → `codegraph init -i` 실행 → Step 0.1 진행
+   │     └─ 인덱스 없이 진행     → grep fallback으로 Step 0.1 진행
+   └─ 인덱스 있음 → `codegraph sync`(변경분만 동기화) 후 Step 0.1 진행
+```
+
+> 핵심 인터랙션: **설치됨 + 인덱스 없음**이면 곧바로 빌드하지 말고 "빌드하고 진행할지"를 한 번 묻는다(인덱싱은 수백~수천 파일에서 시간이 걸릴 수 있으므로 사용자 동의 후 실행).
+
+**무인 실행(`execution.unattended: true`)**: 묻지 않고 자동 처리 —
+- 설치됨 + 인덱스 없음 → `codegraph init -i` 자동 실행
+- 설치됨 + 인덱스 있음 → `codegraph sync`
+- 미설치 → 스킵(grep fallback). 설치를 강제하지 않는다.
+- 선택 결과는 `_workspace/decisions.log`에 기록 (예: `decision=codegraph value=indexed source=unattended`).
+
 #### Step 0.1: spec.md 존재 여부 확인
 
 ```
@@ -136,7 +170,7 @@ if _workspace/spec.md 존재:
     Y → Step 0.5(스키마 검증)로 점프 → 통과 시 Phase 1 진행
     n → 백업(spec.md.{timestamp}.bak) 후 Step 0.2로 진행
 else:
-    `.Codex/skills/orchestrate/templates/spec.template.yml`을 `_workspace/spec.md`로 복사 후 Step 0.2로 진행
+    `.claude/skills/orchestrate/templates/spec.template.yml`을 `_workspace/spec.md`로 복사 후 Step 0.2로 진행
 ```
 
 > 사용자가 무인 실행을 원하면 위 템플릿을 직접 편집해서 `_workspace/spec.md`로 미리 저장해두고 `/orchestrate`만 실행하면 된다. 그러면 survey가 스킵된다.
@@ -689,6 +723,12 @@ npm run typecheck && npm run lint
 **입력**: `_workspace/design/screen-layouts.md`, `src/features/` (4a+4b 출력)
 **출력**: `app/` (Expo Router), `src/widgets/`, `src/shared/ui/`
 
+**사전 점검 (4c-Pre): NativeWind 동작 스모크 검증** — 첫 화면을 짜기 전에 1회.
+NativeWind는 6개 파일(`babel.config.js` / `metro.config.js` / `tailwind.config.js` / `global.css` / 루트 `_layout.tsx`의 `import '../global.css'` / `nativewind-env.d.ts`)이 **전부** 맞아야 동작하고, 하나라도 빠지면 `className`이 **에러 없이 조용히 무시**된다. 화면 20개를 만든 뒤 발견하면 전체 스타일을 다시 손봐야 하므로 먼저 확인:
+- 6파일 존재·설정 확인 (CLAUDE.md "NativeWind 필수 설정" 표 기준)
+- 임시 토큰(예: `className="bg-red-500"`)이 실제 렌더에 반영되는지 1회 확인 (또는 기존 화면 시각 확인 + typecheck)
+- 실패 → 6파일 수정 후 재확인. **통과해야 Tasks 진행** (전부-or-전무 설정이므로 조기 차단)
+
 ```
 Tasks:
 1. Expo Router 기반 스크린 파일 생성
@@ -698,7 +738,7 @@ Tasks:
 5. 로딩/에러/빈 상태 처리
 6. React Hook Form + Zod 폼 구현
 7. Engagement 배선
-   - 모든 스크린에 useScreenTracking() 삽입 (Phase 4d에서 모듈은 구축됨)
+   - 화면 추적(screen_view)은 루트 _layout.tsx가 라우트 패턴으로 자동 기록 — 화면별 호출 불필요
    - PRD Review Triggers에 매핑된 화면의 성공 콜백에서
      useReviewStore().recordKeyAction() 호출 후
      useStoreReview().maybeRequest(REVIEW_TRIGGERS.X) 호출
@@ -714,14 +754,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Screen() {
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      {/* content */}
+    <SafeAreaView className="flex-1 bg-background">
+      {/* 테마 토큰 사용 — bg-white 하드코딩 금지 (spec.md ux.dark_mode 준수) */}
     </SafeAreaView>
   );
 }
 ```
 
-**Error Handling**: 레이아웃 명세 누락 시 기본 FlatList + Empty State 패턴 적용.
+**Error Handling**: 레이아웃 명세 누락 시 기본 FlashList(v2, 자동 크기 계산) + Empty State 패턴 적용.
 
 **Quick QA Checkpoint (4c-QA)**:
 Phase 4c 완료 후 qa-reviewer가 경량 검증을 실행한다:
@@ -737,7 +777,7 @@ npm run typecheck && npm run lint
 
 **에이전트**: `api-integrator`
 **입력**: `_workspace/plan/kpis.md`, `_workspace/plan/prd.md`, `app/`, `src/features/`
-**출력**: `src/shared/analytics/`, 각 화면/액션의 `logEvent` 호출 삽입
+**출력**: `src/shared/lib/analytics/events.ts`(PRD KPI 카탈로그), 각 화면/액션의 `logEvent` 호출 삽입 — 래퍼·Crashlytics·화면 추적·Store Review 인프라는 템플릿에 이미 있다
 
 이 단계는 **PRD의 KPI를 실제로 측정 가능하게 만드는 단계**이다. KPI가 정의되지 않은 채로 Phase 4d에 진입하면 즉시 Phase 2로 돌아간다.
 
@@ -770,20 +810,21 @@ Tasks:
         - "앱 등록"
         - "google-services.json 다운로드" 버튼 클릭
         - SDK 단계 "다음"으로 스킵
-   1-6. 다운로드 파일을 프로젝트로 이동
-        - ~/Downloads/GoogleService-Info.plist → ios/GoogleService-Info.plist
-        - ~/Downloads/google-services.json → android/app/google-services.json
-        - ios/ 또는 android/ 폴더가 없으면 firebase/ 임시 폴더에 보관 후
-          expo prebuild --clean 이후 정식 위치로 이동
-   1-7. .gitignore에 즉시 추가
-        - ios/GoogleService-Info.plist
-        - android/app/google-services.json
-        - firebase/
-   1-8. EAS Secrets 등록 (클라우드 빌드용)
-        eas secret:create --scope project --name GOOGLE_SERVICES_PLIST \
-          --type file --value ./ios/GoogleService-Info.plist
-        eas secret:create --scope project --name GOOGLE_SERVICES_JSON \
-          --type file --value ./android/app/google-services.json
+   1-6. 다운로드 파일을 ./firebase/로 이동 (app.config.ts googleServicesFile 기본 경로 —
+        prebuild가 네이티브 프로젝트로 복사하므로 ios/·android/에 직접 두지 않는다)
+        - ~/Downloads/GoogleService-Info.plist → firebase/GoogleService-Info.plist
+        - ~/Downloads/google-services.json → firebase/google-services.json
+   1-7. .gitignore 확인 (템플릿에 firebase/GoogleService-Info.plist,
+        firebase/google-services.json 포함) — git status에 노출되면 즉시 중단
+   1-8. EAS 클라우드 빌드용 file 환경변수 등록 (eas secret:* 은 deprecated).
+        이름은 app.config.ts가 읽는 두 개와 정확히 같아야 한다:
+        eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file \
+          --value ./firebase/GoogleService-Info.plist --visibility secret \
+          --environment production --environment preview --environment development
+        eas env:create --name GOOGLE_SERVICES_JSON --type file \
+          --value ./firebase/google-services.json --visibility secret \
+          --environment production --environment preview --environment development
+        (로컬 fastlane 빌드는 ./firebase/ 파일을 그대로 쓰므로 env 등록 불필요)
 
    Playwright selector 실패 fallback:
    - Firebase 콘솔 UI가 변경되어 자동화가 실패하면 즉시 중단
@@ -792,35 +833,36 @@ Tasks:
      ~/Downloads/ 에 받아두었다"는 확인 요청
    - 확인 후 1-6단계부터 자동화 재개
 
-2. 패키지 설치
-   npm install @react-native-firebase/app \
-     @react-native-firebase/analytics \
-     @react-native-firebase/crashlytics
-   npx expo install expo-build-properties
+2. 패키지 확인 — 템플릿에 @react-native-firebase/{app,analytics,crashlytics} 26.x 와
+   expo-build-properties 가 이미 있다. measurement.crashlytics=false 면 crashlytics
+   패키지·plugin 을 제거한다.
 
-3. Expo plugin 등록 (app.config.ts)
+3. Expo plugin 확인 (app.config.ts — 템플릿 기본값 유지)
    plugins:
      - '@react-native-firebase/app'
      - '@react-native-firebase/crashlytics'
-     - ['expo-build-properties', { ios: { useFrameworks: 'static' } }]
-   ios.googleServicesFile / android.googleServicesFile 경로도 지정
+     - ['expo-build-properties', { ios: { useFrameworks: 'dynamic' } }]
+       RNFB 26 은 Firebase iOS SDK 를 SPM 으로 받으며 SPM 은 dynamic 필수.
+       'static' 단독 금지(pod install 실패) — 정적이 꼭 필요하면 RNFB app plugin
+       { ios: { disableSPM: true } } + 'static' + 모든 RNFB pod forceStaticLinking.
+   ios.googleServicesFile / android.googleServicesFile = ./firebase/* (env 로 오버라이드)
 
-4. src/shared/analytics/ 모듈 작성
-   - client.ts (logEvent, setUserProperty, initAnalytics 래퍼)
-   - events.ts (PRD의 KPI 카탈로그를 상수로 정의)
-   - hooks/useScreenTracking.ts
-   - types/index.ts, index.ts (barrel export)
+4. src/shared/lib/analytics/ (템플릿 구현 확장)
+   - events.ts 에 PRD KPI 카탈로그를 EAnalyticsEvent 상수로 추가
+   - firebase.ts 는 RNFB v26 modular API 만 사용 (namespaced analytics() 는 삭제됨)
 
-5. 루트 _layout.tsx에서 initAnalytics() 호출
-   - env.IS_PROD 기준으로 수집 활성/비활성 토글
+5. 루트 _layout.tsx 의 void initAnalytics() 유지
+   - env.IS_PROD 에서만 Analytics·Crashlytics 수집 (dev/preview 는 끔)
 
 6. PRD KPI 매핑 적용
-   - 모든 스크린에 useScreenTracking() 삽입
-   - 핵심 액션(F-NNN)에 logEvent() 삽입
+   - screen_view 는 루트 _layout.tsx 가 라우트 패턴으로 자동 기록 (추가 작업 없음)
+   - 핵심 액션(F-NNN)에 logEvent(EAnalyticsEvent.X, ...) 삽입
    - 활성/유지/수익화 축 이벤트가 모두 1개 이상 코드에 존재하는지 검증
 
-7. Crashlytics 초기화
-   - crashlytics().setCrashlyticsCollectionEnabled(env.IS_PROD)
+7. Crashlytics
+   - 수집 토글은 initAnalytics() 가 처리, 비치명 에러는 recordError(error)
+   - 루트 ErrorBoundary 가 recordError + reviewStore.recordError 를 이미 호출
+   - 로컬 release 빌드 후 dSYM 업로드 빌드 단계 존재 확인
 
 8. Store Review 모듈 구축 (engagement 인프라)
    - npx expo install expo-store-review
@@ -846,15 +888,13 @@ Tasks:
 
 ## Done 조건
 - [ ] Playwright MCP로 Firebase 콘솔에 iOS/Android 앱 등록 완료
-- [ ] ios/GoogleService-Info.plist 파일이 프로젝트에 존재
-- [ ] android/app/google-services.json 파일이 프로젝트에 존재
+- [ ] firebase/GoogleService-Info.plist, firebase/google-services.json 존재 (번들 ID/패키지명 일치)
 - [ ] 두 파일이 .gitignore에 등록되어 git status에 untracked로도 노출되지 않음
-- [ ] EAS Secrets에 GOOGLE_SERVICES_PLIST, GOOGLE_SERVICES_JSON 업로드 완료
-- [ ] @react-native-firebase/{app,analytics,crashlytics} + expo-build-properties 설치
+- [ ] (EAS 클라우드 빌드 시) EAS env 에 GOOGLE_SERVICE_INFO_PLIST, GOOGLE_SERVICES_JSON (file) 등록
+- [ ] @react-native-firebase/{app,analytics,crashlytics} 26.x + expo-build-properties (dynamic) 유지
 - [ ] app.config.ts에 plugins 및 googleServicesFile 경로 등록
-- [ ] src/shared/analytics/{client,events,types,index}.ts 생성
-- [ ] src/shared/analytics/hooks/useScreenTracking.ts 생성
-- [ ] 루트 _layout.tsx에서 initAnalytics() 호출
+- [ ] src/shared/lib/analytics/events.ts 에 PRD KPI 이벤트 상수 추가
+- [ ] 루트 _layout.tsx에서 initAnalytics() 호출 + 화면 추적(useSegments) 유지
 - [ ] PRD의 north-star 이벤트 + 4축 이벤트 각 1개 이상 logEvent 호출 존재
 - [ ] env.IS_PROD 기반 dev/prod 분기 동작
 - [ ] src/shared/store-review/{client,policy,store,triggers,hooks/useStoreReview,types,index}.ts 생성
@@ -867,21 +907,32 @@ Tasks:
 - npm run typecheck 0 에러
 - npm run lint 0 에러
 - grep으로 매직 스트링 logEvent 호출 0건 확인
-- grep으로 외부 코드의 firebase.analytics() 직접 호출 0건 확인
-- eas secret:list 결과에 GOOGLE_SERVICES_PLIST, GOOGLE_SERVICES_JSON 존재
+- grep으로 외부 코드의 @react-native-firebase/* 직접 import / namespaced analytics() 호출 0건 확인
+- (EAS 사용 시) eas env:list 결과에 GOOGLE_SERVICE_INFO_PLIST, GOOGLE_SERVICES_JSON 존재
 ```
 
 **KPI 정의 검증 (Go/No-Go)**:
 - `_workspace/plan/kpis.md`가 존재하지 않거나 north-star + 4축이 빠져 있으면
   → Phase 2 (product-planner) 재실행으로 escalate
-- PRD에 정의된 이벤트와 코드의 EVENTS 상수가 1:1로 일치하지 않으면 FAIL
+- PRD에 정의된 이벤트와 코드의 EAnalyticsEvent 상수가 1:1로 일치하지 않으면 FAIL
+
+**부트 시퀀스 정본 확인 (`_layout.tsx`)**:
+Phase 4b(광고·SecureStore)와 4d(Analytics·Crashlytics·Review)가 모두 루트 `_layout.tsx` 한 곳에 init을 모은다. **순서가 어긋나면 첫 이벤트·첫 광고 요청·동의 정보가 누락**되므로(전형적 order-sensitive 지점) 아래 정본 순서를 확인한다:
+1. `ErrorBoundary`가 트리 최상단 (Crashlytics `recordError` + `reviewStore.recordError`) — init 중 크래시도 포착
+2. `void initializeAdsWithConsent()` — UMP → ATT → `mobileAds().initialize()`. **첫 렌더를 막지 않는다**(await 금지). UMP 결과(`ump_status`/`att_status`)는 consent.ts가 직접 user property로 기록
+3. `void initAnalytics()` — 수집 토글(IS_PROD). 동의 흐름과 병렬이어도 된다 (UMP가 Firebase consent mode를 직접 갱신)
+4. `useReviewStore.persist.rehydrate()` **완료 후** `recordLaunch()` (세션당 1회)
+5. `setAuthFailureCallback` (auth 사용 앱)
+6. 광고 컴포넌트/훅은 `useAdsReady()`가 true가 된 뒤에만 로드
+- 위반(특히 동의 전에 광고 로드, 렌더를 막는 await, hydrate 전 recordLaunch) 발견 → `api-integrator`로 환원. 미사용 모듈(광고/Analytics 미선택)은 해당 단계 생략 가능.
 
 **Error Handling**:
 - **Firebase 콘솔 미로그인**: Playwright MCP가 로그인 페이지를 감지하면 사용자에게 브라우저 창에서 직접 로그인하라고 요청하고 대기. 절대 자격증명을 자동 입력 시도하지 않는다.
 - **Playwright selector 실패** (콘솔 UI 변경): `_workspace/implementation/firebase-manual.md`에 진행 상태(어느 단계에서 실패했는지, 어떤 앱이 이미 등록되었는지) 기록 후 사용자에게 수동 등록 + 파일 다운로드를 요청. 사용자 확인 후 파일 이동 단계부터 자동화 재개.
 - **다운로드 파일 누락**: `~/Downloads/GoogleService-Info.plist`, `~/Downloads/google-services.json`이 없으면 1-4 / 1-5단계의 "다운로드" 버튼 클릭이 실패한 것. 콘솔에서 해당 앱 설정 → "GoogleService-Info.plist/google-services.json" 다시 다운로드.
-- **EAS Secrets 충돌**: 동일 이름 secret이 이미 있으면 `eas secret:delete` 후 재생성 (사용자 확인 필요).
-- **빌드 실패 — Multiple commands produce duplicate**: `useFrameworks: 'static'` 누락 또는 `@react-native-firebase/app` plugin 등록 누락 우선 확인.
+- **EAS env 충돌**: 동일 이름 변수가 이미 있으면 `eas env:create ... --force`로 덮어쓴다 (사용자 확인 필요).
+- **pod install 실패 — "SPM + static linkage is not supported"**: `useFrameworks: 'static'`이 RNFB 기본 SPM 모드와 충돌한 것. `'dynamic'`으로 되돌린다.
+- **빌드 실패 — Multiple commands produce duplicate**: `@react-native-firebase/app` plugin 등록 누락 또는 `ios/`에 수동 배치한 GoogleService-Info.plist 중복 우선 확인.
 - **Firebase 콘솔 접근 권한 부재**: `_workspace/implementation/error-4d.md`에 차단 사유 기록 후 사용자에게 Firebase 프로젝트 권한 부여 요청.
 
 **Quick QA Checkpoint (4d-QA)**:
@@ -890,8 +941,8 @@ Phase 4d 완료 후 qa-reviewer가 경량 검증을 실행한다:
 npm run typecheck && npm run lint
 ```
 추가 검사 (qa-reviewer가 수동 수행):
-- 외부 코드에서 `firebase.analytics()` 직접 호출 0건 (반드시 `@/shared/analytics` 래퍼 사용)
-- `logEvent(`'string'`, ...)` 매직 스트링 호출 0건 (반드시 `EVENTS.*` 상수 사용)
+- 외부 코드에서 `@react-native-firebase/*` 직접 호출 0건 (반드시 `@shared/lib/analytics` 래퍼 사용)
+- `logEvent(`'string'`, ...)` 매직 스트링 호출 0건 (반드시 `EAnalyticsEvent.*` 상수 사용)
 - 이벤트 파라미터에 이메일/전화/실명/정확 위치 PII 0건
 - `expo-store-review` 직접 호출 0건 (반드시 `@/shared/store-review` 훅 사용)
 - 정책 엔진 미경유 `requestReview()` 호출 0건
@@ -955,7 +1006,7 @@ Checks:
 3. UI/UX 일관성 (NativeWind 클래스 오류, 스타일 누락)
 4. Safe Area 적용 여부 (모든 스크린)
 5. 접근성 (accessibilityLabel, accessibilityRole)
-6. 성능 지표 (FlatList keyExtractor, getItemLayout)
+6. 성능 지표 (FlashList v2 keyExtractor, 자동 크기 계산 — `estimatedItemSize`/`getItemLayout` 사용 금지)
 ```
 
 **Fix Loop** (Harness 패턴):
@@ -992,12 +1043,41 @@ Loop 시작 (최대 3회):
 **Iteration Ceiling (Anthropic 원칙)**:
 점수 개선이 둔화되면 추가 반복의 효용이 낮다. 3회 반복 후에도 개선이 미미하면 현재 상태로 Phase 7에 진행하고, 미해결 이슈는 백로그로 관리한다.
 
+> **Phase 6은 "출시 전 수렴 루프"다.** 출시 후의 **지속 고도화 루프**(개발→검증→다음 고도화 추천을 무한 반복)는 별도의 `/iterate-app` 스킬과 `loop-engineer` 에이전트가 담당한다. Phase 5에서 백로그(`_workspace/qa/unresolved.md`)로 넘어간 이슈와 미구현 PRD 항목은 출시 후 첫 `/iterate-app` 사이클의 후보가 된다. 루프 메커니즘 상세: `references/loop-engineering.md`.
+
 ---
 
 ### Phase 7: Deployment
 
 **스킬**: `/store-deploy` 참조 (별도 스킬)
 **입력**: `_workspace/` 전체, `app.config.ts`
+
+#### Step 7.0: 배포 전 재검증 게이트 (Pre-Deploy Gate)
+
+**게시된 빌드에서만 동작하거나 출시 후 코드/콘솔로만 고칠 수 있는 것들**은, 빌드 직전에 "제대로·일관되게 됐는지"를 마지막으로 재확인한다. 시뮬레이터·dev·TestFlight에선 검증되지 않는 항목은 **코드·설정 상태로만 판정**한다. 하나라도 미통과면 Build/Submit 보류.
+
+**(a) 런타임 트리거 배선** — 게시 후 코드로만 수정 가능
+
+| 확인 항목 | 통과 기준 | 미통과 시 |
+|----------|----------|----------|
+| **스토어 리뷰 트리거** | `spec.md`의 `ux.store_review=true`이면, PRD Review Triggers에 매핑된 화면의 **긍정적 액션 성공 콜백(UI idle)**에 `maybeRequest(REVIEW_TRIGGERS.X)`가 **최소 1곳 이상** 실제 배선됨. (인앱 리뷰는 스토어 콘솔 사전 설정 불필요) | 한 곳도 없으면 평점 수집이 0 → `ui-developer`로 환원, 가치-순간 결정 후 배선 |
+| 광고 동의/초기화 | `monetization.model`에 광고 포함 시 루트에서 `initializeAdsWithConsent()` 호출(렌더 비차단) + 모든 광고 로드가 `useAdsReady()` 경유 + AdMob Console GDPR/IDFA 메시지 **Published** | `api-integrator`로 환원 |
+| Analytics KPI 배선 | 북극성/4축 커스텀 이벤트가 화면에 배선(`screen_view`는 루트 `_layout.tsx`가 자동 기록) | `api-integrator`/`ui-developer`로 환원 |
+| **빌드 환경 (APP_ENV)** | 스토어 제출 바이너리의 `extra.appEnv`가 없거나 `production` (EAS: 프로필 `APP_ENV=production` / 로컬 fastlane: 미설정 → release 번들이 production으로 판정). CLAUDE.md "빌드 환경 (APP_ENV)" 검증 명령 | `development`/`preview`면 테스트 광고로 출시됨 → 재빌드 |
+
+**(b) 스토어·콘솔·일관성·시크릿** — 출시 후 수정이 번거롭거나 리젝/정책 위반을 유발
+
+| 확인 항목 | 통과 기준 | 미통과 시 |
+|----------|----------|----------|
+| **앱 이름 4곳 일치** | `app.config.ts` `name` / `withLocalizedAppName` / iOS `name.txt` / Android `title.txt` 가 **언어별로 모두 동일**(30자 이내) | 불일치 → 4곳 동기화 (`prebuild --clean` 재빌드 필요) |
+| **권한 ↔ 사용 설명 일치** | spec `permissions.*`에서 켠 권한마다 Info.plist 사용 설명 문구 존재 + **안 쓰는 권한은 미선언** | 누락/과선언 → 스토어 리젝 사유, `api-integrator`로 환원 |
+| **데이터 안전 라벨 ↔ SDK** | 통합된 데이터 수집 SDK(Analytics/AdMob/Crashlytics)와 Play 데이터 안전 / Apple 개인정보 라벨이 **일치** | 불일치 → 정책 위반/리젝, store-forms로 보정 |
+| **IAP/구독 상품 등록** (조건부) | `monetization.model`에 IAP/구독 포함 시 ASC/Play 콘솔에 상품 생성·승인됨 | 미등록 → 페이월 무동작(수익 0), 콘솔 등록 후 재확인 |
+| **미해결 HIGH QA 이슈** | `_workspace/qa/unresolved.md`에 HIGH 이상 미해결 이슈 **0건** (있으면 사용자가 명시 승인) | 미승인 HIGH 잔존 → 배포 보류 |
+| **app-ads.txt** (조건부) | 광고 사용 시 app-ads.txt 게시 + 스토어 리스팅에 도메인 연결 (store-admob Step 7) | 미게시 → 무효 트래픽 판정·수익 차단 |
+| **Firebase 설정 주입** | `GoogleService-Info.plist`/`google-services.json` 평문 커밋 0. EAS 클라우드 빌드면 file 환경변수 `GOOGLE_SERVICE_INFO_PLIST`/`GOOGLE_SERVICES_JSON` 등록(`eas env:list`), 로컬 빌드면 `./firebase/` 파일 존재 | 누락 → prebuild 실패/런타임 Firebase 실패, 설정 후 재빌드 |
+
+> **왜 배포 단계인가**: (a)는 "어느 화면의 어느 순간에 넣을지"가 UX 품질을 좌우하고(평점은 잘못 띄우면 ★1 폭격), (b)는 여러 곳에 흩어져 동기화가 깨지거나 콘솔/스토어 설정과 어긋나기 쉽다. 둘 다 **전체가 완성된 배포 직전**에 판단·확인이 가장 정확하고, 게시 후엔 즉시 못 고치므로 여기가 마지막 안전망이다. 모두 통과해야 Build/Submit 진행.
 
 ```
 Tasks:
@@ -1008,6 +1088,10 @@ Tasks:
 ```
 
 상세 절차: `~/works/store-deploy-plugin/skills/store-deploy/SKILL.md`
+
+#### Step 7.1: Android 프로덕션 액세스 신청 (개인 계정 한정)
+
+Google Play **개인 계정**으로 만든 신규 앱은, 비공개 테스트 **14일+ / 12명+** 게이트를 충족한 뒤 **"프로덕션 액세스 신청"** 양식을 제출·통과해야 프로덕션 공개가 가능하다. 이 신청 양식 작성·제출은 `api-integrator`의 "Play Console 프로덕션 액세스 신청 자동화" 능력이 담당하며, **답변은 `references/play-production-access-application.md`를 정본으로 참고**해 사용자의 실제 사실로 작성한다(날조 금지, 최종 제출 전 사용자 확인). 승인은 보통 7일 이내, 이메일 통보. 승인 후 비공개 테스트(alpha) 최신 버전을 콘솔에서 프로덕션으로 "버전 승급"(재빌드 불필요).
 
 ---
 
@@ -1079,6 +1163,7 @@ Tasks:
 | `ui-developer` | `/create-screen` | Expo Router 스크린, NativeWind UI, **Review trigger·screen tracking·key action 카운터 배선** |
 | `qa-reviewer` | — | 코드 품질, TypeScript, FSD 규칙, **Analytics 매직 스트링/PII + SecureStore 우회 + Review 안티패턴 검사** |
 | `app-inspector` | `/inspect-app` | 기능/UX 검사, Safe Area, 접근성 |
+| `loop-engineer` | `/iterate-app` | **출시 후 지속 고도화 루프** — 현황 진단, 다음 고도화 추천(KPI 갭·기술부채·FSD 커버리지·노력 랭킹), 개발→검증→추천 루프 supervise |
 
 ---
 
@@ -1136,13 +1221,13 @@ Playwright MCP가 가용한 경우 웹 빌드에서 자동화 테스트도 가�
 
 **모델이 발전하면 하네스를 간소화해야 한다.** 각 컴포넌트가 정당화되는지 주기적으로 재평가:
 
-| 컴포넌트 | 가정 | Opus 4.6에서 필요? |
+| 컴포넌트 | 가정 | 현재 모델에서 필요? |
 |---------|------|-------------------|
 | Sprint Contract | 모델이 범위를 놓침 | 단순 앱은 불필요, 복잡한 앱은 유지 |
 | Quick QA (4a-4c) | 서브스텝 간 에러 누적 | 유지 권장 (typecheck은 항상 유용) |
 | Phase 6 Fix Loop | 한 번에 완벽 불가 | 유지 (자체 평가는 여전히 관대) |
 | Generator-Evaluator 분리 | 자체 평가 편향 | 핵심 — 제거 불가 |
-| Context Reset | 컨텍스트 저하 | Opus 4.6+는 불필요할 수 있음 |
+| Context Reset | 컨텍스트 저하 | 최신 Opus(4.8+)에서는 불필요할 수 있음 — 새 모델 출시 시 재평가 |
 
 **비용 인식**: 멀티 에이전트 하네스는 단일 에이전트 대비 **20배 이상** 토큰을 소비한다. 단순한 기능 추가는 하네스 없이 직접 구현하고, 전체 앱 구축 시에만 파이프라인을 활성화한다.
 

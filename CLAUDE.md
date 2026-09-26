@@ -8,13 +8,13 @@ React Native + Expo template with **Feature-Sliced Design (FSD)** architecture a
 
 ## Tech Stack
 
-- **Framework**: React Native 0.81 + Expo 54
-- **Routing**: Expo Router (file-based)
+- **Framework**: React Native 0.86 + Expo SDK 57 (React 19.2, New Architecture, Hermes)
+- **Routing**: Expo Router (file-based — SDK 56+ forks React Navigation: import from `expo-router`, never `@react-navigation/*`)
 - **State Management**: Zustand (global) + TanStack Query (server)
 - **Styling**: NativeWind (Tailwind CSS for RN)
 - **Form & Validation**: React Hook Form + Zod
 - **API**: Axios with token auto-refresh
-- **TypeScript**: Strict mode
+- **TypeScript**: 6.0 strict mode (Expo SDK 57 pins `~6.0`; TS 7 is not supported yet)
 
 ## Harness Engineering Rules (MANDATORY)
 
@@ -137,7 +137,7 @@ src/shared/secure-storage/
 
 이 템플릿은 최신 기술 스택을 준수한다.
 
-1. **ESLint 9**: \`eslint.config.js\` (Flat Config) 형식을 사용한다. \`lint\` 스크립트에서 \`--ext\` 옵션은 더 이상 사용하지 않는다.
+1. **ESLint 9**: \`eslint.config.js\` (Flat Config, `defineConfig`) 형식을 사용한다. \`lint\` 스크립트에서 \`--ext\` 옵션은 더 이상 사용하지 않는다. ESLint 10은 `eslint-config-expo`가 쓰는 `eslint-plugin-react`가 아직 지원하지 않으므로 올리지 않는다. React Compiler 규칙(`react-hooks/refs`, `react-hooks/purity`)이 켜져 있어 **렌더 중 ref 읽기/쓰기·`Date.now()` 호출은 lint 에러**다 — effect/이벤트 핸들러로 옮긴다.
 2. **FlashList v2**: \`estimatedItemSize\` 속성은 더 이상 필수사항이 아니며, 사용 시 타입 에러가 발생할 수 있다. 자동 크기 계산을 활용한다.
 3. **Workspace 제외**: \`_workspace/\`, \`.claude/\`, \`plugins/\` 디렉토리는 린트 및 타입체크 대상에서 제외되어야 한다.
 
@@ -152,7 +152,8 @@ NativeWind가 정상 동작하려면 아래 4개 파일이 **모두** 올바르�
 | `tailwind.config.js` | `presets: [require('nativewind/preset')]` 및 `content` 경로에 `app/`, `src/` 포함 |
 | `global.css` | `@tailwind base; @tailwind components; @tailwind utilities;` |
 | `_layout.tsx` (루트) | `import '../global.css';` |
-| `nativewind-env.d.ts` | `/// <reference types="nativewind/types" />` |
+| `nativewind-env.d.ts` | `/// <reference types="nativewind/types" />` + `/// <reference types="expo/types" />` (TS 6은 `@types`를 자동 포함하지 않고 `global.css` side-effect import를 검사한다) |
+| `tailwind.config.js` 토큰 | `src/shared/config/theme.ts`와 같은 시맨틱 토큰 — 브랜드색 `primary`(`bg-primary`, `text-primary`)와 본문색 `text-*`(`text-text-primary`)을 구분한다. **정의되지 않은 클래스는 경고 없이 무시**되므로 새 토큰은 반드시 config에 추가 |
 
 ### 에이전트 활용 매핑
 
@@ -204,6 +205,8 @@ NativeWind가 정상 동작하려면 아래 4개 파일이 **모두** 올바르�
 
 > `spec-planner`는 전용 스킬 없이 에이전트로 직접 호출된다(Phase 2.5). 그 외 9개 스킬이 위 표에 대응한다.
 
+> **Codex 하네스 동기화**: `.codex/agents/*.toml`과 `.agents/skills/`는 `.claude/` 원본에서 **생성되는 사본**이다. 에이전트·스킬을 고친 뒤에는 반드시 `npm run sync:codex`를 실행하고 사본을 함께 커밋한다(사본을 직접 수정하지 않는다). Codex 진입점은 `AGENTS.md`이며 이 파일(CLAUDE.md)을 정본으로 가리킨다.
+
 ### Full Pipeline
 
 ```
@@ -243,7 +246,7 @@ Phase 7: Deployment    — /store-deploy
 | Crashlytics | `@react-native-firebase/crashlytics` | 충돌/예외 리포트 (KPI 신뢰도 보호) |
 | Remote Config (선택) | `@react-native-firebase/remote-config` | 실험/플래그 |
 
-Expo plugin 등록: `app.config.ts` → `plugins: ['@react-native-firebase/app', '@react-native-firebase/crashlytics']` 및 `expo-build-properties`로 `useFrameworks: 'static'`(iOS) 설정.
+Expo plugin 등록: `app.config.ts` → `plugins: ['@react-native-firebase/app', '@react-native-firebase/crashlytics']` 및 `expo-build-properties`로 iOS `useFrameworks: 'dynamic'` 설정. RN Firebase 26은 Firebase iOS SDK를 **SPM**으로 가져오며 SPM은 dynamic frameworks가 필수다 — `'static'`만 단독으로 쓰면 `pod install`이 실패한다(정적이 꼭 필요하면 RNFB app plugin `{ ios: { disableSPM: true } }` + `'static'` + 모든 RNFB pod을 `forceStaticLinking`). **v26은 namespaced API(`analytics().logEvent`)를 삭제했다** — modular API(`logEvent(getAnalytics(), ...)`)만 쓴다.
 
 ### 측정 표준 KPI (기본 세트)
 
@@ -261,7 +264,7 @@ Expo plugin 등록: `app.config.ts` → `plugins: ['@react-native-firebase/app',
 ### 이벤트 네이밍 규칙
 
 - snake_case, 영문 소문자, 동사_명사 형식 (`tap_camera_capture`, `view_gallery_grid`)
-- 예약어 금지: Firebase 자동 이벤트(`session_start`, `screen_view` 등)와 중복 금지
+- 예약어 금지: Firebase 자동 이벤트(`session_start`, `first_open` 등)와 중복 금지. `screen_view`는 커스텀 이벤트로 만들지 않고 `logScreenView()`로만 보낸다(루트 `_layout.tsx`가 라우트 패턴으로 자동 기록, `firebase.json`에서 네이티브 자동 화면 수집은 끔)
 - 파라미터는 25개 이하, 키 길이 ≤ 40자, 값 길이 ≤ 100자
 - PII 금지: 이메일/전화번호/실명/정확한 위치는 절대 파라미터로 보내지 않는다
 
@@ -279,20 +282,22 @@ src/shared/lib/analytics/
 
 - 직접 `firebase.analytics().logEvent()` 호출 금지 — 반드시 `@shared/lib/analytics`의 래퍼 함수만 사용
 - 이벤트 이름은 `events.ts`의 상수로만 정의 (오타/중복 방지)
-- 개발 환경(`env.IS_DEV`)에서는 Analytics 수집을 비활성화하거나 디버그 모드 사용
+- 수집은 `env.IS_PROD`에서만 켠다(`initAnalytics()`가 Analytics·Crashlytics collection을 설정) — dev/preview 트래픽이 KPI를 오염시키지 않게
+- 비치명 에러는 `recordError(error)`(Crashlytics)로 보낸다. 루트 `ErrorBoundary`가 이미 호출한다
 
 ### 통합 단계
 
-Firebase 콘솔 자동화(Playwright MCP) · 설정파일 배치/보안(`.gitignore` + EAS Secrets) · 패키지 설치/plugin 등록 · `src/shared/lib/analytics/` 모듈 작성 · `_layout.tsx` 초기화 · 이벤트 배선 · 빌드 검증의 **전체 절차는 `.claude/agents/api-integrator.md`("Firebase 콘솔 자동화", "Analytics 통합 규칙")** 와 orchestrate Phase 4d가 정본이다.
+Firebase 콘솔 자동화(Playwright MCP) · 설정파일 배치/보안(`.gitignore` + EAS 환경변수(file)) · 패키지 설치/plugin 등록 · `src/shared/lib/analytics/` 모듈 작성 · `_layout.tsx` 초기화 · 이벤트 배선 · 빌드 검증의 **전체 절차는 `.claude/agents/api-integrator.md`("Firebase 콘솔 자동화", "Analytics 통합 규칙")** 와 orchestrate Phase 4d가 정본이다.
 
-> 요약 규칙: `app.config.ts` plugins 에 `@react-native-firebase/app`, `@react-native-firebase/crashlytics`, `expo-build-properties`(iOS `useFrameworks: 'static'`), `./plugins/withRNFirebaseStaticBuild`(필수 빌드 패치)를 등록한다. `GoogleService-Info.plist`/`google-services.json`은 절대 커밋하지 않고 EAS Secrets로 주입한다. RNFirebase 빌드 이슈 상세: `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md`.
+> 요약 규칙: `app.config.ts` plugins 에 `@react-native-firebase/app`, `@react-native-firebase/crashlytics`, `expo-build-properties`(iOS `useFrameworks: 'dynamic'`)를 등록한다. Podfile을 고치는 커스텀 패치 플러그인은 쓰지 않는다. `GoogleService-Info.plist`/`google-services.json`은 `./firebase/`에 두고(gitignore) 절대 커밋하지 않으며, EAS 클라우드 빌드에는 file 타입 환경변수 `GOOGLE_SERVICE_INFO_PLIST` / `GOOGLE_SERVICES_JSON`으로 주입한다(`app.config.ts`가 이 두 이름을 읽는다 — `eas secret:*`은 deprecated, `eas env:create --type file --visibility secret`). RNFirebase 빌드 이슈 상세: `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md`.
 
 ### Hard Threshold (Analytics)
 
 | 기준 | 임계값 |
 |------|--------|
 | PRD에 KPI 정의 누락 | **0개** (북극성 + 4축 기본 세트) |
-| 직접 `firebase.analytics()` 호출 (래퍼 미사용) | **0개** |
+| 직접 `firebase.analytics()` / `@react-native-firebase/*` 호출 (래퍼 미사용) | **0개** |
+| RN Firebase namespaced API(`analytics()`, `crashlytics()`) 사용 | **0개** (v26에서 삭제) |
 | 이벤트 상수 미정의(매직 스트링) `logEvent` 호출 | **0개** |
 | PII가 포함된 이벤트 파라미터 | **0개** |
 | `GoogleService-Info.plist` / `google-services.json` 커밋 | **0개** |
@@ -409,7 +414,7 @@ src/shared/store-review/
 
 | 영역 | 패키지 | 비고 |
 |------|--------|------|
-| AdMob SDK | `react-native-google-mobile-ads` (^16) | `AdsConsent` UMP API 포함 |
+| AdMob SDK | `react-native-google-mobile-ads` **17.0.0 (정확히 고정)** | `AdsConsent` UMP API 포함. v17은 RN 0.86+·New Arch 필수. 17.1.0~17.2.0은 Expo config plugin 사용 시 Android Gradle 설정이 깨진다(invertase/react-native-google-mobile-ads#903) — 수정 릴리스 전까지 `^`로 올리지 않는다 |
 | iOS 추적 권한 | `expo-tracking-transparency` | `NSUserTrackingUsageDescription` 필수 |
 | 표준 헬퍼 | `src/features/ads/lib/consent.ts` | `initializeAdsWithConsent()` export |
 
@@ -441,7 +446,7 @@ src/features/ads/
 └── index.ts                      # barrel — initializeAdsWithConsent, isAdsReady, onAdsReady
 ```
 
-루트 `_layout.tsx` 에서는 **`initializeAdsWithConsent()` 만 await** 한다. 개별 `AdsConsent.*` API 를 직접 부르거나 `mobileAds().initialize()` 를 직접 호출하지 않는다.
+루트 `_layout.tsx` 에서는 **`initializeAdsWithConsent()` 만 호출**한다 (`void` — 첫 렌더를 막지 않는다. UMP 폼/ATT는 첫 화면 위에 뜬다). 개별 `AdsConsent.*` API 를 직접 부르거나 `mobileAds().initialize()` 를 직접 호출하지 않는다. `initialize()`는 UMP가 `canRequestAds`를 허용할 때만 실행되며, **모든 광고 로드는 `useAdsReady()`/`isAdsReady()`(동의 + SDK 초기화 완료) 뒤에만** 시작한다 — 마운트만으로 `createForAdRequest`/`load()`를 부르지 않는다.
 
 ```tsx
 // app/_layout.tsx
@@ -487,7 +492,7 @@ AdMob Console 에서 "Privacy Options" 가 REQUIRED 로 설정되어 있으면 �
 |------|--------|------|
 | UMP 시퀀스 적용 | EU eCPM +30~50% | 본 섹션의 표준 시퀀스 |
 | `MaxAdContentRating.PG` | 광고 풀 확장 | `setRequestConfiguration` |
-| Adaptive Banner | 배너 수익 +20% | `BannerAdSize.ANCHORED_ADAPTIVE_BANNER` |
+| Adaptive Banner | 배너 수익 +20% | `BannerAdSize.LARGE_ANCHORED_ADAPTIVE_BANNER` (v17에서 `ANCHORED_ADAPTIVE_BANNER`는 deprecated) |
 | App Open 광고 | 추가 수익 라인 | Cold start + warm resume |
 | Rewarded 광고 다종 | 사용자 인게이지먼트 ↑ | revive / coins / continue / shuffle 등 |
 | 광고 mediation (선택) | eCPM +20~50% | AppLovin MAX / IronSource 등 (DAU 5K+에서 ROI) |
@@ -544,6 +549,8 @@ grep -rn "deliver personalized ads to you" app.config.ts plugins/ app.json local
 | 광고 앱인데 `withLocalizedAttDescription` plugin 미등록 | **0개** |
 | `.lproj/InfoPlist.strings` 개수 ≠ Xcode 등록 개수 | **0개** |
 | AdMob Console GDPR/IDFA 메시지 미게시 상태로 배포 | **0개** |
+| 광고 로드(`createForAdRequest`/`load()`/`<BannerAd>`)가 `useAdsReady()`/`isAdsReady()` 게이트 미경유 | **0개** |
+| `privacyOptionsRequired`인데 설정 화면에 "광고 개인정보 설정"(`showAdsConsentForm()`) 진입점 없음 | **0개** |
 
 ### 무효 트래픽 방지 / 계정 정지 방어 (MANDATORY — 상세는 에이전트 문서)
 
@@ -569,7 +576,7 @@ AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭,
 ### 에이전트 책임 분담
 
 - **product-planner**: PRD 에 "광고 정책" 섹션 작성 — 어느 placement (banner/interstitial/rewarded/app-open)을 쓸지, 노출 빈도 제한, EU/non-EU 대상 여부
-- **api-integrator**: `src/features/ads/lib/consent.ts` 구축, `_layout.tsx` 에서 `initializeAdsWithConsent()` await, `app.config.ts` 의 plugin/infoPlist 설정
+- **api-integrator**: `src/features/ads/lib/consent.ts` 구축, `_layout.tsx` 에서 `initializeAdsWithConsent()` 호출, `app.config.ts` 의 plugin/infoPlist 설정
 - **ui-developer**: `AdBanner` / `useInterstitialAd` / `useRewardedAd` 컴포넌트 배치 — 핵심 액션 직전/진행 중 광고 금지
 - **qa-reviewer**: Hard Threshold 검사 + 동의 시퀀스 위반 탐지
 
@@ -588,6 +595,20 @@ AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭,
 ### 빌드 아카이브·앱 크기 최적화
 
 `.easignore`(빌드 아카이브 제외 목록)와 앱 크기 최적화 체크리스트(이미지 WebP · 미사용 폰트/의존성 제거 · Lottie 최적화 등)는 `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md` 참고.
+
+### 빌드 환경 (APP_ENV) — 광고 ID·Analytics 분기 (CRITICAL)
+
+`src/shared/config/env.ts`의 `IS_DEV` / `IS_PROD`는 `APP_ENV`(`development` | `preview` | `production`)로 결정되고, 실광고 ID(`AdUnitIds`)와 Analytics/Crashlytics 수집이 `IS_PROD`를 따른다.
+
+- **EAS 빌드**: `eas.json` 프로필의 `env.APP_ENV` + `environment`로 지정한다.
+- **APP_ENV가 없는 빌드**(로컬 fastlane/xcodebuild/gradle release): release 번들은 `production`, dev 번들은 `development`로 자동 판정된다(`__DEV__` 기준).
+- `.env`에 `APP_ENV`를 넣지 않는다 — `.env`는 로컬 release 빌드의 앱 설정에도 로드된다.
+- 앱 환경 구분에 `NODE_ENV`를 쓰지 않는다. 과거 템플릿의 `NODE_ENV` 방식은 로컬 fastlane 빌드에 `nodeEnv: "development"`가 박혀 **스토어 빌드가 테스트 광고 ID로 출시**됐다.
+- 검증: `unzip -p build-output/*.ipa 'Payload/*.app/EXConstants.bundle/app.config' | grep -o '"appEnv":"[a-z]*"'` → 출력이 없거나(`production`으로 판정) `"appEnv":"production"`이어야 한다.
+
+| 기준 | 임계값 |
+|------|--------|
+| 스토어 제출 바이너리의 `extra.appEnv`가 `development` / `preview` | **0개** |
 
 ### 앱 이름 일관성 (MANDATORY)
 
@@ -610,7 +631,7 @@ AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭,
 
 ### 배포 전 준비 · 플랫폼 특수 고려 · 빌드 트러블슈팅
 
-배포 전 필수 준비(개인정보처리방침/아이콘/스크린샷/메타데이터/**릴리즈 노트 500byte 제한**/버전 관리), Android·iOS 특수 고려(Draft App 첫 제출은 Play Console 웹 수동 업로드 · `eas.json` `ascAppId` · `ITSAppUsesNonExemptEncryption` · ASC API Key 비대화식 제출), iOS/Android 빌드 트러블슈팅(xcodebuild 타임아웃 · `InfoPlist.strings` 중복 · **RNFirebase + RN 0.81 + New Arch + static frameworks 3대 빌드 에러와 `withRNFirebaseStaticBuild` 패치 상세** · reanimated `libworklets` 캐시)은 모두 `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md` 로 이전했다. 배포 시 해당 문서 + `/store-deploy` 스킬을 따른다.
+배포 전 필수 준비(개인정보처리방침/아이콘/스크린샷/메타데이터/**릴리즈 노트 500byte 제한**/버전 관리), Android·iOS 특수 고려(Draft App 첫 제출은 Play Console 웹 수동 업로드 · `eas.json` `ascAppId` · `ITSAppUsesNonExemptEncryption` · ASC API Key 비대화식 제출), iOS/Android 빌드 트러블슈팅(xcodebuild 타임아웃 · `InfoPlist.strings` 중복 · **RNFirebase 26 SPM + dynamic frameworks 링크 규칙** · AdMob 17 Android 빌드 버그 · reanimated `libworklets` 캐시 · SDK 57 `prebuild` 기본 clean)은 모두 `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md` 로 이전했다. 배포 시 해당 문서 + `/store-deploy` 스킬을 따른다.
 
 **Android 프로덕션 액세스 신청(개인 계정)**: 비공개 테스트 14일+/12명+ 게이트 충족 후 제출하는 "프로덕션 액세스 신청" 양식의 전체 질문·답변 작성 원칙(사실 기반·날조 금지·300자·worked example)은 `.claude/skills/orchestrate/references/play-production-access-application.md`가 정본이다. 신청서 작성은 `api-integrator`의 "Play Console 프로덕션 액세스 신청 자동화" 능력이 담당하며, 작성 시 반드시 이 문서를 참고한다.
 

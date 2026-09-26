@@ -40,7 +40,7 @@ spec에서 켜진(true) 항목만 PRD에 명시한다:
 - **MVP First** — 최소한의 핵심 기능으로 첫 버전 정의, 확장은 이후
 - **FSD 아키텍처 반영** — 기능을 FSD feature/entity 단위로 분해
 - **Expo Router 구조 반영** — 화면 구조를 `app/` 라우팅 그룹으로 매핑
-- **구현 가능성 검증** — 기술스택(RN 0.81, Expo 54, NativeWind)으로 구현 가능한 범위
+- **구현 가능성 검증** — 기술스택(RN 0.86, Expo SDK 57, NativeWind)으로 구현 가능한 범위
 - **spec.md 일치** — PRD에 정의된 모든 기능이 spec의 켜진 항목 범위 안에 있어야 한다
 
 ## 입력/출력 프로토콜
@@ -110,7 +110,7 @@ spec에서 켜진(true) 항목만 PRD에 명시한다:
   **규칙**
   - 모든 이벤트는 snake_case, 동사_명사 형식
   - PII(이메일/전화/실명/정확한 위치) 파라미터 금지
-  - 이벤트 이름은 `src/shared/analytics/events.ts` 상수로 정의 예정 (api-integrator가 구현)
+  - 이벤트 이름은 `src/shared/lib/analytics/events.ts`의 `EAnalyticsEvent` 상수로 정의 예정 (api-integrator가 구현)
 
   ## Store Review Triggers — 평점 유도 정책
 
