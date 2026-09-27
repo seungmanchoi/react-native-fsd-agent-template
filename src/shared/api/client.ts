@@ -27,8 +27,13 @@ const SECURE_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };
 
+// Bumped by every credential write (login, logout). A refresh that started under an
+// older session must not write its tokens back or sign the new session out.
+let sessionEpoch = 0;
+
 export const tokenManager = {
   setAccessToken: async (token: string): Promise<void> => {
+    sessionEpoch += 1;
     await SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, token, SECURE_OPTIONS);
   },
 
@@ -37,6 +42,7 @@ export const tokenManager = {
   },
 
   setRefreshToken: async (token: string): Promise<void> => {
+    sessionEpoch += 1;
     await SecureStore.setItemAsync(TOKEN_KEYS.REFRESH_TOKEN, token, SECURE_OPTIONS);
   },
 
@@ -45,6 +51,7 @@ export const tokenManager = {
   },
 
   setTokens: async (accessToken: string, refreshToken: string): Promise<void> => {
+    sessionEpoch += 1;
     await Promise.all([
       SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, accessToken, SECURE_OPTIONS),
       SecureStore.setItemAsync(TOKEN_KEYS.REFRESH_TOKEN, refreshToken, SECURE_OPTIONS),
@@ -52,6 +59,7 @@ export const tokenManager = {
   },
 
   clearTokens: async (): Promise<void> => {
+    sessionEpoch += 1;
     await Promise.all([
       SecureStore.deleteItemAsync(TOKEN_KEYS.ACCESS_TOKEN, SECURE_OPTIONS),
       SecureStore.deleteItemAsync(TOKEN_KEYS.REFRESH_TOKEN, SECURE_OPTIONS),
@@ -160,6 +168,7 @@ apiClient.interceptors.response.use(
     }
 
     isRefreshing = true;
+    const epoch = sessionEpoch;
     try {
       const refreshToken = await tokenManager.getRefreshToken();
       // Never signed in (or an app without auth): nothing to refresh, no auth-failure redirect.
@@ -174,6 +183,9 @@ apiClient.interceptors.response.use(
         refreshToken: string;
       }>(`${env.API_URL}/auth/refresh`, { refreshToken }, { timeout: 10000 });
 
+      // Signed out (or in as someone else) meanwhile: drop the old session's new tokens.
+      if (epoch !== sessionEpoch) throw error;
+
       const { accessToken, refreshToken: newRefreshToken } = response.data;
 
       await tokenManager.setTokens(accessToken, newRefreshToken);
@@ -182,6 +194,11 @@ apiClient.interceptors.response.use(
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
       return apiClient(originalRequest);
     } catch (refreshError) {
+      // A newer login/logout owns the credentials now — leave them and the auth state alone.
+      if (epoch !== sessionEpoch) {
+        settleRefreshWaiters(null, refreshError);
+        return Promise.reject(refreshError);
+      }
       // Only an auth rejection ends the session; network errors, timeouts and 5xx keep
       // the tokens so the next request can refresh again.
       const status = isAxiosError(refreshError) ? refreshError.response?.status : undefined;

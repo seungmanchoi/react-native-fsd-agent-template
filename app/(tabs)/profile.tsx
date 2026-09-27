@@ -3,20 +3,20 @@ import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useUserStore } from '@entities/user';
-import { initializeAdsWithConsent, showAdsConsentForm } from '@features/ads';
+import { onAdConsentResult, showAdsConsentForm } from '@features/ads';
 import { AppText, Card, Button } from '@shared/ui';
 import { Colors, Spacing } from '@shared/config';
 
 export default function ProfileScreen(): React.JSX.Element {
   const logout = useUserStore((s) => s.logout);
   // UMP requires a way to change consent where regulations apply (EEA, UK, ...).
+  // Subscribed, not read once: a consent retry on the next foreground can flip it.
   const [privacyOptionsRequired, setPrivacyOptionsRequired] = useState(false);
 
-  useEffect(() => {
-    void initializeAdsWithConsent().then((result) =>
-      setPrivacyOptionsRequired(result.privacyOptionsRequired),
-    );
-  }, []);
+  useEffect(
+    () => onAdConsentResult((result) => setPrivacyOptionsRequired(result.privacyOptionsRequired)),
+    [],
+  );
 
   const handleSignOut = async (): Promise<void> => {
     await logout();

@@ -282,7 +282,7 @@ src/shared/lib/analytics/
 
 - 직접 `firebase.analytics().logEvent()` 호출 금지 — 반드시 `@shared/lib/analytics`의 래퍼 함수만 사용
 - 이벤트 이름은 `events.ts`의 상수로만 정의 (오타/중복 방지)
-- 수집은 `env.IS_PROD`에서만 켠다(`initAnalytics()`가 Analytics·Crashlytics collection을 설정) — dev/preview 트래픽이 KPI를 오염시키지 않게
+- 수집은 `env.IS_PROD`에서만 켠다(`initAnalytics()`가 Analytics·Crashlytics collection을 설정) — dev/preview 트래픽이 KPI를 오염시키지 않게. Analytics 네이티브 기본값은 `firebase.json`의 `analytics_auto_collection_enabled: false`로 꺼 둔다 — 켜 두면 JS가 끄기 전에 dev/preview 새 설치의 `first_open`·`session_start`가 전송된다. production은 `initAnalytics()`가 켠 직후 `first_open`·`session_start`가 기록되고 값이 저장돼 다음 실행부터는 시작부터 수집한다. Crashlytics 기본값은 켜 둔다(`crashlytics_auto_collection_enabled` 미설정) — 끄면 RNFB가 JS 설정을 다음 실행에야 반영해 JS 전에 죽는 production 첫 실행 크래시가 업로드되지 않는다(dev는 RNFB가 debug 빌드에서 이미 끈다)
 - 비치명 에러는 `recordError(error)`(Crashlytics)로 보낸다. 루트 `ErrorBoundary`가 이미 호출한다
 
 ### 통합 단계
@@ -443,7 +443,7 @@ src/features/ads/
 │   └── consent.ts                # initializeAdsWithConsent / showAdsConsentForm
 ├── hooks/                        # useInterstitialAd / useRewardedAd / useAppOpenAd
 ├── ui/AdBanner.tsx
-└── index.ts                      # barrel — initializeAdsWithConsent, isAdsReady, onAdsReady
+└── index.ts                      # barrel — initializeAdsWithConsent, isAdsReady, onAdsReady, onAdConsentResult
 ```
 
 루트 `_layout.tsx` 에서는 **`initializeAdsWithConsent()` 만 호출**한다 (`void` — 첫 렌더를 막지 않는다. UMP 폼/ATT는 첫 화면 위에 뜬다). 개별 `AdsConsent.*` API 를 직접 부르거나 `mobileAds().initialize()` 를 직접 호출하지 않는다. `initialize()`는 UMP가 `canRequestAds`를 허용할 때만 실행되며, **모든 광고 로드는 `useAdsReady()`/`isAdsReady()`(동의 + SDK 초기화 완료) 뒤에만** 시작한다 — 마운트만으로 `createForAdRequest`/`load()`를 부르지 않는다.
@@ -476,7 +476,7 @@ Android 는 ATT 없이도 `react-native-google-mobile-ads` 가 매니페스트�
 
 ### 사용자 추후 변경 (선택 — Privacy Options)
 
-AdMob Console 에서 "Privacy Options" 가 REQUIRED 로 설정되어 있으면 앱 내 설정 화면에 "광고 개인정보 설정" 버튼을 노출하고, 클릭 시 `showAdsConsentForm()` 을 호출해 UMP 폼을 다시 띄운다.
+AdMob Console 에서 "Privacy Options" 가 REQUIRED 로 설정되어 있으면 앱 내 설정 화면에 "광고 개인정보 설정" 버튼을 노출하고, 클릭 시 `showAdsConsentForm()` 을 호출해 UMP 폼을 다시 띄운다. 노출 여부(`privacyOptionsRequired`)는 한 번 조회하지 말고 `onAdConsentResult()`로 구독한다 — 오프라인 첫 실행 뒤 포그라운드 재시도에서 값이 바뀐다(템플릿 `app/(tabs)/profile.tsx`).
 
 ### Analytics 기록 (강력 권장)
 

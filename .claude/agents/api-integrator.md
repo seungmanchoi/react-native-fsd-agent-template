@@ -35,8 +35,8 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 3. `project.context` Read
 
 **모듈 스캐폴딩 분기 규칙:**
-- `measurement.firebase_analytics=false` → `src/shared/lib/analytics/`는 noop 어댑터만 쓰도록 Firebase 패키지/plugin 제거, Firebase 콘솔 자동화도 스킵
-- `measurement.crashlytics=false` → `@react-native-firebase/crashlytics` 설치/등록 스킵
+- `measurement.firebase_analytics=false` → `@react-native-firebase/*` 패키지·plugin과 함께 `src/shared/lib/analytics/firebase.ts`, `firebase.json`, `patches/@react-native-firebase+*.patch`를 지우고 `analytics.ts`의 `resolveAdapter()`는 `noopAnalytics`만 반환. Firebase 콘솔 자동화도 스킵
+- `measurement.crashlytics=false` → 템플릿에 이미 들어 있으므로 "설치 스킵"이 아니라 **제거**다: `@react-native-firebase/crashlytics` 패키지·plugin, `firebase.ts`의 crashlytics import·호출(`recordError`는 no-op), `patches/@react-native-firebase+crashlytics+*.patch`, `firebase.json`의 `crashlytics_*` 키. import가 남으면 Metro 번들이 실패하고, 패치 파일이 남으면 `patch-package`가 CI(EAS)에서 exit 1로 install을 멈춘다
 - `measurement.remote_config=true` → `@react-native-firebase/remote-config` 추가
 - `ux.store_review=false` → `src/shared/store-review/` 전체 스킵
 - `auth.methods=[]` → `features/auth/` 토큰 store 스킵, SecureStore도 토큰 키 미정의
@@ -164,7 +164,8 @@ import { getAnalytics, logEvent, setAnalyticsCollectionEnabled } from '@react-na
 import { getCrashlytics, recordError, setCrashlyticsCollectionEnabled } from '@react-native-firebase/crashlytics';
 
 async init() {
-  // 수집은 production 빌드만 — dev/preview 트래픽이 KPI를 오염시키지 않게
+  // 수집은 production 빌드만 — dev/preview 트래픽이 KPI를 오염시키지 않게.
+  // Analytics 네이티브 기본값은 firebase.json에서 꺼 두므로(아래) 이 호출 전에는 이벤트가 전송되지 않는다.
   await Promise.all([
     setAnalyticsCollectionEnabled(getAnalytics(), env.IS_PROD),
     setCrashlyticsCollectionEnabled(getCrashlytics(), env.IS_PROD),
@@ -206,6 +207,7 @@ function useScreenTracking(): void {
 }
 ```
 - 네이티브 자동 화면 수집은 `firebase.json`의 `google_analytics_automatic_screen_reporting_enabled: false`로 끈다(중복 `screen_view` 방지). 화면별로 `useScreenTracking`을 따로 만들지 않는다.
+- `firebase.json`의 `analytics_auto_collection_enabled: false`는 지우지 않는다 — 네이티브가 켜진 채 시작하면 JS가 끄기 전에 dev/preview 새 설치의 `first_open`·`session_start`가 production 지표로 들어간다. production은 `init()`이 켠 직후 `first_open`이 기록되고 값이 영구 저장된다. `crashlytics_auto_collection_enabled: false`는 넣지 않는다 — RNFB가 JS 설정을 다음 실행에야 반영해 production 첫 실행의 JS 이전 크래시가 업로드되지 않는다.
 
 ### Store Review 모듈 (`src/shared/store-review/`)
 ```typescript

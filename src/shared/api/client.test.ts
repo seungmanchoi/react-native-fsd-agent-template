@@ -3,7 +3,10 @@ import type { AxiosAdapter, InternalAxiosRequestConfig } from 'axios';
 
 const secureStore = new Map<string, string>();
 // Lets a test hold clearTokens() mid-flight.
-const deleteControl: { gate: Promise<void> | null; started: boolean } = { gate: null, started: false };
+const deleteControl: { gate: Promise<void> | null; started: boolean } = {
+  gate: null,
+  started: false,
+};
 
 vi.mock('expo-secure-store', () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
@@ -20,7 +23,8 @@ vi.mock('@shared/config', () => ({
   env: { API_URL: 'https://api.test/api/v1', IS_DEV: false, DEBUG: false },
 }));
 
-type TRespond = (config: InternalAxiosRequestConfig) => { status: number; data?: unknown };
+type TReply = { status: number; data?: unknown };
+type TRespond = (config: InternalAxiosRequestConfig) => TReply | Promise<TReply>;
 
 async function setup(respond: TRespond) {
   vi.resetModules();
@@ -28,7 +32,7 @@ async function setup(respond: TRespond) {
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   const axios = (await import('axios')).default;
   const adapter: AxiosAdapter = async (config) => {
-    const { status, data } = respond(config);
+    const { status, data } = await respond(config);
     const response = { data, status, statusText: '', headers: {}, config };
     if (status >= 400) {
       throw new axios.AxiosError('failed', undefined, config, undefined, response);
@@ -128,6 +132,33 @@ describe('apiClient token refresh', () => {
 
     await expect(apiClient.get('/forbidden')).rejects.toThrow();
     expect(refreshCalls).toBe(1);
+  });
+
+  test('signing out while a refresh is in flight keeps the old session out', async () => {
+    let finishRefresh: () => void = () => undefined;
+    const refreshGate = new Promise<void>((resolve) => {
+      finishRefresh = resolve;
+    });
+    let refreshStarted = false;
+    const { apiClient, tokenManager, setAuthFailureCallback } = await setup(async (config) => {
+      if (config.url?.endsWith('/auth/refresh')) {
+        refreshStarted = true;
+        await refreshGate;
+        return { status: 200, data: { accessToken: 'new', refreshToken: 'refresh-2' } };
+      }
+      return bearer(config) === 'Bearer new' ? { status: 200, data: 'ok' } : { status: 401 };
+    });
+    const onFailure = vi.fn();
+    setAuthFailureCallback(onFailure);
+
+    const request = apiClient.get('/a');
+    await vi.waitFor(() => expect(refreshStarted).toBe(true));
+    await tokenManager.clearTokens(); // Sign Out
+    finishRefresh();
+
+    await expect(request).rejects.toMatchObject({ response: { status: 401 } });
+    expect(secureStore.size).toBe(0);
+    expect(onFailure).not.toHaveBeenCalled();
   });
 
   test('without a refresh token the 401 is returned as-is (no auth-failure redirect)', async () => {

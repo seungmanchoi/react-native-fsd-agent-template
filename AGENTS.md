@@ -54,13 +54,14 @@ Full-app builds follow the `orchestrate` skill's phases; post-launch work uses `
 - Only `initializeAdsWithConsent()` (UMP → ATT → `setRequestConfiguration` → `initialize`), called non-blocking from the root layout. No direct `AdsConsent.*` / `mobileAds()` / `expo-tracking-transparency` calls
 - Every ad load (`createForAdRequest`, `load()`, `<BannerAd>`) waits for `useAdsReady()` / `isAdsReady()` (consent + SDK init)
 - ATT purpose string: says what (advertising identifier), why (relevance + install measurement), a concrete example, and the outcome of declining. Rewrite it per app in `app.config.ts` **and** the `plugins/withLocalizedAttDescription.js` locale table. "This identifier will be used to deliver personalized ads to you." is an automatic rejection
-- `.lproj/InfoPlist.strings` count = Xcode-registered count · AdMob GDPR/IDFA messages published · privacy-options entry point (`showAdsConsentForm()`) when `privacyOptionsRequired`
+- `.lproj/InfoPlist.strings` count = Xcode-registered count · AdMob GDPR/IDFA messages published · privacy-options entry point (`showAdsConsentForm()`) when `privacyOptionsRequired` — subscribe with `onAdConsentResult()`, a foreground consent retry can flip it
 - One banner per screen, never hidden/covered · full-screen `show()` only through the `canShow*` gates (shared cooldown, daily caps) · rewards only in `EARNED_REWARD` · load retries use backoff · real-ID internal builds only on registered test devices (`TEST_DEVICE_IDS`)
 
 **Analytics**
 - KPIs (north star + acquisition/activation/retention/monetization) defined in the PRD
 - Only the `@shared/lib/analytics` wrapper — never `@react-native-firebase/*` directly; RN Firebase v26 removed the namespaced `analytics()` API
 - Event names from `EAnalyticsEvent` only · no PII in params · `GoogleService-Info.plist` / `google-services.json` never committed
+- Collection only when `IS_PROD`: `firebase.json` keeps native Analytics collection off (`analytics_auto_collection_enabled: false`, never remove it) and `initAnalytics()` turns it on in production. Do not add `crashlytics_auto_collection_enabled: false` — production first-launch crashes before JS would never upload
 
 **Build environment**
 - Store binaries must have `extra.appEnv` absent or `production` (see below)

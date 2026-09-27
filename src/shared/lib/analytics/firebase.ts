@@ -14,9 +14,7 @@ import { env } from '@/shared/config';
 import type { TAnalyticsParams } from './events';
 import type { IAnalyticsAdapter } from './types';
 
-function sanitize(
-  props?: TAnalyticsParams,
-): Record<string, string | number | boolean> | undefined {
+function sanitize(props?: TAnalyticsParams): Record<string, string | number | boolean> | undefined {
   if (!props) return undefined;
   const out: Record<string, string | number | boolean> = {};
   for (const [k, v] of Object.entries(props)) {
@@ -30,6 +28,9 @@ function sanitize(
 export const firebaseAnalytics: IAnalyticsAdapter = {
   async init() {
     // Only production builds report — dev/preview traffic must not pollute KPIs.
+    // Native Analytics starts off (firebase.json) so no event leaves before this runs; the
+    // flag persists, so later production launches collect from startup. Crashlytics starts on:
+    // RNFB applies this call only from the next launch, and a first-launch crash must report.
     await Promise.all([
       setAnalyticsCollectionEnabled(getAnalytics(), env.IS_PROD),
       setCrashlyticsCollectionEnabled(getCrashlytics(), env.IS_PROD),

@@ -835,7 +835,10 @@ Tasks:
 
 2. 패키지 확인 — 템플릿에 @react-native-firebase/{app,analytics,crashlytics} 26.x 와
    expo-build-properties 가 이미 있다. measurement.crashlytics=false 면 crashlytics
-   패키지·plugin 을 제거한다.
+   패키지·plugin 과 함께 firebase.ts 의 crashlytics import·호출(recordError 는 no-op),
+   patches/@react-native-firebase+crashlytics+*.patch, firebase.json 의 crashlytics_* 키를
+   제거한다 — import 가 남으면 Metro 번들 실패, 패치가 남으면 patch-package 가 CI(EAS)에서
+   exit 1 로 install 을 멈춘다.
 
 3. Expo plugin 확인 (app.config.ts — 템플릿 기본값 유지)
    plugins:
