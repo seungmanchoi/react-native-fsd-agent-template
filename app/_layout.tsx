@@ -5,19 +5,19 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native';
 import Toast from 'react-native-toast-message';
-import { QueryProvider, ThemeProvider } from '@core/providers';
+import { QueryProvider, ThemeProvider, queryClient } from '@core/providers';
 import { useUserStore } from '@entities/user';
-import {
-  useAdLifecycle,
-  useAppOpenAd,
-  AdDevPanel,
-  initializeAdsWithConsent,
-} from '@features/ads';
+import { useAdLifecycle, useAppOpenAd, AdDevPanel, initializeAdsWithConsent } from '@features/ads';
 import { setAuthFailureCallback } from '@shared/api';
 import { initAnalytics, logScreenView } from '@shared/lib/analytics';
 import { useReviewStore } from '@shared/store-review';
 import { toastConfig, ErrorBoundary } from '@shared/ui';
 import '../global.css';
+
+// Module scope, not an effect: child screens' mount effects run before RootLayout's, and
+// native Analytics collection starts off (firebase.json) — an event logged before this call
+// would be dropped on a production install's first launch.
+void initAnalytics();
 
 function AdLifecycleManager(): null {
   useAdLifecycle();
@@ -34,12 +34,10 @@ function useScreenTracking(): void {
 }
 
 export default function RootLayout(): React.JSX.Element {
-  // Declared first: effects run in order, so the collection flags are set before the first screen_view.
   useEffect(() => {
     // Nothing here blocks the first frame; the native splash hides as soon as it renders.
     // UMP (GDPR) → iOS ATT → mobileAds().initialize(). Ad components wait for useAdsReady().
     void initializeAdsWithConsent();
-    void initAnalytics();
     // Count this launch only after the persisted counters are loaded.
     void Promise.resolve(useReviewStore.persist.rehydrate()).then(() =>
       useReviewStore.getState().recordLaunch(),
@@ -47,6 +45,7 @@ export default function RootLayout(): React.JSX.Element {
     // Refresh token rejected: the session is gone, send the user back to sign in.
     setAuthFailureCallback(() => {
       useUserStore.getState().clearUser();
+      queryClient.clear(); // the next user must not see this user's cached queries
       router.replace('/login');
     });
   }, []);

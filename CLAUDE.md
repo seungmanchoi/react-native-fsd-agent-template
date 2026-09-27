@@ -98,7 +98,7 @@ src/shared/secure-storage/
 
 - 템플릿 기본: 토큰은 `src/shared/api/client.ts`의 `tokenManager`로 저장/조회하고, auth 훅(use-login/use-signup)은 `tokenManager.setTokens(...)`만 호출한다. Zustand `persist`로 토큰을 AsyncStorage에 저장하지 않는다. (secure-storage 모듈로 분리한 경우 토큰 store는 `createJSONStorage(() => secureZustandStorage)` 어댑터를 쓴다.)
 - Axios 인터셉터(`src/shared/api/client.ts`)는 토큰을 메모리 또는 SecureStore에서 가져온다. **AsyncStorage 직접 조회 금지**.
-- 토큰 만료/로그아웃 시 `tokenManager.clearTokens()`(시크릿이 여럿이면 `clearAllSecure()`)로 시크릿을 삭제한다.
+- 토큰 만료/로그아웃 시 `tokenManager.clearTokens()`(시크릿이 여럿이면 `clearAllSecure()`)로 시크릿을 삭제하고, 같은 경로에서 `queryClient.clear()`로 이전 사용자의 쿼리 캐시를 비운다(템플릿: Profile Sign Out · `setAuthFailureCallback`).
 - iOS 옵션: 기본은 `WHEN_UNLOCKED_THIS_DEVICE_ONLY` — 디바이스 잠금 해제 시에만 접근, 백업/iCloud 동기화 제외.
 - Android: `expo-secure-store`가 자동으로 Keystore-backed `EncryptedSharedPreferences`를 사용. 별도 설정 불필요.
 
@@ -282,7 +282,7 @@ src/shared/lib/analytics/
 
 - 직접 `firebase.analytics().logEvent()` 호출 금지 — 반드시 `@shared/lib/analytics`의 래퍼 함수만 사용
 - 이벤트 이름은 `events.ts`의 상수로만 정의 (오타/중복 방지)
-- 수집은 `env.IS_PROD`에서만 켠다(`initAnalytics()`가 Analytics·Crashlytics collection을 설정) — dev/preview 트래픽이 KPI를 오염시키지 않게. Analytics 네이티브 기본값은 `firebase.json`의 `analytics_auto_collection_enabled: false`로 꺼 둔다 — 켜 두면 JS가 끄기 전에 dev/preview 새 설치의 `first_open`·`session_start`가 전송된다. production은 `initAnalytics()`가 켠 직후 `first_open`·`session_start`가 기록되고 값이 저장돼 다음 실행부터는 시작부터 수집한다. Crashlytics 기본값은 켜 둔다(`crashlytics_auto_collection_enabled` 미설정) — 끄면 RNFB가 JS 설정을 다음 실행에야 반영해 JS 전에 죽는 production 첫 실행 크래시가 업로드되지 않는다(dev는 RNFB가 debug 빌드에서 이미 끈다)
+- 수집은 `env.IS_PROD`에서만 켠다(`initAnalytics()`가 Analytics·Crashlytics collection을 설정) — dev/preview 트래픽이 KPI를 오염시키지 않게. Analytics 네이티브 기본값은 `firebase.json`의 `analytics_auto_collection_enabled: false`로 꺼 둔다 — 켜 두면 JS가 끄기 전에 dev/preview 새 설치의 `first_open`·`session_start`가 전송된다. production은 `initAnalytics()`가 켠 직후 `first_open`·`session_start`가 기록되고 값이 저장돼 다음 실행부터는 시작부터 수집한다. Crashlytics 기본값은 켜 둔다(`crashlytics_auto_collection_enabled` 미설정) — 끄면 RNFB가 JS 설정을 다음 실행에야 반영해 JS 전에 죽는 production 첫 실행 크래시가 업로드되지 않는다(dev는 RNFB가 debug 빌드에서 이미 끈다). `initAnalytics()`는 루트 `_layout.tsx` **모듈 최상단**에서 호출한다 — effect 안이면 먼저 실행되는 자식 화면의 마운트 이벤트가 첫 실행에서 버려진다
 - 비치명 에러는 `recordError(error)`(Crashlytics)로 보낸다. 루트 `ErrorBoundary`가 이미 호출한다
 
 ### 통합 단계

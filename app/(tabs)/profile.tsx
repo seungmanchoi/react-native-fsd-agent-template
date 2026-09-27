@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { queryClient } from '@core/providers';
 import { useUserStore } from '@entities/user';
 import { onAdConsentResult, showAdsConsentForm } from '@features/ads';
 import { AppText, Card, Button } from '@shared/ui';
@@ -20,6 +21,7 @@ export default function ProfileScreen(): React.JSX.Element {
 
   const handleSignOut = async (): Promise<void> => {
     await logout();
+    queryClient.clear(); // the next user must not see this user's cached queries
     router.replace('/login');
   };
 

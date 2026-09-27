@@ -34,7 +34,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 3. `project.context` Read
 
 **모듈 스캐폴딩 분기 규칙:**
-- `measurement.firebase_analytics=false` → `@react-native-firebase/*` 패키지·plugin과 함께 `src/shared/lib/analytics/firebase.ts`, `firebase.json`, `patches/@react-native-firebase+*.patch`를 지우고 `analytics.ts`의 `resolveAdapter()`는 `noopAnalytics`만 반환. Firebase 콘솔 자동화도 스킵
+- `measurement.firebase_analytics=false` → `@react-native-firebase/*` 패키지·plugin과 함께 `src/shared/lib/analytics/firebase.ts`, `firebase.json`, `patches/@react-native-firebase+*.patch`, `app.config.ts`의 `ios.googleServicesFile`·`android.googleServicesFile`(파일이 없으면 prebuild가 실패)을 지우고 `analytics.ts`의 `resolveAdapter()`는 `noopAnalytics`만 반환. Firebase 콘솔 자동화도 스킵
 - `measurement.crashlytics=false` → 템플릿에 이미 들어 있으므로 "설치 스킵"이 아니라 **제거**다: `@react-native-firebase/crashlytics` 패키지·plugin, `firebase.ts`의 crashlytics import·호출(`recordError`는 no-op), `patches/@react-native-firebase+crashlytics+*.patch`, `firebase.json`의 `crashlytics_*` 키. import가 남으면 Metro 번들이 실패하고, 패치 파일이 남으면 `patch-package`가 CI(EAS)에서 exit 1로 install을 멈춘다
 - `measurement.remote_config=true` → `@react-native-firebase/remote-config` 추가
 - `ux.store_review=false` → `src/shared/store-review/` 전체 스킵
@@ -59,7 +59,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 - Zustand `persist`로 토큰 슬라이스를 저장해야 하는 경우, **storage 어댑터는 SecureStore-backed custom storage**를 주입한다 (AsyncStorage 어댑터 금지)
 - Axios 인터셉터의 토큰 조회는 메모리 또는 `SecureStore`에서만. 로그에 토큰을 출력하지 않는다
 - spec에서 꺼진 항목의 모듈은 생성하지 않는다 (불필요한 의존성/번들 회피)
-- **AdMob SDK 초기화는 표준 시퀀스 헬퍼만 사용** — `mobileAds().initialize()` / `AdsConsent.*` / `expo-tracking-transparency` 를 절대 직접 호출하지 않는다. 반드시 `@features/ads` 의 `initializeAdsWithConsent()` 만 import 해 `_layout.tsx` 에서 await 한다. CLAUDE.md "광고 동의 시퀀스 (MANDATORY)" 섹션 참고.
+- **AdMob SDK 초기화는 표준 시퀀스 헬퍼만 사용** — `mobileAds().initialize()` / `AdsConsent.*` / `expo-tracking-transparency` 를 절대 직접 호출하지 않는다. 반드시 `@features/ads` 의 `initializeAdsWithConsent()` 만 import 해 `_layout.tsx` 에서 `void`로 호출한다(await 금지 — 첫 렌더를 막지 않는다). CLAUDE.md "광고 동의 시퀀스 (MANDATORY)" 섹션 참고.
 - AdMob 통합 시 `app.config.ts` 의 `react-native-google-mobile-ads` plugin / `expo-tracking-transparency` plugin / `infoPlist.NSUserTrackingUsageDescription` 세 곳에 동일 한글 문구를 명시한다 (누락 시 ATT prompt 불가)
 - **무효 트래픽 방지 인프라 필수 포함** — 광고 모듈 구축 시 아래 "AdMob 무효 트래픽 방지" 섹션의 테스트 기기 등록 / 클릭 가드 / 전면 광고 공유 쿨다운 / 지수 백오프를 반드시 함께 구현한다
 

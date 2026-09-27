@@ -161,6 +161,59 @@ describe('apiClient token refresh', () => {
     expect(onFailure).not.toHaveBeenCalled();
   });
 
+  test('a request sent before a sign-in is never replayed as the new user', async () => {
+    let release401: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release401 = resolve;
+    });
+    const sent: string[] = [];
+    const { apiClient, tokenManager } = await setup(async (config) => {
+      if (config.url?.endsWith('/auth/refresh')) {
+        return { status: 200, data: { accessToken: 'b-new', refreshToken: 'b-refresh-2' } };
+      }
+      sent.push(`${config.url} ${bearer(config)}`);
+      if (bearer(config) !== 'Bearer old') return { status: 200, data: 'ok' };
+      await gate;
+      return { status: 401 };
+    });
+
+    const request = apiClient.post('/orders');
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    await tokenManager.clearTokens(); // user A signs out
+    await tokenManager.setTokens('b-access', 'b-refresh'); // user B signs in
+    release401();
+
+    await expect(request).rejects.toMatchObject({ response: { status: 401 } });
+    expect(sent).toEqual(['/orders Bearer old']);
+    expect(secureStore.get('refreshToken')).toBe('b-refresh');
+  });
+
+  test("a same-session 401 that arrives after another request's refresh is still retried", async () => {
+    let releaseSlow: () => void = () => undefined;
+    const slowGate = new Promise<void>((resolve) => {
+      releaseSlow = resolve;
+    });
+    let refreshCalls = 0;
+    const { apiClient } = await setup(async (config) => {
+      if (config.url?.endsWith('/auth/refresh')) {
+        refreshCalls += 1;
+        return {
+          status: 200,
+          data: { accessToken: `new-${refreshCalls}`, refreshToken: `refresh-${refreshCalls + 1}` },
+        };
+      }
+      if (bearer(config) !== 'Bearer old') return { status: 200, data: config.url };
+      if (config.url === '/slow') await slowGate;
+      return { status: 401 };
+    });
+
+    const slow = apiClient.get('/slow');
+    await expect(apiClient.get('/fast')).resolves.toMatchObject({ data: '/fast' });
+    releaseSlow();
+
+    await expect(slow).resolves.toMatchObject({ data: '/slow' });
+  });
+
   test('without a refresh token the 401 is returned as-is (no auth-failure redirect)', async () => {
     secureStore.delete('refreshToken');
     const { apiClient, setAuthFailureCallback } = await setup(() => ({ status: 401 }));

@@ -27,9 +27,15 @@ const SECURE_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };
 
-// Bumped by every credential write (login, logout). A refresh that started under an
-// older session must not write its tokens back or sign the new session out.
+// Bumped by every login/logout write. A request or refresh that started under an older
+// session must not write its tokens back, sign the new session out or be replayed as it.
 let sessionEpoch = 0;
+
+const writeTokens = (accessToken: string, refreshToken: string): Promise<unknown> =>
+  Promise.all([
+    SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, accessToken, SECURE_OPTIONS),
+    SecureStore.setItemAsync(TOKEN_KEYS.REFRESH_TOKEN, refreshToken, SECURE_OPTIONS),
+  ]);
 
 export const tokenManager = {
   setAccessToken: async (token: string): Promise<void> => {
@@ -52,10 +58,7 @@ export const tokenManager = {
 
   setTokens: async (accessToken: string, refreshToken: string): Promise<void> => {
     sessionEpoch += 1;
-    await Promise.all([
-      SecureStore.setItemAsync(TOKEN_KEYS.ACCESS_TOKEN, accessToken, SECURE_OPTIONS),
-      SecureStore.setItemAsync(TOKEN_KEYS.REFRESH_TOKEN, refreshToken, SECURE_OPTIONS),
-    ]);
+    await writeTokens(accessToken, refreshToken);
   },
 
   clearTokens: async (): Promise<void> => {
@@ -72,7 +75,8 @@ export const tokenManager = {
   },
 };
 
-type TRetriableRequest = InternalAxiosRequestConfig & { _retry?: boolean };
+// _epoch: the session a request was sent under (set by the request interceptor).
+type TRetriableRequest = InternalAxiosRequestConfig & { _retry?: boolean; _epoch?: number };
 
 interface IRefreshWaiter {
   resolve: (token: string) => void;
@@ -105,7 +109,8 @@ export const apiClient: AxiosInstance = axios.create({
 });
 
 apiClient.interceptors.request.use(
-  async (config) => {
+  async (config: TRetriableRequest) => {
+    config._epoch = sessionEpoch;
     if (!isPublicEndpoint(config.url)) {
       const token = await tokenManager.getAccessToken();
       if (token) {
@@ -143,12 +148,14 @@ apiClient.interceptors.response.use(
       });
     }
 
-    // Public endpoints and requests already retried once with a fresh token
-    // must not trigger another refresh (infinite refresh loop otherwise).
+    // Public endpoints, requests already retried once with a fresh token (infinite refresh
+    // loop otherwise) and requests sent before a sign-out/sign-in (never replay them as the
+    // new user) must not trigger a refresh.
     if (
       error.response?.status !== 401 ||
       !originalRequest ||
       originalRequest._retry ||
+      originalRequest._epoch !== sessionEpoch ||
       isPublicEndpoint(originalRequest.url)
     ) {
       return Promise.reject(error);
@@ -188,7 +195,8 @@ apiClient.interceptors.response.use(
 
       const { accessToken, refreshToken: newRefreshToken } = response.data;
 
-      await tokenManager.setTokens(accessToken, newRefreshToken);
+      // Same session: keep the epoch, or this session's other late 401s would be dropped.
+      await writeTokens(accessToken, newRefreshToken);
       settleRefreshWaiters(accessToken);
 
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;

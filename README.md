@@ -189,7 +189,7 @@ Beyond the agent harness, the template ships with **production-ready modules alr
 
 ### Ads — AdMob (`src/features/ads/`)
 
-UMP (GDPR) consent, iOS ATT, and SDK init run in the **mandatory order**. The root layout awaits **only** `initializeAdsWithConsent()`:
+UMP (GDPR) consent, iOS ATT, and SDK init run in the **mandatory order**. The root layout calls **only** `initializeAdsWithConsent()`, without awaiting it (the first render is never blocked):
 
 ```tsx
 // app/_layout.tsx

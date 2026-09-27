@@ -854,7 +854,8 @@ Tasks:
    - events.ts 에 PRD KPI 카탈로그를 EAnalyticsEvent 상수로 추가
    - firebase.ts 는 RNFB v26 modular API 만 사용 (namespaced analytics() 는 삭제됨)
 
-5. 루트 _layout.tsx 의 void initAnalytics() 유지
+5. 루트 _layout.tsx 모듈 최상단의 void initAnalytics() 유지 (effect 안으로 옮기지 않는다 —
+   자식 화면 effect가 먼저 실행돼 production 첫 실행의 마운트 이벤트가 버려진다)
    - env.IS_PROD 에서만 Analytics·Crashlytics 수집 (dev/preview 는 끔)
 
 6. PRD KPI 매핑 적용
@@ -923,7 +924,7 @@ Tasks:
 Phase 4b(광고·SecureStore)와 4d(Analytics·Crashlytics·Review)가 모두 루트 `_layout.tsx` 한 곳에 init을 모은다. **순서가 어긋나면 첫 이벤트·첫 광고 요청·동의 정보가 누락**되므로(전형적 order-sensitive 지점) 아래 정본 순서를 확인한다:
 1. `ErrorBoundary`가 트리 최상단 (Crashlytics `recordError` + `reviewStore.recordError`) — init 중 크래시도 포착
 2. `void initializeAdsWithConsent()` — UMP → ATT → `mobileAds().initialize()`. **첫 렌더를 막지 않는다**(await 금지). UMP 결과(`ump_status`/`att_status`)는 consent.ts가 직접 user property로 기록
-3. `void initAnalytics()` — 수집 토글(IS_PROD). 동의 흐름과 병렬이어도 된다 (UMP가 Firebase consent mode를 직접 갱신)
+3. `void initAnalytics()` — 수집 토글(IS_PROD). **모듈 최상단**에서 호출(effect 아님 — 네이티브 수집이 꺼진 채 시작하므로 자식 화면의 마운트 이벤트보다 먼저 켜야 한다). 동의 흐름과 병렬이어도 된다 (UMP가 Firebase consent mode를 직접 갱신)
 4. `useReviewStore.persist.rehydrate()` **완료 후** `recordLaunch()` (세션당 1회)
 5. `setAuthFailureCallback` (auth 사용 앱)
 6. 광고 컴포넌트/훅은 `useAdsReady()`가 true가 된 뒤에만 로드

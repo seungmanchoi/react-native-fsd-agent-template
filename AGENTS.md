@@ -61,7 +61,7 @@ Full-app builds follow the `orchestrate` skill's phases; post-launch work uses `
 - KPIs (north star + acquisition/activation/retention/monetization) defined in the PRD
 - Only the `@shared/lib/analytics` wrapper — never `@react-native-firebase/*` directly; RN Firebase v26 removed the namespaced `analytics()` API
 - Event names from `EAnalyticsEvent` only · no PII in params · `GoogleService-Info.plist` / `google-services.json` never committed
-- Collection only when `IS_PROD`: `firebase.json` keeps native Analytics collection off (`analytics_auto_collection_enabled: false`, never remove it) and `initAnalytics()` turns it on in production. Do not add `crashlytics_auto_collection_enabled: false` — production first-launch crashes before JS would never upload
+- Collection only when `IS_PROD`: `firebase.json` keeps native Analytics collection off (`analytics_auto_collection_enabled: false`, never remove it) and `initAnalytics()` (module scope of `app/_layout.tsx`, not an effect — child effects run first) turns it on in production. Do not add `crashlytics_auto_collection_enabled: false` — production first-launch crashes before JS would never upload
 
 **Build environment**
 - Store binaries must have `extra.appEnv` absent or `production` (see below)
