@@ -12,6 +12,7 @@ export {
   initializeAdsWithConsent,
   isAdsReady,
   onAdsReady,
+  onAdConsentResult,
   showAdsConsentForm,
 } from './lib/consent';
 export type { IAdConsentResult } from './lib/consent';

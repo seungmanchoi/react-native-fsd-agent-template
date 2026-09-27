@@ -34,8 +34,8 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 3. `project.context` Read
 
 **모듈 스캐폴딩 분기 규칙:**
-- `measurement.firebase_analytics=false` → `src/shared/lib/analytics/`는 noop 어댑터만 쓰도록 Firebase 패키지/plugin 제거, Firebase 콘솔 자동화도 스킵
-- `measurement.crashlytics=false` → `@react-native-firebase/crashlytics` 설치/등록 스킵
+- `measurement.firebase_analytics=false` → `@react-native-firebase/*` 패키지·plugin과 함께 `src/shared/lib/analytics/firebase.ts`, `firebase.json`, `patches/@react-native-firebase+*.patch`, `app.config.ts`의 `ios.googleServicesFile`·`android.googleServicesFile`(파일이 없으면 prebuild가 실패)을 지우고 `analytics.ts`의 `resolveAdapter()`는 `noopAnalytics`만 반환. Firebase 콘솔 자동화도 스킵
+- `measurement.crashlytics=false` → 템플릿에 이미 들어 있으므로 "설치 스킵"이 아니라 **제거**다: `@react-native-firebase/crashlytics` 패키지·plugin, `firebase.ts`의 crashlytics import·호출(`recordError`는 no-op), `patches/@react-native-firebase+crashlytics+*.patch`, `firebase.json`의 `crashlytics_*` 키. import가 남으면 Metro 번들이 실패하고, 패치 파일이 남으면 `patch-package`가 CI(EAS)에서 exit 1로 install을 멈춘다
 - `measurement.remote_config=true` → `@react-native-firebase/remote-config` 추가
 - `ux.store_review=false` → `src/shared/store-review/` 전체 스킵
 - `auth.methods=[]` → `features/auth/` 토큰 store 스킵, SecureStore도 토큰 키 미정의
@@ -59,7 +59,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 - Zustand `persist`로 토큰 슬라이스를 저장해야 하는 경우, **storage 어댑터는 SecureStore-backed custom storage**를 주입한다 (AsyncStorage 어댑터 금지)
 - Axios 인터셉터의 토큰 조회는 메모리 또는 `SecureStore`에서만. 로그에 토큰을 출력하지 않는다
 - spec에서 꺼진 항목의 모듈은 생성하지 않는다 (불필요한 의존성/번들 회피)
-- **AdMob SDK 초기화는 표준 시퀀스 헬퍼만 사용** — `mobileAds().initialize()` / `AdsConsent.*` / `expo-tracking-transparency` 를 절대 직접 호출하지 않는다. 반드시 `@features/ads` 의 `initializeAdsWithConsent()` 만 import 해 `_layout.tsx` 에서 await 한다. CLAUDE.md "광고 동의 시퀀스 (MANDATORY)" 섹션 참고.
+- **AdMob SDK 초기화는 표준 시퀀스 헬퍼만 사용** — `mobileAds().initialize()` / `AdsConsent.*` / `expo-tracking-transparency` 를 절대 직접 호출하지 않는다. 반드시 `@features/ads` 의 `initializeAdsWithConsent()` 만 import 해 `_layout.tsx` 에서 `void`로 호출한다(await 금지 — 첫 렌더를 막지 않는다). CLAUDE.md "광고 동의 시퀀스 (MANDATORY)" 섹션 참고.
 - AdMob 통합 시 `app.config.ts` 의 `react-native-google-mobile-ads` plugin / `expo-tracking-transparency` plugin / `infoPlist.NSUserTrackingUsageDescription` 세 곳에 동일 한글 문구를 명시한다 (누락 시 ATT prompt 불가)
 - **무효 트래픽 방지 인프라 필수 포함** — 광고 모듈 구축 시 아래 "AdMob 무효 트래픽 방지" 섹션의 테스트 기기 등록 / 클릭 가드 / 전면 광고 공유 쿨다운 / 지수 백오프를 반드시 함께 구현한다
 
@@ -163,7 +163,8 @@ import { getAnalytics, logEvent, setAnalyticsCollectionEnabled } from '@react-na
 import { getCrashlytics, recordError, setCrashlyticsCollectionEnabled } from '@react-native-firebase/crashlytics';
 
 async init() {
-  // 수집은 production 빌드만 — dev/preview 트래픽이 KPI를 오염시키지 않게
+  // 수집은 production 빌드만 — dev/preview 트래픽이 KPI를 오염시키지 않게.
+  // Analytics 네이티브 기본값은 firebase.json에서 꺼 두므로(아래) 이 호출 전에는 이벤트가 전송되지 않는다.
   await Promise.all([
     setAnalyticsCollectionEnabled(getAnalytics(), env.IS_PROD),
     setCrashlyticsCollectionEnabled(getCrashlytics(), env.IS_PROD),
@@ -205,6 +206,7 @@ function useScreenTracking(): void {
 }
 ```
 - 네이티브 자동 화면 수집은 `firebase.json`의 `google_analytics_automatic_screen_reporting_enabled: false`로 끈다(중복 `screen_view` 방지). 화면별로 `useScreenTracking`을 따로 만들지 않는다.
+- `firebase.json`의 `analytics_auto_collection_enabled: false`는 지우지 않는다 — 네이티브가 켜진 채 시작하면 JS가 끄기 전에 dev/preview 새 설치의 `first_open`·`session_start`가 production 지표로 들어간다. production은 `init()`이 켠 직후 `first_open`이 기록되고 값이 영구 저장된다. `crashlytics_auto_collection_enabled: false`는 넣지 않는다 — RNFB가 JS 설정을 다음 실행에야 반영해 production 첫 실행의 JS 이전 크래시가 업로드되지 않는다.
 
 ### Store Review 모듈 (`src/shared/store-review/`)
 ```typescript

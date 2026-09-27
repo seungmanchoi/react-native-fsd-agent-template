@@ -47,6 +47,8 @@ let consentPromise: Promise<IAdConsentResult> | null = null;
 let sdkStart: Promise<void> | null = null;
 let isReady = false;
 const readyListeners = new Set<() => void>();
+let latestResult: IAdConsentResult | null = null;
+const resultListeners = new Set<(result: IAdConsentResult) => void>();
 
 /** SDK 초기화 완료 + UMP 광고 요청 허용 여부 — 모든 광고 로드 가드. */
 export function isAdsReady(): boolean {
@@ -75,6 +77,19 @@ function markReady(): void {
     }
   });
   readyListeners.clear();
+}
+
+/**
+ * 동의 흐름이 끝날 때마다(포그라운드 재시도 포함) 최신 결과로 호출. 이미 결과가 있으면 즉시 1회.
+ * 설정 화면의 "광고 개인정보 설정" 버튼(`privacyOptionsRequired`)은 한 번 조회하지 말고 이걸 구독한다 —
+ * 오프라인 첫 실행 뒤 재시도에서 REQUIRED로 바뀔 수 있다. unsubscribe 반환.
+ */
+export function onAdConsentResult(listener: (result: IAdConsentResult) => void): () => void {
+  if (latestResult) listener(latestResult);
+  resultListeners.add(listener);
+  return (): void => {
+    resultListeners.delete(listener);
+  };
 }
 
 /** setRequestConfiguration → initialize, once. Only call after UMP allows ad requests. */
@@ -184,7 +199,19 @@ async function runConsentFlow(): Promise<IAdConsentResult> {
   // Consent cohorts for eCPM analysis (CLAUDE.md "Analytics 기록").
   void setUserProperty('ump_status', result.umpStatus.toLowerCase());
   void setUserProperty('ump_can_request_ads', String(result.canRequestAds));
-  void setUserProperty('att_status', result.attStatus === 'unavailable' ? 'not_applicable' : result.attStatus);
+  void setUserProperty(
+    'att_status',
+    result.attStatus === 'unavailable' ? 'not_applicable' : result.attStatus,
+  );
+
+  latestResult = result;
+  resultListeners.forEach((fn) => {
+    try {
+      fn(result);
+    } catch {
+      // 한 listener 에러로 나머지(와 "never rejects" 계약)가 깨지지 않게
+    }
+  });
 
   return result;
 }

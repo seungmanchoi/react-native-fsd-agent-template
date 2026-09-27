@@ -189,7 +189,7 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 
 ### 광고 — AdMob (`src/features/ads/`)
 
-UMP(GDPR) 동의, iOS ATT, SDK 초기화를 **필수 순서**로 실행합니다. 루트 레이아웃은 **오직** `initializeAdsWithConsent()` 만 await 합니다:
+UMP(GDPR) 동의, iOS ATT, SDK 초기화를 **필수 순서**로 실행합니다. 루트 레이아웃은 **오직** `initializeAdsWithConsent()` 만 호출하고 await 하지 않습니다(첫 렌더를 막지 않음):
 
 ```tsx
 // app/_layout.tsx

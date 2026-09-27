@@ -4,7 +4,10 @@ import { ADS_CONFIG } from '@/shared/config';
 import { useAdStore } from '../store/ad.store';
 
 /** Interstitial, rewarded and app open ads all share this surface. */
-type TFullScreenAd = Pick<InterstitialAd, 'load' | 'show' | 'destroy' | 'loaded' | 'addAdEventListener'>;
+type TFullScreenAd = Pick<
+  InterstitialAd,
+  'load' | 'show' | 'destroy' | 'loaded' | 'addAdEventListener'
+>;
 
 // One full-screen ad at a time across every format. Android reports the ad
 // activity as a background→active transition, so app-open logic checks this too.
@@ -82,9 +85,10 @@ export function keepLoaded(ad: TFullScreenAd): () => void {
  * ad is up. Frequency gates (cooldowns, caps, premium) stay with the caller.
  *
  * A normal presentation failure arrives as an ERROR (phase 'show') handled by keepLoaded.
- * `onStuck` runs when show() is rejected without that event (iOS: no view controller,
- * Android: no activity): the instance keeps a pending show, can never show or reload
- * again, and must be replaced by its owner.
+ * When show() is rejected without that event (iOS: no view controller, Android: no
+ * activity) the instance keeps a pending show and can never show or reload again: it is
+ * destroyed here (its owner may already have unmounted) and `onStuck` lets the owner
+ * create a replacement.
  */
 export function presentFullScreenAd(ad: TFullScreenAd, onStuck?: () => void): boolean {
   if (presentingAd || !ad.loaded || AppState.currentState !== 'active') return false;
@@ -92,7 +96,9 @@ export function presentFullScreenAd(ad: TFullScreenAd, onStuck?: () => void): bo
   try {
     ad.show().catch(() => {
       release(ad);
-      if (ad.loaded) onStuck?.();
+      if (!ad.loaded) return;
+      ad.destroy(); // idempotent — the owner's cleanup may destroy it again
+      onStuck?.();
     });
   } catch {
     release(ad);
