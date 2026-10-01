@@ -2,6 +2,8 @@
 
 Codex entry point for this repository. **The single source of truth is `CLAUDE.md` — read it in full before starting any task.** It is larger than Codex's AGENTS.md size limit, so it is not duplicated here; this file keeps the pass/fail rules and the flows that must never be skipped.
 
+Personal-app rules (store deploy, ads, bundle ID, signing, local-build default) live in `~/works/AGENTS.md`. It sits above this repo's git root, so Codex does not load it automatically. Read it before any task.
+
 ## Project
 
 React Native + Expo template with Feature-Sliced Design (FSD) and an AI agent harness for the full app lifecycle (idea → plan → spec → design → build → QA → deploy → iterate).
