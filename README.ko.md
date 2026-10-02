@@ -73,7 +73,7 @@ Phase 5: QA (병렬)
            │
 Phase 6: Iteration      Fix Loop (최대 3회, 출시 전 수렴)
            │
-Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
+Phase 7: Deployment     /store-deploy → local build (eas build --local) → App Store / Google Play
 ═══════════════════════════════════════════════════════════════════════
 출시 후 지속 개선 루프 (반복):
   Assess → 다음 고도화 추천 → 한 슬라이스 개발 → 검증 → 회고
@@ -178,7 +178,7 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 | Secure Storage | expo-secure-store (Keychain / Keystore) |
 | In-App Review | expo-store-review (policy-gated) |
 | i18n | i18n-js |
-| Build & Deploy | EAS Build / EAS Submit |
+| Build & Deploy | EAS Build (로컬 기본) / EAS Submit, store-deploy 플러그인 사용 |
 
 ---
 
@@ -197,13 +197,13 @@ useEffect(() => { void initializeAdsWithConsent(); }, []);
 ```
 
 ```
-UMP(GDPR) 동의  →  iOS ATT 프롬프트  →  mobileAds().initialize()
+UMP(GDPR) 동의  →  iOS ATT 프롬프트  →  setRequestConfiguration()  →  mobileAds().initialize()
 ```
 
 - 훅: `useInterstitialAd`, `useRewardedAd`, `useAppOpenAd`, `useAdLifecycle`, `usePremiumGuard`
 - 컴포넌트: `AdBanner`, `AdDevPanel` (개발 전용 테스트 패널)
-- 빈도 제한·프리미엄 게이팅은 `useAdStore` / `usePremiumStore` (Zustand)
-- 개발 환경은 Google **테스트 광고 단위**, 프로덕션은 `src/shared/config/ads.ts`의 실제 ID 사용
+- 빈도 제한·프리미엄 게이팅은 `useAdStore` / `usePremiumStore` (Zustand): 전면 광고 공유 쿨다운, 인터스티셜 하루 상한, 로드 실패 백오프. 배너 클릭 가드, 리워드 하루 상한, 세션당 상한, `tap_ad` 이벤트는 PRD가 정할 때만 더한다
+- 개발 환경은 Google **테스트 광고 단위**, 프로덕션은 `src/shared/config/ads.ts`의 실제 ID 사용. 실제 ID 는 store-deploy 플러그인의 `store-admob` 스킬로 만든다 (앱이 부르는 형식만 `--ad-types` 로)
 - 핵심 액션 직전이나 카메라/핵심 화면에는 **절대** 광고 배치 금지
 
 ### Analytics — Firebase (`src/shared/lib/analytics/`)
@@ -560,7 +560,7 @@ eas build:configure    # EAS 초기 설정
 | `GOOGLE_SERVICE_INFO_PLIST` | `firebase/GoogleService-Info.plist` (iOS) |
 | `GOOGLE_SERVICES_JSON` | `firebase/google-services.json` (Android) |
 
-로컬 빌드는 이 파일을 그대로 쓰고, 클라우드 빌드도 `.easignore`가 `firebase/`를 올려서 그대로 됩니다. `firebase/`를 아카이브에서 뺀 경우에만 클라우드 빌드에 file 타입 환경변수로 주입합니다 (`eas secret:*`은 deprecated):
+로컬 빌드는 이 파일을 그대로 쓰고, 클라우드 빌드도 `.easignore`가 `firebase/`를 올려서 그대로 됩니다. 파일이 없는 깨끗한 체크아웃(CI 등)이나 `firebase/`를 아카이브에서 뺀 경우에만 클라우드 빌드에 file 타입 환경변수로 주입합니다 (`eas secret:*`은 deprecated):
 
 ```bash
 eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./firebase/GoogleService-Info.plist --visibility secret --environment production --environment preview --environment development

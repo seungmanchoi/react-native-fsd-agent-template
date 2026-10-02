@@ -73,7 +73,7 @@ Phase 5: QA (Parallel)
            │
 Phase 6: Iteration      Fix Loop (max 3 times, pre-launch convergence)
            │
-Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
+Phase 7: Deployment     /store-deploy → local build (eas build --local) → App Store / Google Play
 ═══════════════════════════════════════════════════════════════════════
 Post-launch Continuous Improvement Loop (repeat):
   Assess → Recommend next → Develop one slice → Verify → Reflect
@@ -178,7 +178,7 @@ For structural code questions (what calls what, what a change would break, where
 | Secure Storage | expo-secure-store (Keychain / Keystore) |
 | In-App Review | expo-store-review (policy-gated) |
 | i18n | i18n-js |
-| Build & Deploy | EAS Build / EAS Submit |
+| Build & Deploy | EAS Build (local by default) / EAS Submit, via the store-deploy plugin |
 
 ---
 
@@ -197,13 +197,13 @@ useEffect(() => { void initializeAdsWithConsent(); }, []);
 ```
 
 ```
-UMP (GDPR) consent  →  iOS ATT prompt  →  mobileAds().initialize()
+UMP (GDPR) consent  →  iOS ATT prompt  →  setRequestConfiguration()  →  mobileAds().initialize()
 ```
 
 - Hooks: `useInterstitialAd`, `useRewardedAd`, `useAppOpenAd`, `useAdLifecycle`, `usePremiumGuard`
 - Components: `AdBanner`, `AdDevPanel` (dev-only test panel)
-- Frequency caps & premium gating via `useAdStore` / `usePremiumStore` (Zustand)
-- Dev uses Google **test ad units**; production uses real IDs in `src/shared/config/ads.ts`
+- Frequency caps & premium gating via `useAdStore` / `usePremiumStore` (Zustand): shared full-screen cooldown, daily interstitial cap, load-retry backoff. Extra guards (banner click guard, rewarded daily cap, per-session cap, `tap_ad` event) are added only when the PRD asks for them
+- Dev uses Google **test ad units**; production uses real IDs in `src/shared/config/ads.ts`, created with the store-deploy plugin's `store-admob` skill (only the formats the app calls, via `--ad-types`)
 - **Never** place ads right before a key action or on a camera/core screen
 
 ### Analytics — Firebase (`src/shared/lib/analytics/`)
@@ -560,7 +560,7 @@ App config flows through `app.config.ts` → `extra` → `src/shared/config/env.
 | `GOOGLE_SERVICE_INFO_PLIST` | `firebase/GoogleService-Info.plist` (iOS) |
 | `GOOGLE_SERVICES_JSON` | `firebase/google-services.json` (Android) |
 
-Local builds read these files directly, and cloud builds get them too because `.easignore` uploads `firebase/`. Only if you exclude `firebase/` from the archive, inject them into cloud builds as file environment variables (`eas secret:*` is deprecated):
+Local builds read these files directly, and cloud builds get them too because `.easignore` uploads `firebase/`. Only on a clean checkout without these files (e.g. CI), or if you exclude `firebase/` from the archive, inject them into cloud builds as file environment variables (`eas secret:*` is deprecated):
 
 ```bash
 eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./firebase/GoogleService-Info.plist --visibility secret --environment production --environment preview --environment development
