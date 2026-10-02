@@ -22,8 +22,8 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 4. **타입 정의**: Request/Response 인터페이스 자동 생성 (`I{Name}Request`, `I{Name}Response`)
 5. **Analytics 모듈**: 템플릿의 `src/shared/lib/analytics/`(Firebase modular 래퍼·Crashlytics·noop fallback)를 유지하고 PRD 이벤트 카탈로그를 추가. 화면 추적은 루트 `_layout.tsx`가 담당
 6. **이벤트 배선**: PRD의 KPI 카탈로그를 기준으로 각 화면/액션에 `logEvent` 호출 삽입
-7. **Secure Storage 모듈**: `src/shared/secure-storage/` 에 expo-secure-store 래퍼와 키 카탈로그 생성. 토큰 store의 persist 어댑터를 SecureStore-backed으로 구성
-8. **Store Review 모듈**: `src/shared/store-review/` 에 expo-store-review 래퍼, 정책 엔진(`canRequestReview`), 카운터 Zustand store, `REVIEW_TRIGGERS` 카탈로그, `useStoreReview` 훅 구축. PRD의 Review Triggers 섹션을 상수 카탈로그로 변환
+7. **Secure Storage**: 토큰은 템플릿의 `tokenManager`(`@shared/api`, `src/shared/api/client.ts`)로만 저장·조회한다. 토큰 외 시크릿이 늘어 CLAUDE.md "Secure Storage" 기준을 넘을 때만 `src/shared/secure-storage/` 를 분리한다
+8. **Store Review 모듈**: 템플릿의 `src/shared/store-review/`(래퍼, 정책 엔진 `canRequestReview`, 카운터 store, `useStoreReview` 훅)를 유지하고, PRD의 Review Triggers 섹션을 `REVIEW_TRIGGERS` 카탈로그에 추가
 
 ## Pre-Work Contract — `_workspace/spec.md` 우선 읽기 (MANDATORY)
 
@@ -55,13 +55,13 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 - TanStack Query key는 배열 형태로 일관성 있게 정의: `['{domain}', '{action}', params]`
 - Zustand store는 persist middleware 필요 시에만 적용
 - 에러 타입은 `@shared/types`의 공통 에러 타입 사용
-- **인증 토큰/시크릿은 `AsyncStorage` 금지** — 반드시 `@/shared/secure-storage`(expo-secure-store 래퍼) 사용. iOS Keychain / Android Keystore-backed 저장소가 표준
-- Zustand `persist`로 토큰 슬라이스를 저장해야 하는 경우, **storage 어댑터는 SecureStore-backed custom storage**를 주입한다 (AsyncStorage 어댑터 금지)
+- **인증 토큰은 `@shared/api`의 `tokenManager`로만 다룬다** (expo-secure-store, `WHEN_UNLOCKED_THIS_DEVICE_ONLY`). auth 훅은 `tokenManager.setTokens(...)`만 부른다. 토큰을 AsyncStorage·MMKV·Zustand store(`persist` 포함)에 두지 않는다
+- 토큰 외 시크릿(결제·라이선스 키 등)은 분리한 `@shared/secure-storage` 래퍼(아래 "Secure Storage 래퍼")로만 저장한다
 - Axios 인터셉터의 토큰 조회는 메모리 또는 `SecureStore`에서만. 로그에 토큰을 출력하지 않는다
 - spec에서 꺼진 항목의 모듈은 생성하지 않는다 (불필요한 의존성/번들 회피)
 - **AdMob SDK 초기화는 표준 시퀀스 헬퍼만 사용** — `mobileAds().initialize()` / `AdsConsent.*` / `expo-tracking-transparency` 를 절대 직접 호출하지 않는다. 반드시 `@features/ads` 의 `initializeAdsWithConsent()` 만 import 해 `_layout.tsx` 에서 `void`로 호출한다(await 금지 — 첫 렌더를 막지 않는다). CLAUDE.md "광고 동의 시퀀스 (MANDATORY)" 섹션 참고.
-- AdMob 통합 시 `app.config.ts` 의 `react-native-google-mobile-ads` plugin / `expo-tracking-transparency` plugin / `infoPlist.NSUserTrackingUsageDescription` 세 곳에 동일 한글 문구를 명시한다 (누락 시 ATT prompt 불가)
-- **무효 트래픽 방지 인프라 필수 포함** — 광고 모듈 구축 시 아래 "AdMob 무효 트래픽 방지" 섹션의 테스트 기기 등록 / 클릭 가드 / 전면 광고 공유 쿨다운 / 지수 백오프를 반드시 함께 구현한다
+- ATT 목적 문자열은 앱마다 새로 쓴다(무엇을·왜·구체적 예시·거부 시 결과). `app.config.ts` 의 `TRACKING_PERMISSION_TEXT` 하나를 `react-native-google-mobile-ads` plugin / `expo-tracking-transparency` plugin / `infoPlist.NSUserTrackingUsageDescription` 세 곳이 같이 쓰고, `plugins/withLocalizedAttDescription.js` 로케일 테이블도 언어별로 채운다. 상투 문구는 Guideline 5.1.1 자동 반려 (CLAUDE.md "ATT 프롬프트 문구 다국어")
+- **무효 트래픽 방지** — 템플릿 `src/features/ads` 가 테스트 기기 등록, 전면 광고 공유 쿨다운, 인터스티셜 하루 상한, 지수 백오프, `EARNED_REWARD` 지급을 이미 갖고 있다. 유지만 한다. 아래 "AdMob 무효 트래픽 방지"의 나머지 항목은 PRD 광고 정책이 정할 때만 구현한다
 
 ## Patterns
 
@@ -98,7 +98,10 @@ export const useUserStore = create<IUserState>()((set) => ({
 }));
 ```
 
-### Secure Storage 래퍼 (`src/shared/secure-storage/client.ts`)
+### Secure Storage 래퍼 (`src/shared/secure-storage/client.ts` — 토큰 외 시크릿을 분리할 때만)
+
+토큰은 여기로 옮기지 않는다. 기본은 `tokenManager` 다.
+
 ```typescript
 import * as SecureStore from 'expo-secure-store';
 import { SECURE_KEYS, TSecureKey } from './keys';
@@ -115,42 +118,6 @@ export const deleteSecureItem = (key: TSecureKey) =>
   SecureStore.deleteItemAsync(key, DEFAULT_OPTIONS);
 export const clearAllSecure = () =>
   Promise.all(Object.values(SECURE_KEYS).map(deleteSecureItem));
-```
-
-### SecureStore-backed Zustand Persist (토큰 store 전용)
-```typescript
-import { create } from 'zustand';
-import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
-import { getSecureItem, setSecureItem, deleteSecureItem } from '@/shared/secure-storage';
-import { SECURE_KEYS } from '@/shared/secure-storage/keys';
-
-const secureZustandStorage: StateStorage = {
-  getItem: (name) => getSecureItem(name as never),
-  setItem: (name, value) => setSecureItem(name as never, value),
-  removeItem: (name) => deleteSecureItem(name as never),
-};
-
-interface IAuthState {
-  accessToken: string | null;
-  refreshToken: string | null;
-  setTokens: (a: string, r: string) => void;
-  clear: () => void;
-}
-
-export const useAuthStore = create<IAuthState>()(
-  persist(
-    (set) => ({
-      accessToken: null,
-      refreshToken: null,
-      setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
-      clear: () => set({ accessToken: null, refreshToken: null }),
-    }),
-    {
-      name: SECURE_KEYS.ACCESS_TOKEN, // 단일 keychain 항목으로 직렬화
-      storage: createJSONStorage(() => secureZustandStorage),
-    },
-  ),
-);
 ```
 
 ### Firebase Analytics 래퍼 (`src/shared/lib/analytics/` — 템플릿 구현이 정본)
@@ -379,11 +346,11 @@ export const useStoreReview = () => {
 - 이벤트 이름은 `EAnalyticsEvent` 상수에서만 가져온다 (매직 스트링 금지)
 - 파라미터 키 ≤ 40자, 값 ≤ 100자, 이벤트당 ≤ 25개
 - PII(이메일/전화/실명/정확한 위치) 금지
-- `GoogleService-Info.plist`, `google-services.json`은 `./firebase/`에 두고 `.gitignore` 처리. EAS 클라우드 빌드에는 file 타입 EAS 환경변수로 주입
+- `GoogleService-Info.plist`, `google-services.json`은 `./firebase/`에 두고 `.gitignore` 처리. 로컬 빌드는 이 파일을 그대로 쓰고, 클라우드 빌드도 `.easignore`가 `firebase/`를 올려서 그대로 된다. file 타입 EAS 환경변수는 이 파일을 아카이브에서 뺄 때만 쓴다
 
 ## Firebase 콘솔 자동화 (Playwright MCP)
 
-Firebase 앱 등록은 일반 OAuth scope로 호출이 불가능하므로 **AdMob과 동일하게 Playwright MCP로 콘솔 UI를 자동화**한다. 사용자가 수동으로 콘솔에 들어가는 단계를 만들지 않는다.
+Firebase 앱 등록은 일반 OAuth scope로 호출이 불가능하므로 **Playwright MCP로 콘솔 UI를 자동화**한다. 사용자가 수동으로 콘솔에 들어가는 단계를 만들지 않는다.
 
 ### 책임
 1. `mcp__playwright__browser_navigate`로 `https://console.firebase.google.com` 진입
@@ -397,30 +364,30 @@ Firebase 앱 등록은 일반 OAuth scope로 호출이 불가능하므로 **AdMo
    - `~/Downloads/google-services.json` → `firebase/google-services.json`
    - 번들 ID/패키지명이 `app.config.ts`와 일치하는지 확인 (`com.seungmanchoi.{slug}`)
 8. `.gitignore`에 두 파일이 있는지 확인 (템플릿에 포함됨)
-9. EAS 클라우드 빌드용 file 환경변수 등록 (`eas secret:*`은 deprecated). 이름은 `app.config.ts`가 읽는 두 개와 정확히 같아야 한다
+9. (기본은 건너뛴다) `firebase/`를 빌드 아카이브에서 뺀 앱의 클라우드 빌드에만 file 환경변수를 등록한다 (`eas secret:*`은 deprecated). 이름은 `app.config.ts`가 읽는 두 개와 정확히 같아야 한다
    ```bash
    eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./firebase/GoogleService-Info.plist \
      --visibility secret --environment production --environment preview --environment development --non-interactive
    eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./firebase/google-services.json \
      --visibility secret --environment production --environment preview --environment development --non-interactive
    ```
-   (eas-cli 21+에서는 `eas env:set`이 권장되지만 `env:create`도 동작한다. 로컬 fastlane 빌드는 `./firebase/` 파일을 그대로 쓴다)
+   (eas-cli 21+에서는 `eas env:set`이 권장되지만 `env:create`도 동작한다. 로컬 빌드(`eas build --local`, fastlane)는 `./firebase/` 파일을 그대로 쓴다)
 
 ### 실패 시 fallback
 - Selector 실패 → 즉시 중단, `_workspace/implementation/firebase-manual.md`에 진행 상태 기록 후 사용자에게 수동 등록 요청. 파일 다운로드 완료 확인 후 7단계부터 재개.
 - 다운로드 버튼 클릭 후 파일이 `~/Downloads/`에 없으면 콘솔의 해당 앱 설정 → "GoogleService-Info.plist/google-services.json 다시 다운로드"로 재시도.
 
-## AdMob 콘솔 자동화 (Playwright MCP)
+## AdMob 콘솔 자동화 (동의 메시지 게시 — Playwright MCP)
 
-AdMob 앱 등록과 UMP 동의 폼(GDPR / IDFA) 게시는 **Playwright MCP로 AdMob 콘솔(https://admob.google.com) UI를 자동화**한다. AdMob API의 OOB 인증 방식이 Google에 의해 차단되어 있어 API 호출은 불가능하다.
+AdMob 앱과 광고 단위는 **`store-admob` 스킬**(Python+Playwright 스크립트)로만 만든다. 이 에이전트는 그 스크립트가 하지 않는 UMP 동의 메시지(GDPR / IDFA) 게시만 **Playwright MCP로 AdMob 콘솔(https://admob.google.com) UI를 자동화**한다. AdMob API의 OOB 인증 방식이 Google에 의해 차단되어 있어 API 호출은 불가능하다.
 
 ### 책임
 
 1. AdMob 콘솔 진입 + 미로그인 시 사용자에게 직접 로그인 요청 (자격증명 자동 입력 금지)
-2. iOS/Android 앱 추가 (앱당 광고 단위 6종: banner_gallery, banner_settings, interstitial_after_capture, rewarded_premium_filter, native_gallery_feed, app_open)
+2. 앱·광고 단위는 `store-admob` 으로 만든다. `--ad-types` 에는 앱 코드가 부르는 형식만 넘긴다(템플릿 기본 `banner,interstitial,rewarded,app_open`, `NATIVE_FEED` 를 쓰면 `native` 추가). 단위 이름은 스크립트 규칙 `{앱이름}_{형식}`
 3. **Privacy & messaging → 유럽 규정(GDPR) 메시지 생성 + 게시**
 4. **Privacy & messaging → IDFA 메시지 생성 + 게시** (iOS 한정)
-5. 생성된 앱 ID / 광고 단위 ID를 `src/shared/config/ads.ts`의 `IOS_AD_UNITS` / `ANDROID_AD_UNITS` 상수에 기록
+5. `store-admob` 이 저장한 `store-deploy.json` 의 ID를 `src/shared/config/ads.ts`의 `IOS_AD_UNITS` / `ANDROID_AD_UNITS` 에 옮긴다 (`ads.ts` 키 ↔ 형식 대응표: store-admob Step 5). 앱이 부르는 키는 모두 운영 ID 여야 한다
 
 ### GDPR 메시지 게시 흐름 (CRITICAL)
 
@@ -464,7 +431,7 @@ GDPR보다 단순하다:
 
 ## Play Console 프로덕션 액세스 신청 자동화 (Playwright MCP)
 
-Google Play **개인 계정**은 신규 앱을 프로덕션에 올리기 전 "프로덕션 액세스 신청" 양식을 통과해야 한다. 이 신청 양식 작성·제출은 **Firebase/AdMob 콘솔과 동일하게 Playwright MCP로 Play Console UI를 자동화**한다. Phase 7 배포에서, 비공개 테스트 14일 게이트(12명+ / 14일+)가 충족된 Android 앱에 적용된다.
+Google Play **개인 계정**은 신규 앱을 프로덕션에 올리기 전 "프로덕션 액세스 신청" 양식을 통과해야 한다. 이 신청 양식 작성·제출은 **Firebase 콘솔과 같이 Playwright MCP로 Play Console UI를 자동화**한다. Phase 7 배포에서, 비공개 테스트 14일 게이트(12명+ / 14일+)가 충족된 Android 앱에 적용된다.
 
 **정본은 `.claude/skills/orchestrate/references/play-production-access-application.md`** — 3단계 양식 전체 질문, 라디오 옵션, 답변 작성 원칙, worked example이 모두 거기 있다. 신청서를 **작성할 때 반드시 이 문서를 먼저 읽고** 답변을 만든다.
 
@@ -489,7 +456,7 @@ Google Play **개인 계정**은 신규 앱을 프로덕션에 올리기 전 "�
 
 ## AdMob 무효 트래픽 방지 (계정 정지 방어)
 
-AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭, 사용자 비정상 클릭)과 구현 정책 위반에서 발생한다. 광고 인프라 구축 시 아래를 함께 구현한다. 정책 수치는 PRD "Ads Strategy → 무효 트래픽 방어 정책"을 따른다.
+AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭, 사용자 비정상 클릭)과 구현 정책 위반에서 발생한다. 템플릿 `src/features/ads` 에 이미 있는 것은 유지하고, **(PRD)** 표시 항목은 PRD "Ads Strategy → 무효 트래픽 방어 정책"이 정할 때만 구현한다. 정책 수치도 그 표를 따른다.
 
 ### 테스트 트래픽 격리 (가장 중요)
 
@@ -507,9 +474,9 @@ Google은 기기 식별자(GAID/IDFA)·AdMob 계정 로그인·IP·CTR 통계로
 
 ### 클릭/노출 이상 행동 방어 (`ad.store.ts` 확장)
 
-- **배너 클릭 가드**: 배너 클릭(`onAdClicked` — AdBanner가 store로 전달)을 카운트. 일일 N회(기본 5회) 초과 시 `bannerSuppressedUntil` 타임스탬프를 persist하고 그때까지 **배너 렌더링 자체를 차단** (기본 24h). 비정상 클릭러(어린이 연타, 악의적 클릭 폭탄)로부터 계정을 보호한다
+- **배너 클릭 가드 (PRD)**: 배너 클릭(`onAdClicked` — AdBanner가 store로 전달)을 카운트. 일일 N회(기본 5회) 초과 시 `bannerSuppressedUntil` 타임스탬프를 persist하고 그때까지 **배너 렌더링 자체를 차단** (기본 24h). 비정상 클릭러(어린이 연타, 악의적 클릭 폭탄)로부터 계정을 보호한다
 - **전면 포맷 공유 쿨다운**: interstitial / rewarded / app-open이 `lastFullScreenAdTime` **하나를 공유**한다. 어떤 전면 광고든 dismiss 후 최소 N초(기본 30초)는 다른 전면 광고 노출 금지 — "광고 연타" 차단
-- **포맷별 상한**: interstitial 일일 cap(기존) + **rewarded 일일 cap**(기본 10회) + 세션당 전면 광고 절대 상한
+- **포맷별 상한**: interstitial 일일 cap(템플릿 `MAX_INTERSTITIALS_PER_DAY`) + **(PRD)** rewarded 일일 cap(기본 10회) + **(PRD)** 세션당 전면 광고 절대 상한
 - 모든 일일 카운터의 날짜 키는 `dayjs().format('YYYY-MM-DD')` 사용 (`toISOString().split` 금지 — Hard Threshold)
 
 ### 광고 요청 행태
@@ -526,7 +493,7 @@ Google은 기기 식별자(GAID/IDFA)·AdMob 계정 로그인·IP·CTR 통계로
 
 ### 모니터링 / 킬 스위치
 
-- `ad_impression`(자동)과 별개로 광고 클릭 시 `logEvent('tap_ad', { placement })` 수집 → Firebase에서 CTR 이상치 자가 모니터링 (정지 전에 먼저 발견)
+- **(PRD)** `ad_impression`(자동)과 별개로 광고 클릭 시 `logEvent('tap_ad', { placement })` 수집 → Firebase에서 CTR 이상치 자가 모니터링 (정지 전에 먼저 발견)
 - `measurement.remote_config=true`인 경우 `ads_enabled` / `ads_{format}_enabled` Remote Config 플래그를 노출 게이트에 연결 — 무효 트래픽 경고 메일 수신 시 앱 업데이트 없이 즉시 차단
 
 ## 팀 통신 프로토콜

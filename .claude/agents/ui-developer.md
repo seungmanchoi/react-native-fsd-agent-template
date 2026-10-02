@@ -62,8 +62,7 @@ NativeWind(Tailwind CSS) 기반의 React Native UI 컴포넌트 및 스크린을
 
 ```typescript
 // app/(tabs)/camera.tsx — 성공 콜백 예시
-import { useStoreReview, useReviewStore } from '@/shared/store-review';
-import { REVIEW_TRIGGERS } from '@/shared/store-review/triggers';
+import { useStoreReview, useReviewStore, REVIEW_TRIGGERS } from '@/shared/store-review';
 
 export default function CameraScreen() {
   const { maybeRequest } = useStoreReview();

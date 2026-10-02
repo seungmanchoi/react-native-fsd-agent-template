@@ -40,11 +40,10 @@ description: "앱의 기능, UX, 디자인 일관성을 종합 검수하는 전�
 
 정적 코드 검수만으로 잡히지 않는 실제 동작(네비게이션 연결, 빈/에러/로딩 상태 전환, 키보드 회피, 오클릭)은 시뮬레이터에서 직접 확인한다. **CLAUDE.md의 "시뮬레이터 런타임 테스트 (sim-use)" 섹션이 정본**이다.
 
-1. **부트스트랩** — 검증 시작 전 sim-use 설치 확인, 없으면 설치:
+1. **부트스트랩** — 검증 시작 전 sim-use CLI 설치 확인, 없으면 설치한다. 스킬은 레포에 들어 있으니 `sim-use init` 은 하지 않는다 (CLAUDE.md "부트스트랩"):
    ```bash
    if ! command -v sim-use >/dev/null 2>&1; then
      brew tap lycorp-jp/tap && brew install lycorp-jp/tap/sim-use
-     sim-use init --client claude --dest .claude/skills
    fi
    ```
    (CLT 미갱신 등으로 설치 실패 시, 런타임 검증은 skip으로 표시하고 정적 검수만 진행 — 보고서에 명시한다.)

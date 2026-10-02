@@ -2,7 +2,7 @@
 
 Codex entry point for this repository. **The single source of truth is `CLAUDE.md` — read it in full before starting any task.** It is larger than Codex's AGENTS.md size limit, so it is not duplicated here; this file keeps the pass/fail rules and the flows that must never be skipped.
 
-Personal-app rules (store deploy, ads, bundle ID, signing, local-build default) live in `~/works/AGENTS.md`. It sits above this repo's git root, so Codex does not load it automatically. Read it before any task.
+If `~/works/AGENTS.md` exists (the maintainer's personal-app rules: store deploy, ads, bundle ID, signing, local-build default), read it before any task. It sits above this repo's git root, so Codex does not load it automatically.
 
 ## Project
 
@@ -71,11 +71,11 @@ Full-app builds follow the `orchestrate` skill's phases; post-launch work uses `
 ## Flows That Must Not Be Skipped
 
 - **APP_ENV**: `IS_DEV`/`IS_PROD` come from `APP_ENV` (`development` | `preview` | `production`) set by the EAS profile; the dev npm scripts pin `APP_ENV=development`. Unset means dev bundle → development, release bundle → production (local fastlane builds, which must also export `API_URL` and other profile env). Never put `APP_ENV` in `.env`, never use `NODE_ENV` for app environments.
-- **Firebase config**: files live in `./firebase/` (gitignored). EAS cloud builds get file env vars named exactly `GOOGLE_SERVICE_INFO_PLIST` / `GOOGLE_SERVICES_JSON` (`eas env:create --type file --visibility secret`; `eas secret:*` is deprecated).
+- **Firebase config**: files live in `./firebase/` (gitignored). Local builds read them directly, and cloud builds get them too because `.easignore` uploads `firebase/`. Only if `firebase/` is excluded from the archive do cloud builds need file env vars named exactly `GOOGLE_SERVICE_INFO_PLIST` / `GOOGLE_SERVICES_JSON` (`eas env:create --type file --visibility secret`; `eas secret:*` is deprecated).
 - **iOS linking**: `expo-build-properties` `ios.useFrameworks: 'dynamic'` (RNFB 26 uses SPM) and `ios.enableSceneSupport: true`. Never `'static'` alone. No Podfile-patching plugins, no `jsEngine: 'jsc'`.
 - **Pins**: `react-native-google-mobile-ads` stays at 17.0.0 until invertase/react-native-google-mobile-ads#903 is fixed. `patches/@react-native-firebase+crashlytics+26.4.0.patch` must stay until RN Firebase is upgraded past 26.4.0.
 - **Native changes**: `npx expo prebuild` cleans `ios/`/`android/` by default on SDK 57 — change native code through config plugins only.
-- **Deployment**: use the store-deploy skill files under `~/works/store-deploy-plugin/skills/` (see `CLAUDE.md` "EAS Build & Deploy Rules"). Local build first, then cloud.
+- **Deployment**: use the store-deploy skill files under `~/works/store-deploy-plugin/skills/` (see `CLAUDE.md` "EAS Build & Deploy Rules"). Production builds are local by default: `eas build --local` (apps without an EAS project use their fastlane lane), then submit that artifact with `eas submit --path <file>`. Use cloud EAS Build only when the user asks or the local build fails.
 - **Runtime testing**: drive simulators/emulators with `sim-use` (observe → act → verify with `sim-use ui`); never coordinate-tap with `simctl`/`adb`.
 - **Coding principle (ponytail)**: does it need to exist? → reuse what is here → stdlib → platform → installed deps → one line → minimum code. Fix root causes, not symptoms.
 - **CodeGraph (optional)**: use `codegraph_*` tools for structural questions when `.codegraph/` exists.
@@ -95,4 +95,4 @@ npm run sync:codex   # regenerate .codex/agents + .agents/skills from .claude/
 
 ## Branch Strategy
 
-`main` (production) ← `devel` (development) ← `feature/*`
+Apps built from this template: `main` (production) ← `devel` (development) ← `feature/*`. This template repo has no `devel`; PRs merge into `main`.

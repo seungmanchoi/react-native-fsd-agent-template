@@ -32,7 +32,7 @@ description: "구현된 앱의 기능, UX, 디자인을 종합 검수하는 스�
 - 키보드 회피(KeyboardAvoidingView) 확인
 
 ### Step 2.5: 런타임 검증 (sim-use)
-- 시작 전 sim-use 설치 확인 → 없으면 설치 (`command -v sim-use || brew install lycorp-jp/tap/sim-use && sim-use init --client claude --dest .claude/skills`)
+- 시작 전 sim-use CLI 설치 확인 → 없으면 설치 (`command -v sim-use >/dev/null || brew install lycorp-jp/tap/sim-use`). 스킬은 레포에 들어 있으니 `sim-use init` 은 하지 않는다 (CLAUDE.md "부트스트랩")
 - 시뮬레이터에서 앱 실행 후 `sim-use ui` → `tap @N`/`type`/`swipe` → `sim-use ui`로 observe-act-verify
 - PRD happy path를 실제 조작으로 밟아 화면 전환/상태 처리 검증 (정본: CLAUDE.md "시뮬레이터 런타임 테스트")
 - 설치 불가 시 skip 표시 후 정적 검수만 진행

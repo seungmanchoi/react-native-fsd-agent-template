@@ -99,6 +99,6 @@ Google Play **개인(personal) 개발자 계정**으로 만든 신규 앱을 프
 프로덕션 액세스가 승인되면:
 - **권장**: 콘솔에서 비공개 테스트(alpha) 최신 버전을 **"버전 승급" → 프로덕션**. 재빌드 없이 이미 테스트된 동일 AAB가 출시됨.
 - 또는 `eas.json`의 `submit.production.android.track`을 `"production"`으로 바꾸고 새 빌드를 제출.
-- 출시 전 프로덕션 트랙 **국가/지역**과 **출시 노트**(Android changelog 500byte 제한) 확인.
+- 출시 전 프로덕션 트랙 **국가/지역**과 **출시 노트**(Android changelog 언어별 500자 제한) 확인.
 
-> `eas.json` android `releaseStatus: "completed"`가 아니면 제출이 draft로만 올라가 테스터/사용자에게 안 나간다. (raw Play API promote로 깨거나 releaseStatus="completed" 사용 — `deploy-build-troubleshooting.md` 참고.)
+> `eas.json` android `releaseStatus: "completed"`가 아니면 제출이 draft로만 올라가 테스터/사용자에게 안 나간다. 템플릿 `eas.json` 은 `"completed"` 다. 이미 draft 로 올라갔으면 Play Console 에서 그 릴리스를 직접 출시한다 (제출 절차: store-submit).
