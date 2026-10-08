@@ -163,7 +163,7 @@ npx expo run:ios --device
 
 이 템플릿은 `app.config.ts`를 Expo 설정의 단일 소스로 사용한다. `app.json`을 별도로 두면 앱 이름, bundle ID, AdMob 설정이 서로 어긋날 수 있으므로 새 설정은 `app.config.ts`에만 추가한다.
 
-플러그인 설정은 템플릿 `app.config.ts` 를 그대로 쓰고, ATT 목적 문자열(`TRACKING_PERMISSION_TEXT`)과 `plugins/withLocalizedAttDescription.js` 로케일 테이블은 앱마다 새로 쓴다. 상투 문구는 자동 반려된다 (CLAUDE.md "ATT 프롬프트 문구 다국어", store-admob Step 5).
+플러그인 설정은 템플릿 `app.config.ts` 를 그대로 쓰고, ATT 목적 문자열(`TRACKING_PERMISSION_TEXT`)과 `plugins/withLocalizedAttDescription.js` 로케일 테이블은 앱마다 새로 쓴다. 상투 문구는 자동 반려된다 (`docs/rules/ads.md` "ATT 프롬프트 문구 다국어", store-admob Step 5).
 
 ---
 

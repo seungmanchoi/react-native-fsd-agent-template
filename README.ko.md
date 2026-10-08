@@ -152,7 +152,7 @@ Phase 7: Deployment     /store-deploy → local build (eas build --local) → Ap
 
 ### 코드 인텔리전스 — codegraph (선택)
 
-구조적 코드 질문(무엇이 무엇을 호출/파급/정의하는지)에는 하네스가 **codegraph**(tree-sitter 지식 그래프, `codegraph_*` MCP 도구)를 사용한다. 선택 사항이며 없으면 grep으로 fallback한다. `codegraph init -i`로 인덱스를 빌드하고(`.codegraph/`는 gitignore), `orchestrate` Phase 0가 감지, `/iterate-app`이 매 사이클 재동기화한다. 도구 선택표는 `CLAUDE.md` 참고.
+구조적 코드 질문(무엇이 무엇을 호출/파급/정의하는지)에는 하네스가 **codegraph**(tree-sitter 지식 그래프, `codegraph_*` MCP 도구)를 사용한다. 선택 사항이며 없으면 grep으로 fallback한다. `codegraph init -i`로 인덱스를 빌드하고(`.codegraph/`는 gitignore), `orchestrate` Phase 0가 감지, `/iterate-app`이 매 사이클 재동기화한다. 도구 선택표는 `docs/rules/tooling.md` 의 "CodeGraph" 섹션 참고.
 
 ---
 

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Codex entry point for this repository. **The single source of truth is `CLAUDE.md` — read it in full before starting any task.** It is larger than Codex's AGENTS.md size limit, so it is not duplicated here; this file keeps the pass/fail rules and the flows that must never be skipped.
+Codex entry point for this repository. **The single source of truth is `CLAUDE.md` — read it in full before starting any task.** It holds every Hard Threshold table plus a short summary per domain; the detailed rules live in `docs/rules/*.md` (secure storage, analytics, store review, ads, build/deploy, runtime testing, tooling) — read the one for the area you touch. This file repeats the pass/fail rules and the flows that must never be skipped.
 
 If `~/works/AGENTS.md` exists (the maintainer's personal-app rules: store deploy, ads, bundle ID, signing, local-build default), read it before any task. It sits above this repo's git root, so Codex does not load it automatically.
 

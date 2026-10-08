@@ -6,7 +6,7 @@ const SLUG = 'my-app';
 const BUNDLE_ID = `com.seungmanchoi.${SLUG.replace(/-/g, '')}`;
 
 // ATT purpose string — rewrite per app. Apple auto-rejects generic wording
-// (CLAUDE.md "ATT 목적 문자열 규칙"). Also update plugins/withLocalizedAttDescription.js.
+// (`docs/rules/ads.md` "ATT 프롬프트 문구 다국어"). Also update plugins/withLocalizedAttDescription.js.
 const TRACKING_PERMISSION_TEXT =
   "MyApp uses your device's advertising identifier to make the ads shown in this app more relevant — " +
   'for example, showing ads for apps and games similar to MyApp instead of unrelated products — ' +

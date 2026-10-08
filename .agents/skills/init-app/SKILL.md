@@ -32,7 +32,7 @@ npm install   # package-lock.json 이름 갱신
 
 ## Step 3: 남은 수동 단계 (스크립트가 못 하는 것)
 
-1. **ATT 문구 재작성** — 스크립트는 예시 문구의 앱 이름만 바꾼다. 광고를 쓰면 CLAUDE.md "ATT 프롬프트 문구"의 4요소(무엇·왜·구체적 예시·거부 시 결과)로 이 앱에 맞게 `app.config.ts` 의 `TRACKING_PERMISSION_TEXT` 와 `plugins/withLocalizedAttDescription.js` 로케일 테이블을 다시 쓴다. 광고를 안 쓰면 광고 모듈 제거 범위는 `api-integrator` 의 분기 규칙을 따른다
+1. **ATT 문구 재작성** — 스크립트는 예시 문구의 앱 이름만 바꾼다. 광고를 쓰면 `docs/rules/ads.md` "ATT 프롬프트 문구 다국어"의 4요소(무엇·왜·구체적 예시·거부 시 결과)로 이 앱에 맞게 `app.config.ts` 의 `TRACKING_PERMISSION_TEXT` 와 `plugins/withLocalizedAttDescription.js` 로케일 테이블을 다시 쓴다. 광고를 안 쓰면 광고 모듈 제거 범위는 `api-integrator` 의 분기 규칙을 따른다
 2. **Firebase** — 새 bundle id 로 Firebase 앱을 만들고 `firebase/GoogleService-Info.plist`, `firebase/google-services.json` 을 둔다(gitignore). 없으면 네이티브 빌드가 실패한다. 콘솔 자동화는 `api-integrator` "Firebase 콘솔 자동화"
 3. **EAS** — `eas init` 으로 `extra.eas.projectId` 를 채운다. EAS 25 프로젝트 한도 밖이면 건너뛰고 fastlane 으로 빌드한다(`~/works/AGENTS.md`)
 4. **아이콘·스플래시** — `assets/images/` 교체

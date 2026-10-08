@@ -85,7 +85,7 @@ description: "코드 품질·FSD 규칙·타입 안전성·보안을 검증하�
 - [ ] `expo-tracking-transparency` 의 `requestTrackingPermissionsAsync` 를 `@features/ads/lib/consent.ts` 외부에서 직접 호출하지 않음
 - [ ] `_layout.tsx` 에서 `initializeAdsWithConsent()` 만 호출한다 — `void`로 렌더를 막지 않고, 개별 초기화 단계를 직접 호출하지 않는다
 - [ ] 모든 광고 로드(`createForAdRequest` / `load()` / `<BannerAd>`)가 `useAdsReady()` / `isAdsReady()` 이후에만 시작된다 (마운트 즉시 로드 금지 — 동의 전 광고 요청)
-- [ ] 동의 시퀀스는 UMP → ATT(iOS) → `mobileAds().initialize()` 순서가 유지된다 — 순서 위반 시 EU eCPM 폭락
+- [ ] 동의 시퀀스는 UMP → ATT(iOS) → `mobileAds().initialize()` 순서가 유지된다 — 순서 위반 시 첫 요청이 동의 정보 없이 나가 EU eCPM 이 떨어진다
 - [ ] `app.config.ts` 의 `plugins` 에 `react-native-google-mobile-ads` / `expo-tracking-transparency` 가 모두 포함되어 있음
 - [ ] `app.config.ts` 의 `infoPlist.NSUserTrackingUsageDescription` 가 설정되어 있고, 두 plugin 의 `userTrackingUsageDescription` / `userTrackingPermission` 과 문구가 일치함
 - [ ] `BannerAd` 컴포넌트는 `@features/ads/ui/AdBanner` 를 통해서만 사용 (직접 import 금지)

@@ -24,17 +24,7 @@ description: "React Native + Expo + FSD 앱의 전체 라이프사이클(아이�
 
 ### Harness Design Principles (Anthropic)
 
-이 오케스트레이터는 Anthropic의 공식 하네스 설계 원칙을 따른다:
-> 상세: `references/harness-principles.md` 참조
-
-1. **Context Reset > Compaction** — Phase 간 전환 시 `_workspace/`에 산출물 저장 후 컨텍스트 리셋. 장시간 작업의 컨텍스트 저하(degradation)와 조급증(anxiety)을 방지.
-2. **Sprint 기반 분해** — Phase 4에서 feature 단위 스프린트로 분해. 각 스프린트마다 구현→평가→수정 루프 수행.
-3. **독립 Evaluator** — Generator(feature-builder, api-integrator, ui-developer)와 Evaluator(qa-reviewer, app-inspector)를 분리. 자체 평가 지양.
-4. **Hard Threshold** — 소프트 점수가 아닌 pass/fail 경성 기준. 하나라도 임계값 이하면 스프린트 FAIL.
-5. **디자인 4축 평가** — Design Quality, Originality, Craft, Functionality 축으로 디자인 산출물 평가.
-6. **지속 개선 루프(Continuous Improvement Loop)** — 출시는 끝이 아니라 루프의 한 바퀴다. 개발→검증→**다음 고도화 추천**을 반복한다. 일회성 빌드(Phase 1~7) 이후의 반복은 `/iterate-app` 스킬과 `loop-engineer` 에이전트가 담당한다. 상세: `references/loop-engineering.md`.
-
----
+Context Reset, Sprint 분해, Generator-Evaluator 분리, Hard Threshold, Pivot vs Refine, Active Testing, Model Capability Adaptation: `references/harness-principles.md`.
 
 ## Supervisor 메커니즘
 
@@ -97,7 +87,7 @@ No-Go 조건:
 
 모든 에이전트는 `_workspace/` 디렉토리를 통해 데이터를 주고받는다.
 
-> **`_workspace/` 는 `.gitignore` 됨.** Phase 0 산출물(`spec.md`)도 로컬 전용. 템플릿은 `.claude/skills/orchestrate/templates/spec.template.yml`에 위치하며, Phase 0 Step 0.1에서 필요 시 `_workspace/spec.md`로 복사한다.
+> **`_workspace/` 는 대부분 `.gitignore` 된 임시 산출물이다.** 단 `spec.md`·`plan/`·`iterate/` 는 커밋 대상이라 다른 머신·런타임에서 이어서 작업할 수 있다. 템플릿은 `.claude/skills/orchestrate/templates/spec.template.yml`에 위치하며, Phase 0 Step 0.1에서 필요 시 `_workspace/spec.md`로 복사한다.
 
 ```
 _workspace/
@@ -133,211 +123,20 @@ _workspace/
 
 ### Phase 0: Pre-flight Survey — `orchestrate` (수퍼바이저 직접 수행)
 
-**목적**: 프로젝트별로 달라지는 핵심 결정사항(측정/온보딩/평점/수익화/인증/백엔드/권한/배포 등)을 사전에 수집하여 `_workspace/spec.md`를 생성한다. 이후 모든 phase는 spec.md를 먼저 읽고 작업한다.
+**목적**: 프로젝트별 핵심 결정(측정·온보딩·평점·수익화·인증·백엔드·권한·배포)을 모아 `_workspace/spec.md` 를 만든다. 이후 모든 Phase 는 spec.md 를 먼저 읽는다. **상세 절차·질문 카탈로그(A~I)·조건부 분기 규칙·무인 실행: `references/survey.md` — Phase 0 시작 시 Read.**
 
-**입력**: 사용자 자연어 요청
-**출력**: `_workspace/spec.md`
+| Step | 내용 |
+|------|------|
+| 0.0 | CodeGraph 설치·인덱스 확인(선택, 없으면 grep fallback — 절대 차단하지 않음) |
+| 0.0b | `app.config.ts` 의 `SLUG` 가 `my-app` 이면 `init-app` 스킬 먼저 실행 |
+| 0.1 | 기존 `_workspace/spec.md` 가 있으면 재사용 여부 확인, 없으면 `templates/spec.template.yml` 복사 |
+| 0.2 | 자유 입력 1회 → `project.context` |
+| 0.3 | **묻기 전에 채운다** — 요청·0.2 답·현재 코드로 답이 나오는 항목은 채우고(근거는 `<field>_notes`), 남은 [필수] 항목만 한 번에 최대 4문항씩 추천안을 첫 옵션으로 묻는다. 바이브 코딩 요청은 질문 1~2회 안에 Phase 1 로 넘어가는 게 목표 |
+| 0.4 | 조건부 분기(광고 → C2·C3, 소셜 로그인 → 계정 삭제 필수 등) |
+| 0.5 | spec.md 작성 — 필드·기본값 정본은 `templates/spec.template.yml` |
+| 0.6 | 사용자 최종 확인 (무인 실행이면 생략, `_workspace/decisions.log` 기록) |
 
-#### Step 0.0: 코드 인텔리전스(CodeGraph) 초기화 (권장 · 스킵 가능)
-
-**목적**: 이후 모든 phase가 grep 대신 구조 기반 코드 인텔리전스(심볼 정의·호출 관계·영향도)를 사용하도록 인덱스를 준비한다. Step 0.2 컨텍스트 수집, `qa-reviewer`의 FSD 의존성·영향 검사, `loop-engineer`의 impact/callers 기반 "다음 작업" 랭킹이 이 인덱스를 활용한다. **미설치·미빌드여도 파이프라인은 grep fallback으로 정상 진행하며, 절대 차단하지 않는다.**
-
-**판정 흐름** (`AskUserQuestion`으로 인터랙션):
-
-```
-1. CLI 설치 확인:  which codegraph
-   ├─ 미설치  → 질문 "CodeGraph(코드 인텔리전스)가 설치돼 있지 않습니다. 설치할까요?"
-   │     ├─ 설치       → `codegraph install`(현재 에이전트에 MCP 등록) 안내 → 2단계로
-   │     └─ 건너뛰기   → grep fallback으로 Step 0.1 진행
-   └─ 설치됨  → 2단계로
-
-2. 프로젝트 인덱스(.codegraph/) 확인:  codegraph status  (또는 ls .codegraph/)
-   ├─ 인덱스 없음 → 질문 "CodeGraph가 설치돼 있습니다. 이 프로젝트에 인덱스를 빌드하고 진행할까요?"
-   │     ├─ 빌드하고 진행 (권장) → `codegraph init -i` 실행 → Step 0.1 진행
-   │     └─ 인덱스 없이 진행     → grep fallback으로 Step 0.1 진행
-   └─ 인덱스 있음 → `codegraph sync`(변경분만 동기화) 후 Step 0.1 진행
-```
-
-> 핵심 인터랙션: **설치됨 + 인덱스 없음**이면 곧바로 빌드하지 말고 "빌드하고 진행할지"를 한 번 묻는다(인덱싱은 수백~수천 파일에서 시간이 걸릴 수 있으므로 사용자 동의 후 실행).
-
-**무인 실행(`execution.unattended: true`)**: 묻지 않고 자동 처리 —
-- 설치됨 + 인덱스 없음 → `codegraph init -i` 자동 실행
-- 설치됨 + 인덱스 있음 → `codegraph sync`
-- 미설치 → 스킵(grep fallback). 설치를 강제하지 않는다.
-- 선택 결과는 `_workspace/decisions.log`에 기록 (예: `decision=codegraph value=indexed source=unattended`).
-
-#### Step 0.0b: 템플릿 초기화 확인
-
-`app.config.ts` 에 `const SLUG = 'my-app';` 이 남아 있으면 `init-app` 스킬을 먼저 실행한다(앱 이름·slug 는 요청에서 뽑고, 없을 때만 묻는다). 결과는 Step 0.5 의 `project.name` 에 그대로 쓴다.
-
-#### Step 0.1: spec.md 존재 여부 확인
-
-```
-if _workspace/spec.md 존재:
-    "기존 spec.md를 발견했습니다. 그대로 사용할까요? (Y/n)" 단일 질문
-    Y → Step 0.5(스키마 검증)로 점프 → 통과 시 Phase 1 진행
-    n → 백업(spec.md.{timestamp}.bak) 후 Step 0.2로 진행
-else:
-    `.claude/skills/orchestrate/templates/spec.template.yml`을 `_workspace/spec.md`로 복사 후 Step 0.2로 진행
-```
-
-> 사용자가 무인 실행을 원하면 위 템플릿을 직접 편집해서 `_workspace/spec.md`로 미리 저장해두고 `/orchestrate`만 실행하면 된다. 그러면 survey가 스킵된다.
-
-#### Step 0.2: 프로젝트 전반 컨텍스트 수집
-
-객관식 질문 전 한 번, 자유 입력만 받는다:
-
-```
-Q: "이 앱에 대해 추가로 알려주고 싶은 게 있나요?
-   (제약, 영감, 참고 앱, 비즈니스 맥락, 톤앤매너 등 — 자유롭게, 비워둬도 됨)"
-→ spec.md의 project.context 필드에 그대로 저장
-```
-
-이 텍스트는 이후 모든 에이전트가 작업 시작 시 읽고 객관식 답과 함께 해석한다.
-
-#### Step 0.3: 질문 카탈로그 진행
-
-**묻기 전에 채운다.** 사용자 요청·Step 0.2 답·현재 코드에서 답이 나오는 항목은 그 값으로 채우고 묻지 않는다(근거는 `<field>_notes`에 한 줄). 남은 **[필수]** 항목만 `AskUserQuestion` 한 번에 최대 4문항씩 묶어 묻고, 각 문항의 첫 옵션을 추천안으로 둔다. 별도 "추가 메모" 질문은 하지 않는다 — 사용자가 "Other"에 쓴 글을 `<field>_notes`에 저장한다. [조건부] 항목은 Step 0.4 규칙이 켤 때만 묻는다. 바이브 코딩 요청("간단한 X 앱 만들어줘")은 질문 1~2회 안에 Phase 1로 넘어가는 것이 목표다.
-
-**[필수]** = 모든 프로젝트가 답해야 함
-**[조건부]** = 앞선 답에 따라 LLM이 묻거나 스킵
-
-##### A. 측정·관측
-
-| ID | 질문 | 옵션 | spec 필드 |
-|----|------|------|----------|
-| A1 [필수] | Firebase Analytics + GA property 연동 | Yes / No | `measurement.firebase_analytics` |
-| A2 [필수] | Crashlytics 활성화 | Yes / No | `measurement.crashlytics` |
-| A3 [조건부] | Remote Config(A/B 테스트) | Yes / No | `measurement.remote_config` (`firebase_analytics=true`일 때만) |
-| A4 [필수] | 북극성 지표 | LLM 추천 수락 / 직접 입력 | `measurement.north_star` + `_notes` |
-
-##### B. UX 옵션
-
-| ID | 질문 | 옵션 | spec 필드 |
-|----|------|------|----------|
-| B1 [필수] | 온보딩 가이드 | 없음 / 슬라이드형(스킵 가능) / 인터랙티브 튜토리얼 | `ux.onboarding` |
-| B2 [필수] | 평점 유도 (`expo-store-review`) | Yes / No | `ux.store_review` |
-| B3 [조건부] | 평점 트리거 | LLM 추천 / 직접 지정 | `ux.store_review_triggers` (`store_review=true`일 때만) |
-| B4 [필수] | 지원 언어 | en/ko/ja/zh/es/... 다중 선택 | `ux.languages` |
-| B5 [필수] | 다크모드 | 라이트만 / 다크만 / 시스템 따라가기 + 토글 | `ux.dark_mode` |
-| B6 [필수] | 햅틱 피드백 | Yes / No | `ux.haptics` |
-| B7 [조건부] | 빈 상태 일러스트 | LLM 생성 / 기본 SVG / 없음 | `ux.empty_state_illustration` |
-
-##### C. 수익화
-
-| ID | 질문 | 옵션 | spec 필드 |
-|----|------|------|----------|
-| C1 [필수] | 수익화 모델 | 없음 / 광고 / IAP / 구독 / 광고+IAP | `monetization.model` |
-| C2 [조건부] | AdMob 광고 단위 | Banner/Interstitial/Rewarded/Native/AppOpen (다중) | `monetization.ad_formats` (`model`에 광고 포함 시) |
-| C3 [조건부] | 인터스티셜 빈도 | 액션 N회마다 (기본 3) | `monetization.interstitial_every_n` |
-| C4 [조건부] | 구독 상품 구조 | 주간/월간/연간 / 단일 / 멀티 티어 | `monetization.iap_tiers` |
-| C5 [조건부] | 페이월 위치 | 온보딩 후 / 기능 진입 시 / 무료 한도 초과 시 | `monetization.paywall_position` |
-| C6 [조건부] | 무료 사용 한도 | 횟수 / 일수 / 없음 | `monetization.free_quota` |
-
-##### D. 인증·사용자
-
-| ID | 질문 | 옵션 | spec 필드 |
-|----|------|------|----------|
-| D1 [필수] | 인증 방식 | 없음(게스트) / 이메일 / Apple / Google / Kakao / 익명→업그레이드 (다중) | `auth.methods` |
-| D2 [조건부] | 계정 삭제 흐름 | 인앱 / 웹 페이지 / 양쪽 | `auth.account_deletion` (`methods≠[게스트only]`일 때 **자동 필수 승격**) |
-| D3 [조건부] | 사용자 프로필 화면 | Yes / No | `auth.profile_screen` |
-| D4 [조건부] | 생체 인증 게이트 | 결제만 / 앱 잠금 / 없음 | `auth.biometric_gate` |
-
-##### E. 데이터·백엔드
-
-| ID | 질문 | 옵션 | spec 필드 |
-|----|------|------|----------|
-| E1 [필수] | 백엔드 | 없음(로컬) / Firebase / Supabase / 자체 REST API | `backend.type` |
-| E2 [조건부] | 오프라인 우선 | Yes / No | `backend.offline_first` (`type≠none`일 때) |
-| E3 [조건부] | 파일/이미지 업로드 | Yes / No | `backend.uploads` |
-| E4 [조건부] | 실시간 동기화 | Yes / No | `backend.realtime` |
-| E5 [조건부] | 검색 | 클라이언트 / 서버 / Algolia | `backend.search` |
-
-##### F. 네이티브 권한
-
-| ID | 질문 | 옵션 | spec 필드 |
-|----|------|------|----------|
-| F1 [필수] | 카메라 / 사진 라이브러리 | 둘 다 / 사진만 / 카메라만 / 없음 | `permissions.media` |
-| F2 [필수] | 위치 | 필수 / 선택 / 없음 | `permissions.location` |
-| F3 [필수] | 푸시 알림 | 로컬만 / 원격+로컬 / 없음 | `permissions.push` |
-| F4 [조건부] | 헬스킷/센서/NFC/BLE | 다중 선택 | `permissions.advanced` |
-| F5 [조건부] | 백그라운드 작업 | 없음 / 위치 / 동기화 / 오디오 | `permissions.background` |
-
-##### G. 콘텐츠·정책
-
-| ID | 질문 | 옵션 | spec 필드 |
-|----|------|------|----------|
-| G1 [조건부] | UGC(사용자 생성 콘텐츠) | Yes / No | `policy.ugc` (소셜/커뮤니티 카테고리면 묻기) |
-| G2 [필수] | 연령 등급 | 4+ / 9+ / 12+ / 17+ | `policy.age_rating` |
-| G3 [조건부] | 13세 미만 대상 | Yes / No | `policy.children_under_13` (Family/Education 카테고리면 묻기) |
-| G4 [필수] | 개인정보처리방침/지원 URL | 자동 생성(GitHub Pages) / 직접 입력 | `policy.privacy_url` |
-
-##### H. 배포
-
-| ID | 질문 | 옵션 | spec 필드 |
-|----|------|------|----------|
-| H1 [필수] | 타겟 스토어 | iOS / Android / 양쪽 | `deployment.platforms` |
-| H2 [필수] | 베타 채널 | TestFlight / Internal Testing / 양쪽 / 사용 안 함 | `deployment.beta_channel` |
-| H3 [조건부] | 키워드/ASO | LLM 생성 / 직접 입력 | `deployment.aso` |
-
-##### I. 기술 옵션
-
-| ID | 질문 | 옵션 | spec 필드 |
-|----|------|------|----------|
-| I1 [조건부] | 애니메이션 강도 | 최소 / 보통 / 강함(Reanimated) | `tech.animation_level` |
-| I2 [조건부] | 차트/그래프 | Yes / No | `tech.charts` |
-| I3 [조건부] | 카메라 커스텀 UI | Yes / No | `tech.custom_camera` (`permissions.media`에 카메라 포함 시) |
-
-#### Step 0.4: 조건부 분기 규칙
-
-**핵심 원칙**: 앞선 답이 다음 결정의 분기점이 되면 그 시점에 추가 질문. 결정이 모호하지 않으면 묻지 않는다.
-
-자동 승격 규칙:
-- `D1.methods`에 게스트가 아닌 항목 포함 → D2(계정 삭제) **자동 필수** (Apple 5.1.1(v))
-- `C1.model`에 광고 포함 → C2, C3 활성화
-- `C1.model`에 IAP/구독 포함 → C4, C5, C6 활성화
-- `E1.type=Firebase` 그리고 `C1.model`에 구독 포함 → "Firestore 구독 상태 캐싱 vs RevenueCat webhook" 추가 질문
-- `B1.onboarding≠없음` 그리고 `D1.methods`에 소셜 포함 → "온보딩 도중 로그인 강제 vs 게스트 진입 후 유도" 추가 질문
-- `F2.location=필수` → "위치 권한 거부 시 fallback UI" 추가 질문
-- 앱 카테고리=헬스/피트니스 → F4 헬스킷 옵션 강조, G3 더 엄격하게 질문
-- 앱 카테고리=금융/결제 → D4 자동 필수, SecureStore `WHEN_PASSCODE_SET_THIS_DEVICE_ONLY` 강제
-
-#### Step 0.5: spec.md 작성
-
-수집한 답으로 `_workspace/spec.md` 의 필드를 채운다. 필드 이름과 기본값은 `templates/spec.template.yml` 이 정본이다. `spec.md` 가 없으면 그 파일을 먼저 복사한다. 스키마 검증도 그 파일의 키를 기준으로 한다. 여기에 사본을 두지 않는다.
-
-**스키마 약속**: 모든 객관식 필드는 같은 이름의 `_notes` 필드(자유 입력)를 가질 수 있다. 비어 있어도 무방. 에이전트는 `_notes`가 있으면 객관식 값보다 우선 반영한다.
-
-#### Step 0.6: 사용자 최종 확인
-
-```
-"spec.md를 생성했습니다. 이대로 진행하시겠습니까? (Y/편집)"
-Y → Phase 1로 진행
-편집 → 사용자가 직접 편집 후 재확인
-```
-
-#### 무인 실행 (Unattended)
-
-`spec.md`에 `execution.unattended: true`로 설정되어 있으면:
-- Phase 체크포인트(아이디어 선택/디자인 선택/MVP 범위 등)에서 멈추지 않음
-- 조건부 질문은 `on_ambiguity` 정책에 따라 처리:
-  - `pick_first` → 첫 번째 옵션
-  - `pick_recommended` → LLM 추천안
-  - `ask` → 사용자에게 물음 (기본값)
-- 자동 결정된 항목은 `_workspace/decisions.log`에 기록
-  ```
-  [2026-05-18 14:32:01] phase=1 decision=idea_selection value=2 reason=pick_recommended source=on_ambiguity
-  ```
-
-이 모드는 CI/배치 실행을 위한 것. 일반 사용자는 기본값(`unattended: false`)으로 둔다.
-
-#### Phase 0 통과 조건
-
-- `_workspace/spec.md`가 존재하고 YAML 파싱 가능
-- 모든 [필수] 필드가 채워져 있음
-- `project.name`, `project.category`, `deployment.platforms`가 비어있지 않음
-
-통과 시 Phase 1로 진행, 통과 못 하면 누락 필드를 사용자에게 다시 물어본다.
+**통과 조건**: spec.md 가 YAML 로 파싱되고, 모든 [필수] 필드와 `project.name`·`project.category`·`deployment.platforms` 가 채워져 있다.
 
 ---
 
@@ -595,7 +394,7 @@ npm run typecheck && npm run lint
 Tasks:
 0. 토큰 저장은 템플릿의 tokenManager(@shared/api, src/shared/api/client.ts)를 그대로 쓴다
    - expo-secure-store, keychainAccessible = WHEN_UNLOCKED_THIS_DEVICE_ONLY (iCloud 백업 차단)
-   - 토큰 외 시크릿이 늘 때만 src/shared/secure-storage/ 를 분리한다 (CLAUDE.md "Secure Storage")
+   - 토큰 외 시크릿이 늘 때만 src/shared/secure-storage/ 를 분리한다 (CLAUDE.md "Secure Storage" (상세 `docs/rules/secure-storage.md`))
 1. Axios 클라이언트 설정 (baseURL, interceptors, 토큰 자동 갱신)
    - 토큰 조회는 tokenManager 만 사용 (AsyncStorage 금지)
 2. 각 feature의 API 함수 구현
@@ -697,181 +496,17 @@ npm run typecheck && npm run lint
 
 #### Phase 4d: Analytics Integration — `api-integrator`
 
-**에이전트**: `api-integrator`
 **입력**: `_workspace/plan/kpis.md`, `_workspace/plan/prd.md`, `app/`, `src/features/`
-**출력**: `src/shared/lib/analytics/events.ts`(PRD KPI 카탈로그), 각 화면/액션의 `logEvent` 호출 삽입 — 래퍼·Crashlytics·화면 추적·Store Review 인프라는 템플릿에 이미 있다
+**출력**: `src/shared/lib/analytics/events.ts`(PRD KPI 카탈로그), 각 화면/액션의 `logEvent` 호출 — 래퍼·Crashlytics·화면 추적·Store Review 인프라는 템플릿에 이미 있다
 
-이 단계는 **PRD의 KPI를 실제로 측정 가능하게 만드는 단계**이다. KPI가 정의되지 않은 채로 Phase 4d에 진입하면 즉시 Phase 2로 돌아간다.
+PRD 의 KPI 를 실제로 측정 가능하게 만드는 단계다. KPI 가 정의되지 않았으면 Phase 2 로 돌아간다. spec 에서 Analytics/Crashlytics/평점이 꺼져 있으면 해당 항목은 건너뛰고 `api-integrator` 의 제거 규칙을 따른다.
 
-```
-Tasks:
-1. Firebase 콘솔에 iOS/Android 앱 등록 (Playwright MCP 자동화)
-   Firebase 앱 생성은 일반 OAuth scope로
-   호출 불가하므로 console.firebase.google.com UI를 Playwright MCP로 조작한다.
+1. Firebase 콘솔에 iOS/Android 앱 등록 → `firebase/` 에 설정 파일 배치(커밋 금지)
+2. `events.ts` 에 북극성 + 4축 이벤트 상수 추가, 화면 성공 콜백에 `logEvent` 배선
+3. PRD Review Triggers → `REVIEW_TRIGGERS` 1:1 매핑, 성공 콜백에 `maybeRequest` + `recordKeyAction()`
+4. `npx expo prebuild --clean` + 로컬 빌드 성공, `npm run verify` green
 
-   1-1. mcp__playwright__browser_navigate → https://console.firebase.google.com
-   1-2. 로그인 필요 시 사용자에게 브라우저 창에서 직접 로그인 요청
-        (headless 모드 사용 금지, 창은 자동화 중에도 열려 있어야 함)
-   1-3. 프로젝트 선택
-        - 기존 Firebase 프로젝트가 있으면 클릭하여 선택
-        - 없으면 "프로젝트 추가" → 이름 `{앱슬러그}-prod` → Google Analytics ON →
-          GA 계정 선택 → "프로젝트 만들기"
-   1-4. iOS 앱 등록
-        - "앱 추가" → iOS 아이콘
-        - Apple bundle ID: app.config.ts의 ios.bundleIdentifier 그대로 입력
-        - 앱 닉네임: 앱 이름
-        - "앱 등록"
-        - "GoogleService-Info.plist 다운로드" 버튼 클릭
-          → 다운로드는 ~/Downloads/ 에 저장됨
-        - 이후 SDK 단계는 "다음"으로 모두 스킵
-   1-5. Android 앱 등록
-        - "앱 추가" → Android 아이콘
-        - Android 패키지 이름: app.config.ts의 android.package 그대로 입력
-        - 앱 닉네임: 앱 이름
-        - SHA-1: 비워두기 (Analytics/Crashlytics는 SHA-1 없이 동작)
-        - "앱 등록"
-        - "google-services.json 다운로드" 버튼 클릭
-        - SDK 단계 "다음"으로 스킵
-   1-6. 다운로드 파일을 ./firebase/로 이동 (app.config.ts googleServicesFile 기본 경로 —
-        prebuild가 네이티브 프로젝트로 복사하므로 ios/·android/에 직접 두지 않는다)
-        - ~/Downloads/GoogleService-Info.plist → firebase/GoogleService-Info.plist
-        - ~/Downloads/google-services.json → firebase/google-services.json
-   1-7. .gitignore 확인 (템플릿에 firebase/GoogleService-Info.plist,
-        firebase/google-services.json 포함) — git status에 노출되면 즉시 중단
-   1-8. (기본은 건너뛴다) 로컬 빌드는 ./firebase/ 파일을 그대로 쓰고, 클라우드 빌드도
-        .easignore 가 firebase/ 를 올려서 그대로 된다. firebase/ 를 아카이브에서 뺀 앱의
-        클라우드 빌드만 file 환경변수를 등록한다 (eas secret:* 은 deprecated).
-        이름은 app.config.ts가 읽는 두 개와 정확히 같아야 한다:
-        eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file \
-          --value ./firebase/GoogleService-Info.plist --visibility secret \
-          --environment production --environment preview --environment development
-        eas env:create --name GOOGLE_SERVICES_JSON --type file \
-          --value ./firebase/google-services.json --visibility secret \
-          --environment production --environment preview --environment development
-
-   Playwright selector 실패 fallback:
-   - Firebase 콘솔 UI가 변경되어 자동화가 실패하면 즉시 중단
-   - _workspace/implementation/firebase-manual.md 에 진행 상황 기록
-   - 사용자에게 "콘솔에서 직접 두 앱을 등록하고 두 파일을
-     ~/Downloads/ 에 받아두었다"는 확인 요청
-   - 확인 후 1-6단계부터 자동화 재개
-
-2. 패키지 확인 — 템플릿에 @react-native-firebase/{app,analytics,crashlytics} 26.x 와
-   expo-build-properties 가 이미 있다. measurement.crashlytics=false 면 crashlytics
-   패키지·plugin 과 함께 firebase.ts 의 crashlytics import·호출(recordError 는 no-op),
-   patches/@react-native-firebase+crashlytics+*.patch, firebase.json 의 crashlytics_* 키를
-   제거한다 — import 가 남으면 Metro 번들 실패, 패치가 남으면 patch-package 가 CI(EAS)에서
-   exit 1 로 install 을 멈춘다.
-
-3. Expo plugin 확인 (app.config.ts — 템플릿 기본값 유지)
-   plugins:
-     - '@react-native-firebase/app'
-     - '@react-native-firebase/crashlytics'
-     - ['expo-build-properties', { ios: { useFrameworks: 'dynamic', enableSceneSupport: true } }]
-       RNFB 26 은 Firebase iOS SDK 를 SPM 으로 받으며 SPM 은 dynamic 필수.
-       'static' 단독 금지(pod install 실패) — 정적이 꼭 필요하면 RNFB app plugin
-       { ios: { disableSPM: true } } + 'static' + 모든 RNFB pod forceStaticLinking.
-   ios.googleServicesFile / android.googleServicesFile = ./firebase/* (env 로 오버라이드)
-
-4. src/shared/lib/analytics/ (템플릿 구현 확장)
-   - events.ts 에 PRD KPI 카탈로그를 EAnalyticsEvent 상수로 추가
-   - firebase.ts 는 RNFB v26 modular API 만 사용 (namespaced analytics() 는 삭제됨)
-
-5. 루트 _layout.tsx 모듈 최상단의 void initAnalytics() 유지 (effect 안으로 옮기지 않는다 —
-   자식 화면 effect가 먼저 실행돼 production 첫 실행의 마운트 이벤트가 버려진다)
-   - env.IS_PROD 에서만 Analytics·Crashlytics 수집 (dev/preview 는 끔)
-
-6. PRD KPI 매핑 적용
-   - screen_view 는 루트 _layout.tsx 가 라우트 패턴으로 자동 기록 (추가 작업 없음)
-   - 핵심 액션(F-NNN)에 logEvent(EAnalyticsEvent.X, ...) 삽입
-   - 활성/유지/수익화 축 이벤트가 모두 1개 이상 코드에 존재하는지 검증
-
-7. Crashlytics
-   - 수집 토글은 initAnalytics() 가 처리, 비치명 에러는 recordError(error)
-   - 루트 ErrorBoundary 가 recordError + reviewStore.recordError 를 이미 호출
-   - 로컬 release 빌드 후 dSYM 업로드 빌드 단계 존재 확인
-
-8. Store Review (템플릿 src/shared/store-review/ 에 이미 있다 — 설치·생성하지 않는다)
-   - PRD의 "Store Review Triggers" 섹션을 REVIEW_TRIGGERS 상수에 추가
-   - 정책 기본값은 policy.ts DEFAULT_POLICY: 설치≥3일, 실행≥5회, 핵심액션≥3회,
-     마지막요청 후 ≥90일, 세션당 1회, 최근 5분 내 에러 차단
-   - 루트 _layout.tsx 의 recordLaunch()·ErrorBoundary 의 recordError() 는 이미 있다 — 유지
-
-9. 빌드 검증
-   - npx expo prebuild --clean
-   - npm run typecheck && npm run lint
-   - eas build --local 또는 development build로 한 번 구동
-   - 디바이스/시뮬레이터 로그에 [Firebase/Analytics] 초기화 로그 확인
-```
-
-**Sprint Contract (Phase 4d)** — `_workspace/implementation/sprint-contract-4d.md`:
-```markdown
-# Sprint Contract: Phase 4d Analytics
-
-## Done 조건
-- [ ] Playwright MCP로 Firebase 콘솔에 iOS/Android 앱 등록 완료
-- [ ] firebase/GoogleService-Info.plist, firebase/google-services.json 존재 (번들 ID/패키지명 일치)
-- [ ] 두 파일이 .gitignore에 등록되어 git status에 untracked로도 노출되지 않음
-- [ ] (firebase/ 를 아카이브에서 뺀 클라우드 빌드만) EAS env 에 GOOGLE_SERVICE_INFO_PLIST, GOOGLE_SERVICES_JSON (file) 등록
-- [ ] @react-native-firebase/{app,analytics,crashlytics} 26.x + expo-build-properties (dynamic) 유지
-- [ ] app.config.ts에 plugins 및 googleServicesFile 경로 등록
-- [ ] src/shared/lib/analytics/events.ts 에 PRD KPI 이벤트 상수 추가
-- [ ] 루트 _layout.tsx에서 initAnalytics() 호출 + 화면 추적(useSegments) 유지
-- [ ] PRD의 north-star 이벤트 + 4축 이벤트 각 1개 이상 logEvent 호출 존재
-- [ ] env.IS_PROD 기반 dev/prod 분기 동작
-- [ ] src/shared/store-review/ 템플릿 모듈 유지 (새로 만들지 않음)
-- [ ] PRD의 Review Triggers가 REVIEW_TRIGGERS 상수로 1:1 매핑
-- [ ] 루트 _layout.tsx에서 recordLaunch() 호출 + 에러 바운더리에서 recordError() 호출
-- [ ] expo prebuild --clean 성공 + 로컬 빌드 성공
-
-## 검증 방법
-- git ls-files | grep -E '(GoogleService-Info\.plist|google-services\.json)' 결과 0건
-- npm run typecheck 0 에러
-- npm run lint 0 에러
-- grep으로 매직 스트링 logEvent 호출 0건 확인
-- grep으로 외부 코드의 @react-native-firebase/* 직접 import / namespaced analytics() 호출 0건 확인
-- (firebase/ 를 아카이브에서 뺀 클라우드 빌드만) eas env:list 결과에 GOOGLE_SERVICE_INFO_PLIST, GOOGLE_SERVICES_JSON 존재
-```
-
-**KPI 정의 검증 (Go/No-Go)**:
-- `_workspace/plan/kpis.md`가 존재하지 않거나 north-star + 4축이 빠져 있으면
-  → Phase 2 (product-planner) 재실행으로 escalate
-- PRD에 정의된 이벤트와 코드의 EAnalyticsEvent 상수가 1:1로 일치하지 않으면 FAIL
-
-**부트 시퀀스 정본 확인 (`_layout.tsx`)**:
-Phase 4b(광고·SecureStore)와 4d(Analytics·Crashlytics·Review)가 모두 루트 `_layout.tsx` 한 곳에 init을 모은다. **순서가 어긋나면 첫 이벤트·첫 광고 요청·동의 정보가 누락**되므로(전형적 order-sensitive 지점) 아래 정본 순서를 확인한다:
-1. `ErrorBoundary`가 트리 최상단 (Crashlytics `recordError` + `reviewStore.recordError`) — init 중 크래시도 포착
-2. `void initializeAdsWithConsent()` — UMP → ATT → `setRequestConfiguration` → `mobileAds().initialize()`. **첫 렌더를 막지 않는다**(await 금지). UMP 결과(`ump_status`/`att_status`)는 consent.ts가 직접 user property로 기록
-3. `void initAnalytics()` — 수집 토글(IS_PROD). **모듈 최상단**에서 호출(effect 아님 — 네이티브 수집이 꺼진 채 시작하므로 자식 화면의 마운트 이벤트보다 먼저 켜야 한다). 동의 흐름과 병렬이어도 된다 (UMP가 Firebase consent mode를 직접 갱신)
-4. `useReviewStore.persist.rehydrate()` **완료 후** `recordLaunch()` (세션당 1회)
-5. `setAuthFailureCallback` (auth 사용 앱)
-6. 광고 컴포넌트/훅은 `useAdsReady()`가 true가 된 뒤에만 로드
-- 위반(특히 동의 전에 광고 로드, 렌더를 막는 await, hydrate 전 recordLaunch) 발견 → `api-integrator`로 환원. 미사용 모듈(광고/Analytics 미선택)은 해당 단계 생략 가능.
-
-**Error Handling**:
-- **Firebase 콘솔 미로그인**: Playwright MCP가 로그인 페이지를 감지하면 사용자에게 브라우저 창에서 직접 로그인하라고 요청하고 대기. 절대 자격증명을 자동 입력 시도하지 않는다.
-- **Playwright selector 실패** (콘솔 UI 변경): `_workspace/implementation/firebase-manual.md`에 진행 상태(어느 단계에서 실패했는지, 어떤 앱이 이미 등록되었는지) 기록 후 사용자에게 수동 등록 + 파일 다운로드를 요청. 사용자 확인 후 파일 이동 단계부터 자동화 재개.
-- **다운로드 파일 누락**: `~/Downloads/GoogleService-Info.plist`, `~/Downloads/google-services.json`이 없으면 1-4 / 1-5단계의 "다운로드" 버튼 클릭이 실패한 것. 콘솔에서 해당 앱 설정 → "GoogleService-Info.plist/google-services.json" 다시 다운로드.
-- **EAS env 충돌**: 동일 이름 변수가 이미 있으면 `eas env:create ... --force`로 덮어쓴다 (사용자 확인 필요).
-- **pod install 실패 — "SPM + static linkage is not supported"**: `useFrameworks: 'static'`이 RNFB 기본 SPM 모드와 충돌한 것. `'dynamic'`으로 되돌린다.
-- **빌드 실패 — Multiple commands produce duplicate**: `@react-native-firebase/app` plugin 등록 누락 또는 `ios/`에 수동 배치한 GoogleService-Info.plist 중복 우선 확인.
-- **Firebase 콘솔 접근 권한 부재**: `_workspace/implementation/error-4d.md`에 차단 사유 기록 후 사용자에게 Firebase 프로젝트 권한 부여 요청.
-
-**Quick QA Checkpoint (4d-QA)**:
-Phase 4d 완료 후 qa-reviewer가 경량 검증을 실행한다:
-```bash
-npm run typecheck && npm run lint
-```
-추가 검사 (qa-reviewer가 수동 수행):
-- 외부 코드에서 `@react-native-firebase/*` 직접 호출 0건 (반드시 `@shared/lib/analytics` 래퍼 사용)
-- `logEvent(`'string'`, ...)` 매직 스트링 호출 0건 (반드시 `EAnalyticsEvent.*` 상수 사용)
-- 이벤트 파라미터에 이메일/전화/실명/정확 위치 PII 0건
-- `expo-store-review` 직접 호출 0건 (반드시 `@/shared/store-review` 훅 사용)
-- 정책 엔진 미경유 `requestReview()` 호출 0건
-- 매직 스트링 트리거 ID 0건 (반드시 `REVIEW_TRIGGERS.*` 사용)
-
-- PASS → Phase 5 진행
-- FAIL → api-integrator에게 수정 요청 (최대 2회 재시도)
+**상세 절차(콘솔 자동화 단계, Sprint Contract 4d Done 조건·검증 명령): `references/analytics-integration.md` — Phase 4d 시작 시 Read.**
 
 ---
 
@@ -976,122 +611,16 @@ Loop 시작 (최대 3회):
 
 #### Step 7.0: 배포 전 재검증 게이트 (Pre-Deploy Gate)
 
-**게시된 빌드에서만 동작하거나 출시 후 코드/콘솔로만 고칠 수 있는 것들**은, 빌드 직전에 "제대로·일관되게 됐는지"를 마지막으로 재확인한다. 시뮬레이터·dev·TestFlight에선 검증되지 않는 항목은 **코드·설정 상태로만 판정**한다. 하나라도 미통과면 Build/Submit 보류.
+게시된 빌드에서만 동작하거나 출시 후 코드·콘솔로만 고칠 수 있는 것들을 빌드 직전에 다시 확인한다. **하나라도 미통과면 Build/Submit 을 보류한다. 전체 표와 미통과 시 조치: `references/pre-deploy-gate.md` — Phase 7 진입 시 반드시 Read.**
 
-**(a) 런타임 트리거 배선** — 게시 후 코드로만 수정 가능
+- **(a) 런타임 배선**: 평점 트리거 최소 1곳 배선(`store_review=true` 일 때) · 광고 동의/초기화와 `useAdsReady()` 게이트 · KPI 이벤트 배선 · 스토어 바이너리 `extra.appEnv` 가 없거나 `production`
+- **(b) 스토어·콘솔·시크릿**: `npm run verify` green + Hard Threshold 0 (승인으로 우회 불가) · HIGH 이슈 0 · 런타임 검증 증거(`BLOCKED` 는 PASS 아님) · 앱 이름 4곳 일치 · 권한 ↔ 사용 설명 일치 · 데이터 안전 라벨 ↔ SDK 일치 · IAP 상품 등록 · app-ads.txt · Firebase 설정 파일
 
-| 확인 항목 | 통과 기준 | 미통과 시 |
-|----------|----------|----------|
-| **스토어 리뷰 트리거** | `spec.md`의 `ux.store_review=true`이면, PRD Review Triggers에 매핑된 화면의 **긍정적 액션 성공 콜백(UI idle)**에 `maybeRequest(REVIEW_TRIGGERS.X)`가 **최소 1곳 이상** 실제 배선됨. (인앱 리뷰는 스토어 콘솔 사전 설정 불필요) | 한 곳도 없으면 평점 수집이 0 → `ui-developer`로 환원, 가치-순간 결정 후 배선 |
-| 광고 동의/초기화 | `monetization.model`에 광고 포함 시 루트에서 `initializeAdsWithConsent()` 호출(렌더 비차단) + 모든 광고 로드가 `useAdsReady()` 경유 + AdMob Console GDPR/IDFA 메시지 **Published** | `api-integrator`로 환원 |
-| Analytics KPI 배선 | 북극성/4축 커스텀 이벤트가 화면에 배선(`screen_view`는 루트 `_layout.tsx`가 자동 기록) | `api-integrator`/`ui-developer`로 환원 |
-| **빌드 환경 (APP_ENV)** | 스토어 제출 바이너리의 `extra.appEnv`가 없거나 `production` (EAS: 프로필 `APP_ENV=production` / 로컬 fastlane: 미설정 → release 번들이 production으로 판정). CLAUDE.md "빌드 환경 (APP_ENV)" 검증 명령 | `development`/`preview`면 테스트 광고로 출시됨 → 재빌드 |
-
-**(b) 스토어·콘솔·일관성·시크릿** — 출시 후 수정이 번거롭거나 리젝/정책 위반을 유발
-
-| 확인 항목 | 통과 기준 | 미통과 시 |
-|----------|----------|----------|
-| **앱 이름 4곳 일치** | `app.config.ts` `name` / `withLocalizedAppName` / iOS `name.txt` / Android `title.txt` 가 **언어별로 모두 동일**(30자 이내) | 불일치 → 4곳 동기화 (`prebuild --clean` 재빌드 필요) |
-| **권한 ↔ 사용 설명 일치** | spec `permissions.*`에서 켠 권한마다 Info.plist 사용 설명 문구 존재 + **안 쓰는 권한은 미선언** | 누락/과선언 → 스토어 리젝 사유, `api-integrator`로 환원 |
-| **데이터 안전 라벨 ↔ SDK** | 통합된 데이터 수집 SDK(Analytics/AdMob/Crashlytics)와 Play 데이터 안전 / Apple 개인정보 라벨이 **일치** | 불일치 → 정책 위반/리젝, store-forms로 보정 |
-| **IAP/구독 상품 등록** (조건부) | `monetization.model`에 IAP/구독 포함 시 ASC/Play 콘솔에 상품 생성·승인됨 | 미등록 → 페이월 무동작(수익 0), 콘솔 등록 후 재확인 |
-| **검증 green** | 배포할 커밋에서 `npm run verify` 통과 + Hard Threshold 위반 0 (사용자 승인으로 우회 불가) | 실패 → 배포 보류, 해당 에이전트로 환원 |
-| **미해결 HIGH QA 이슈** | `_workspace/qa/unresolved.md`에 HIGH 미해결 이슈 **0건** (Phase 6 과 같다 — 승인으로 넘기지 않는다) | HIGH 잔존 → 배포 보류 |
-| **런타임 검증 증거** | Phase 5b 가 시뮬레이터에서 핵심 흐름(happy path·뒤로가기·키보드·에러/빈 상태)을 `sim-use` 로 확인하고 플랫폼·기기·커밋·스크린샷을 `_workspace/qa/runtime/` 에 남김. 시뮬레이터를 못 띄웠으면 `BLOCKED` 로 기록되며 PASS 가 아니다 | `BLOCKED`/누락 → 사용자에게 알리고 실행 가능한 환경에서 재검증 |
-| **app-ads.txt** (조건부) | 광고 사용 시 app-ads.txt 게시 + 스토어 리스팅에 도메인 연결 (store-admob Step 7) | 미게시 → 무효 트래픽 판정·수익 차단 |
-| **Firebase 설정 주입** | `GoogleService-Info.plist`/`google-services.json` 평문 커밋 0. `./firebase/` 두 파일 존재 (로컬 빌드, `.easignore` 가 올리는 클라우드 빌드 모두). `firebase/` 를 아카이브에서 뺀 클라우드 빌드만 file 환경변수 `GOOGLE_SERVICE_INFO_PLIST`/`GOOGLE_SERVICES_JSON` 등록(`eas env:list`) | 누락 → prebuild 실패/런타임 Firebase 실패, 설정 후 재빌드 |
-
-> **왜 배포 단계인가**: (a)는 "어느 화면의 어느 순간에 넣을지"가 UX 품질을 좌우하고(평점은 잘못 띄우면 ★1 폭격), (b)는 여러 곳에 흩어져 동기화가 깨지거나 콘솔/스토어 설정과 어긋나기 쉽다. 둘 다 **전체가 완성된 배포 직전**에 판단·확인이 가장 정확하고, 게시 후엔 즉시 못 고치므로 여기가 마지막 안전망이다. 모두 통과해야 Build/Submit 진행.
-
-```
-Tasks (/store-deploy):
-0. (광고 앱) AdMob 앱·광고 단위: store-admob. --ad-types 에 spec monetization.ad_formats 를 넘긴다
-   (앱 코드가 부르는 형식과 같아야 한다. 템플릿 기본은 app_open 포함)
-1. 프로덕션 빌드 — 로컬이 기본 (eas build --local, EAS 프로젝트가 없는 앱은 fastlane).
-   클라우드 EAS Build 는 사용자가 요청하거나 로컬 빌드가 안 될 때만
-2. 스토어 메타데이터 생성
-3. 스크린샷 생성
-4. App Store / Google Play 제출 — 로컬 산출물은 eas submit --path <파일>,
-   EAS 프로젝트가 없는 앱은 그 앱의 fastlane 업로드 lane
-```
-
-상세 절차: store-deploy 플러그인의 `store-deploy` 스킬 (Claude: `.claude/settings.json` 이 `seungmanchoi/store-deploy-plugin` 을 등록, Codex: `references/runtime-adapters.md` 의 설치 명령. 유지관리자 로컬 원본: `~/works/store-deploy-plugin/skills/store-deploy/SKILL.md`)
+**배포 순서** (`/store-deploy`): (광고 앱) `store-admob` 으로 AdMob 앱·광고 단위(spec `monetization.ad_formats` → `--ad-types`) → 로컬 프로덕션 빌드(`eas build --local`, EAS 없는 앱은 fastlane. 클라우드는 사용자가 요청하거나 로컬 빌드가 안 될 때만) → 메타데이터 → 스크린샷 → 로컬 산출물 제출(`eas submit --path <파일>` 또는 fastlane 업로드 lane). 상세: store-deploy 플러그인 `store-deploy` 스킬 (설치: `references/runtime-adapters.md`)
 
 #### Step 7.1: Android 프로덕션 액세스 신청 (개인 계정 한정)
 
 Google Play **개인 계정**으로 만든 신규 앱은, 비공개 테스트 **14일+ / 12명+** 게이트를 충족한 뒤 **"프로덕션 액세스 신청"** 양식을 제출·통과해야 프로덕션 공개가 가능하다. 이 신청 양식 작성·제출은 `api-integrator`의 "Play Console 프로덕션 액세스 신청 자동화" 능력이 담당하며, **답변은 `references/play-production-access-application.md`를 정본으로 참고**해 사용자의 실제 사실로 작성한다(날조 금지, 최종 제출 전 사용자 확인). 승인은 보통 7일 이내, 이메일 통보. 승인 후 비공개 테스트(alpha) 최신 버전을 콘솔에서 프로덕션으로 "버전 승급"(재빌드 불필요).
-
----
-
-## Pipeline Diagram
-
-```
-[사용자 요청]
-      │
-      ▼
-┌──────────────────────────┐
-│  Phase 1: Ideation       │  idea-researcher  (/ideate)
-└────────────┬─────────────┘
-             │ _workspace/idea/
-             ▼
-┌──────────────────────────┐
-│  Phase 2: Planning       │  product-planner  (/plan-app)
-└────────────┬─────────────┘
-             │ _workspace/plan/
-             ▼
-┌──────────────────────────┐
-│  Phase 2.5: Spec Planning│  spec-planner (docs/specs/)
-└────────────┬─────────────┘
-             │ docs/specs/
-             ▼
-┌──────────────────────────┐
-│  Phase 3: Design         │  design-architect (/design-system)
-└────────────┬─────────────┘
-             │ _workspace/design/
-             ▼
-┌────────────────────────────────────────────────────────┐
-│  Phase 4: Implementation (순차 + Quick QA)             │
-│  4a feature-builder    → 4a-QA (typecheck+lint)        │
-│   → 4b api-integrator  → 4b-QA                         │
-│      → 4c ui-developer → 4c-QA                         │
-│         → 4d api-integrator (Firebase Analytics+KPI)   │
-│            → 4d-QA                                     │
-└────────────┬───────────────────────────────────────────┘
-             │ src/, app/
-             ▼
-┌──────────────────────────────────────────────┐
-│  Phase 5: QA (병렬)                          │
-│  5a qa-reviewer  ◄──────►  5b app-inspector  │
-│                              (/inspect-app)   │
-└────────────┬─────────────────────────────────┘
-             │ _workspace/qa/
-             ▼
-┌──────────────────────────┐
-│  Phase 6: Iteration      │  Fix Loop (최대 3회)
-└────────────┬─────────────┘
-             │
-             ▼
-┌──────────────────────────┐
-│  Phase 7: Deployment     │  /store-deploy
-└──────────────────────────┘
-```
-
----
-
-## Agent-Skill Mapping
-
-| 에이전트 | 담당 스킬 | 책임 영역 |
-|---------|----------|----------|
-| `idea-researcher` | `/ideate` | 시장 조사, 앱 아이디어 도출 |
-| `product-planner` | `/plan-app` | PRD, FSD 모듈 맵, 유저 스토리, **KPI 정의 + Review Trigger 카탈로그** |
-| `spec-planner` | — | docs/specs/ 스펙 문서, phase/task 분해, 진행 추적 |
-| `design-architect` | `/design-system` | NativeWind 테마, 화면 레이아웃 |
-| `feature-builder` | `/create-feature`, `/create-entity` | FSD 모듈, Zustand, TS 타입 |
-| `api-integrator` | — | Axios 클라이언트, TanStack Query hooks, **Firebase Analytics + KPI 이벤트 + Secure Storage + Store Review 인프라** |
-| `ui-developer` | `/create-screen` | Expo Router 스크린, NativeWind UI, **Review trigger·screen tracking·key action 카운터 배선** |
-| `qa-reviewer` | — | 코드 품질, TypeScript, FSD 규칙, **Analytics 매직 스트링/PII + SecureStore 우회 + Review 안티패턴 검사** |
-| `app-inspector` | `/inspect-app` | 기능/UX 검사, Safe Area, 접근성 |
-| `loop-engineer` | `/iterate-app` | **출시 후 지속 고도화 루프** — 현황 진단, 다음 고도화 추천(KPI 갭·기술부채·FSD 커버리지·노력 랭킹), 개발→검증→추천 루프 supervise |
 
 ---
 
@@ -1139,24 +668,6 @@ Phase 5의 app-inspector는 정적 코드 분석뿐 아니라 **런타임 테스
 5. 에러 상태 유발: 네트워크 끊기, 빈 데이터
 6. 증거: sim-use screenshot
 ```
-
----
-
-## Model Capability Adaptation (Anthropic 원칙)
-
-> "Every component in a harness encodes an assumption about what the model can't do on its own."
-
-**모델이 발전하면 하네스를 간소화해야 한다.** 각 컴포넌트가 정당화되는지 주기적으로 재평가:
-
-| 컴포넌트 | 가정 | 현재 모델에서 필요? |
-|---------|------|-------------------|
-| Sprint Contract | 모델이 범위를 놓침 | 단순 앱은 불필요, 복잡한 앱은 유지 |
-| Quick QA (4a-4c) | 서브스텝 간 에러 누적 | 유지 권장 (typecheck은 항상 유용) |
-| Phase 6 Fix Loop | 한 번에 완벽 불가 | 유지 (자체 평가는 여전히 관대) |
-| Generator-Evaluator 분리 | 자체 평가 편향 | 핵심 — 제거 불가 |
-| Context Reset | 컨텍스트 저하 | 최신 Opus(4.8+)에서는 불필요할 수 있음 — 새 모델 출시 시 재평가 |
-
-**비용 인식**: 멀티 에이전트 하네스는 단일 에이전트 대비 **20배 이상** 토큰을 소비한다. 단순한 기능 추가는 하네스 없이 직접 구현하고, 전체 앱 구축 시에만 파이프라인을 활성화한다.
 
 ---
 

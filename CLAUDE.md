@@ -29,6 +29,7 @@ React Native + Expo template with **Feature-Sliced Design (FSD)** architecture a
 4. **`_workspace/` 디렉토리**: 에이전트 간 데이터는 `_workspace/`에 파일로 저장하여 전달한다. Phase 전환 시 이전 산출물을 Read하고 이어서 작업한다. `spec.md`·`plan/`·`iterate/` 는 커밋 대상이고(`.gitignore` 예외) 나머지는 임시 산출물이다.
 5. **디자인 변경 시**: `design-architect` 에이전트의 4축 평가 기준(Design Quality, Originality, Craft, Functionality)을 적용한다.
 6. **배포 시**: `/store-deploy` 스킬을 사용한다. 다른 배포 방법을 사용하지 않는다.
+7. **상세 규칙 문서**: 보안 저장소·Analytics·평점·광고·빌드/배포·런타임 테스트·도구를 건드리는 작업은 시작 전에 해당 `docs/rules/*.md` 를 Read 하고 따른다. 이 파일에는 요약과 Hard Threshold 만 있다.
 
 ### Hard Thresholds (위반 시 작업 FAIL)
 
@@ -51,61 +52,9 @@ React Native + Expo template with **Feature-Sliced Design (FSD)** architecture a
 
 ### Secure Storage / 민감 데이터 저장 (MANDATORY)
 
-**`AsyncStorage`는 평문으로 저장되며 루팅/탈옥 기기에서 그대로 읽힌다.** 인증 토큰을 포함한 모든 민감 데이터는 iOS Keychain / Android Keystore-backed Encrypted Storage에 저장한다. 표준 도구는 `expo-secure-store` 이다.
+토큰·시크릿·결제/라이선스 키·PII 와 결합된 토큰은 `expo-secure-store`(iOS Keychain / Android Keystore)에만 둔다. `AsyncStorage`·MMKV 는 평문이라 UI 테마·언어·온보딩 플래그 같은 비민감 값만 담는다. 템플릿 토큰 저장소는 `src/shared/api/client.ts` 의 `tokenManager`(`keychainAccessible: WHEN_UNLOCKED_THIS_DEVICE_ONLY`)이고, auth 훅은 `tokenManager.setTokens(...)` 만 부른다. 로그아웃·토큰 만료 시 `tokenManager.clearTokens()` 와 `queryClient.clear()` 를 같은 경로에서 호출한다.
 
-#### 저장 경계 — 무엇을 어디에
-
-| 분류 | 예시 | 저장 위치 |
-|------|------|----------|
-| **민감 (반드시 SecureStore)** | access token, refresh token, OAuth/세션 토큰, API 비밀키, 결제 토큰/카드 정보, 사용자 비밀번호·PIN·생체 백업키, 프리미엄 라이선스 키, 사용자 식별 가능 정보(PII)와 결합된 토큰 | `expo-secure-store` |
-| **준민감 (SecureStore 권장)** | 푸시 토큰, 디바이스 시크릿, 분석/측정용 user pseudo-id (재설치 후 복구 필요한 경우) | `expo-secure-store` |
-| **비민감 (AsyncStorage/MMKV 허용)** | UI 테마, 언어, 마지막으로 본 화면, 온보딩 완료 플래그, 캐시된 비식별 콘텐츠, Zustand의 비민감 영역 | `@react-native-async-storage/async-storage` 또는 MMKV |
-
-**금지 사항**
-- 토큰을 Redux/Zustand persist를 통해 AsyncStorage에 저장 — persist는 **비민감 슬라이스만 대상**으로 한다
-- 토큰을 `app.config.ts`의 `extra` 필드, `.env` 클라이언트 번들, 또는 평문 JSON으로 노출
-- Console/Crashlytics/Analytics 로그에 토큰 또는 PII 출력 (`__DEV__`에서도 마스킹)
-
-#### 표준 스택
-
-| 영역 | 패키지 | 비고 |
-|------|--------|------|
-| 암호화 저장 | `expo-secure-store` | iOS Keychain, Android Keystore + EncryptedSharedPreferences |
-| 비민감 KV | `@react-native-async-storage/async-storage` 또는 `react-native-mmkv` | persist용 |
-| 생체 인증 | `expo-local-authentication` (선택) | Keychain 접근 시 `requireAuthentication: true` |
-
-설치:
-```bash
-npx expo install expo-secure-store
-```
-
-#### 코드 통합 위치 (FSD)
-
-템플릿 기본 구현은 **`src/shared/api/client.ts`의 `tokenManager`**가 담당한다 — expo-secure-store 직접 래퍼(`setTokens`/`getAccessToken`/`getRefreshToken`/`clearTokens`), 키는 `TOKEN_KEYS` 상수. Axios 인터셉터가 여기서 토큰을 읽는다.
-
-토큰 외 시크릿(결제·라이선스·PII 결합 토큰 등)이 늘면 아래처럼 전용 모듈로 분리한다:
-
-```
-src/shared/secure-storage/
-├── client.ts          # expo-secure-store 래퍼 (getItem/setItem/deleteItem/multiRemove)
-├── keys.ts            # 저장 키 상수 (SECURE_KEYS.ACCESS_TOKEN 등)
-├── types/index.ts     # ISecureStorageOptions, TSecureKey 등
-└── index.ts           # barrel export
-```
-
-**분리 시 래퍼 코드는 `.claude/agents/api-integrator.md`의 "Secure Storage 래퍼" 섹션이 정본**이다. 분리해도 토큰은 `tokenManager` 에 둔다. 상시 규칙: `keychainAccessible = WHEN_UNLOCKED_THIS_DEVICE_ONLY`(iCloud 백업 차단), 키는 상수로만 정의한다.
-
-#### 토큰 저장소 통합 규칙
-
-- 템플릿 기본: 토큰은 `src/shared/api/client.ts`의 `tokenManager`로 저장/조회하고, auth 훅(use-login/use-signup)은 `tokenManager.setTokens(...)`만 호출한다. 토큰을 Zustand store(`persist` 포함)에 두지 않는다.
-- Axios 인터셉터(`src/shared/api/client.ts`)는 토큰을 메모리 또는 SecureStore에서 가져온다. **AsyncStorage 직접 조회 금지**.
-- 토큰 만료/로그아웃 시 `tokenManager.clearTokens()`(시크릿이 여럿이면 `clearAllSecure()`)로 시크릿을 삭제하고, 같은 경로에서 `queryClient.clear()`로 이전 사용자의 쿼리 캐시를 비운다(템플릿: Profile Sign Out · `setAuthFailureCallback`).
-- iOS 옵션: 기본은 `WHEN_UNLOCKED_THIS_DEVICE_ONLY` — 디바이스 잠금 해제 시에만 접근, 백업/iCloud 동기화 제외.
-- Android: `expo-secure-store`가 자동으로 Keystore-backed `EncryptedSharedPreferences`를 사용. 별도 설정 불필요.
-
-#### 생체 인증 게이트 (선택)
-
-결제·금융·헬스 데이터 등 고위험 토큰은 저장 시 `WHEN_PASSCODE_SET_THIS_DEVICE_ONLY` + `requireAuthentication: true` + `authenticationPrompt` 옵션으로 생체 인증을 강제한다 (코드 예시: api-integrator.md).
+상세(저장 경계 표, 전용 모듈 분리, 생체 인증 게이트): `docs/rules/secure-storage.md`
 
 #### Hard Threshold (Secure Storage)
 
@@ -249,61 +198,14 @@ Phase 7: Deployment    — /store-deploy
 
 ## Analytics & 핵심 지표 (MANDATORY)
 
-**모든 앱은 출시 직후부터 측정 가능한 핵심 지표(KPI)를 수집한다.** 이를 위해 Firebase Analytics를 표준 도구로 사용한다. KPI 정의는 기획 단계에서, 이벤트 수집 코드는 구현 단계에서 반드시 포함되어야 한다.
+모든 앱은 출시 직후부터 KPI 를 수집한다. PRD 에 북극성 지표 1개와 4축 기본 세트(획득·활성·유지·수익화)를 정의하고, 이벤트는 Firebase Analytics(RN Firebase 26 **modular API**)로 보낸다.
 
-### Firebase 표준 스택
+- 호출은 `@shared/lib/analytics` 래퍼(`initAnalytics`, `logEvent`, `logScreenView`, `recordError`)로만 한다. 이벤트 이름은 `events.ts` 의 `EAnalyticsEvent` 상수, snake_case `동사_명사`, PII 금지
+- 수집은 `env.IS_PROD` 에서만. `firebase.json` 의 `analytics_auto_collection_enabled: false` 를 지우지 않는다. Crashlytics 자동 수집 끄기를 추가하지 않는다
+- `initAnalytics()` 는 루트 `_layout.tsx` **모듈 최상단**에서 호출한다. `screen_view` 는 루트 레이아웃이 라우트 패턴으로 자동 기록한다
+- iOS 는 `expo-build-properties` `useFrameworks: 'dynamic'`(RNFB 26 SPM). 설정 파일은 `./firebase/` 에 두고 커밋하지 않는다
 
-| 영역 | 패키지 | 용도 |
-|------|--------|------|
-| 핵심 | `@react-native-firebase/app` | Firebase 초기화 |
-| Analytics | `@react-native-firebase/analytics` | 이벤트/사용자 속성/스크린 추적 |
-| Crashlytics | `@react-native-firebase/crashlytics` | 충돌/예외 리포트 (KPI 신뢰도 보호) |
-| Remote Config (선택) | `@react-native-firebase/remote-config` | 실험/플래그 |
-
-Expo plugin 등록: `app.config.ts` → `plugins: ['@react-native-firebase/app', '@react-native-firebase/crashlytics']` 및 `expo-build-properties`로 iOS `useFrameworks: 'dynamic'` 설정. RN Firebase 26은 Firebase iOS SDK를 **SPM**으로 가져오며 SPM은 dynamic frameworks가 필수다 — `'static'`만 단독으로 쓰면 `pod install`이 실패한다(정적이 꼭 필요하면 RNFB app plugin `{ ios: { disableSPM: true } }` + `'static'` + 모든 RNFB pod을 `forceStaticLinking`). **v26은 namespaced API(`analytics().logEvent`)를 삭제했다** — modular API(`logEvent(getAnalytics(), ...)`)만 쓴다.
-
-### 측정 표준 KPI (기본 세트)
-
-**모든 앱에 기본으로 정의해야 하는 4개 축:**
-
-| 축 | 대표 지표 | Firebase 이벤트 |
-|----|----------|-----------------|
-| 획득 (Acquisition) | 신규 설치, 첫 실행 | `first_open` (자동), `app_install` |
-| 활성 (Activation) | DAU/WAU, 첫 핵심 행동 완료율 | `activation` (커스텀), `screen_view` (자동) |
-| 유지 (Retention) | D1/D7/D30 리텐션, 세션 길이 | `session_start` (자동), `user_engagement` (자동) |
-| 수익화 (Monetization) | 광고 노출/클릭, IAP 매출, ARPU | `ad_impression` (자동), `purchase` |
-
-추가로 각 앱의 **북극성 지표(North Star Metric)** 1개를 PRD에서 명시한다 (예: "주간 사진 N장 촬영 사용자 수").
-
-### 이벤트 네이밍 규칙
-
-- snake_case, 영문 소문자, 동사_명사 형식 (`tap_camera_capture`, `view_gallery_grid`)
-- 예약어 금지: Firebase 자동 이벤트(`session_start`, `first_open` 등)와 중복 금지. `screen_view`는 커스텀 이벤트로 만들지 않고 `logScreenView()`로만 보낸다(루트 `_layout.tsx`가 라우트 패턴으로 자동 기록, `firebase.json`에서 네이티브 자동 화면 수집은 끔)
-- 파라미터는 25개 이하, 키 길이 ≤ 40자, 값 길이 ≤ 100자
-- PII 금지: 이메일/전화번호/실명/정확한 위치는 절대 파라미터로 보내지 않는다
-
-### 코드 통합 위치 (FSD)
-
-```
-src/shared/lib/analytics/
-├── analytics.ts       # 파사드 — initAnalytics, logEvent, logScreenView
-├── firebase.ts        # Firebase 어댑터
-├── noop.ts            # no-op 어댑터 (Expo Go/네이티브 모듈 없을 때 자동 fallback)
-├── events.ts          # 이벤트 카탈로그 (EAnalyticsEvent 상수 + 파라미터 타입)
-├── types.ts           # IEventName, TEventParams 등
-└── index.ts           # barrel export
-```
-
-- 직접 `firebase.analytics().logEvent()` 호출 금지 — 반드시 `@shared/lib/analytics`의 래퍼 함수만 사용
-- 이벤트 이름은 `events.ts`의 상수로만 정의 (오타/중복 방지)
-- 수집은 `env.IS_PROD`에서만 켠다(`initAnalytics()`가 Analytics·Crashlytics collection을 설정) — dev/preview 트래픽이 KPI를 오염시키지 않게. Analytics 네이티브 기본값은 `firebase.json`의 `analytics_auto_collection_enabled: false`로 꺼 둔다 — 켜 두면 JS가 끄기 전에 dev/preview 새 설치의 `first_open`·`session_start`가 전송된다. production은 `initAnalytics()`가 켠 직후 `first_open`·`session_start`가 기록되고 값이 저장돼 다음 실행부터는 시작부터 수집한다. Crashlytics 기본값은 켜 둔다(`crashlytics_auto_collection_enabled` 미설정) — 끄면 RNFB가 JS 설정을 다음 실행에야 반영해 JS 전에 죽는 production 첫 실행 크래시가 업로드되지 않는다(dev는 RNFB가 debug 빌드에서 이미 끈다). `initAnalytics()`는 루트 `_layout.tsx` **모듈 최상단**에서 호출한다 — effect 안이면 먼저 실행되는 자식 화면의 마운트 이벤트가 첫 실행에서 버려진다
-- 비치명 에러는 `recordError(error)`(Crashlytics)로 보낸다. 루트 `ErrorBoundary`가 이미 호출한다
-
-### 통합 단계
-
-Firebase 콘솔 자동화(Playwright MCP) · 설정파일 배치/보안(`.gitignore` + EAS 환경변수(file)) · 패키지 설치/plugin 등록 · `src/shared/lib/analytics/` 모듈 작성 · `_layout.tsx` 초기화 · 이벤트 배선 · 빌드 검증의 **전체 절차는 `.claude/agents/api-integrator.md`("Firebase 콘솔 자동화", "Analytics 통합 규칙")** 와 orchestrate Phase 4d가 정본이다.
-
-> 요약 규칙: `app.config.ts` plugins 에 `@react-native-firebase/app`, `@react-native-firebase/crashlytics`, `expo-build-properties`(iOS `useFrameworks: 'dynamic'`)를 등록한다. Podfile을 고치는 커스텀 패치 플러그인은 쓰지 않는다. `GoogleService-Info.plist`/`google-services.json`은 `./firebase/`에 두고(gitignore) 절대 커밋하지 않는다. 로컬 빌드는 이 파일을 그대로 쓰고, 클라우드 빌드도 `.easignore`가 `firebase/`를 올려서 그대로 된다. `firebase/`를 아카이브에서 뺀 경우에만 file 타입 환경변수 `GOOGLE_SERVICE_INFO_PLIST` / `GOOGLE_SERVICES_JSON`으로 주입한다(`app.config.ts`가 이 두 이름을 먼저 읽는다 — `eas secret:*`은 deprecated, `eas env:create --type file --visibility secret`). RNFirebase 빌드 이슈 상세: `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md`.
+상세(KPI 표, 이벤트 네이밍, 모듈 구조, 수집 시점의 이유, 설정 파일 주입): `docs/rules/analytics.md`. 통합 절차 정본: `.claude/agents/api-integrator.md`
 
 ### Hard Threshold (Analytics)
 
@@ -318,85 +220,9 @@ Firebase 콘솔 자동화(Playwright MCP) · 설정파일 배치/보안(`.gitign
 
 ## 스토어 평점 유도 (In-App Review Prompts) (MANDATORY)
 
-**평점은 단순히 "달라"고 띄우는 게 아니라, 사용자가 가치를 느낀 직후의 짧은 순간을 노려야 한다.** 잘못된 타이밍에 띄우면 ★1 폭격을 유발한다. 모든 앱은 트리거를 코드 곳곳에 직접 호출하지 않고, **중앙 정책 엔진**을 통해 호출한다.
+평점은 사용자가 가치를 느낀 직후의 짧은 순간에만 요청한다. 모든 요청은 `useStoreReview().maybeRequest(REVIEW_TRIGGERS.X)` 하나로 하고, 정책 엔진 `canRequestReview` 가 설치 3일·실행 5회·핵심 액션 3회·직전 요청 90일·연 3회·실행 후 120초·UI idle·최근 5분 내 에러 없음을 모두 확인한다. 자체 사전 프롬프트, 점수 유도 문구, 반환값에 따른 후속 UI 분기, 에러 핸들러 안 호출은 금지다. 루트 레이아웃이 `recordLaunch()`, 에러 바운더리가 `recordError()`, 화면 성공 콜백이 `recordKeyAction()` 을 부른다.
 
-### 표준 스택
-
-| 영역 | 패키지 | 비고 |
-|------|--------|------|
-| 평점 요청 | `expo-store-review` | iOS `SKStoreReviewController`, Android Google Play In-App Review API 래핑 |
-| 카운터 persist | `@react-native-async-storage/async-storage` 또는 MMKV | **비민감 데이터** — SecureStore 불필요 |
-
-설치:
-```bash
-npx expo install expo-store-review
-```
-
-### 플랫폼 한계 (알고 시작해야 한다)
-
-- **iOS (`SKStoreReviewController.requestReview()`)**: 시스템이 **365일 윈도우 내 최대 3회**까지만 실제 다이얼로그를 노출한다. 초과 호출은 **에러 없이 조용히 무시**되므로 "표시되었는지" 알 길이 없다. HIG: "앱 실행 직후나 작업 도중에 묻지 말 것".
-- **Android (Play In-App Review API)**: Google이 자체 쿼터를 관리하며 앱은 쿼터를 알 수 없다. **"리뷰 의향을 묻는 사전 프롬프트(would you like to review?) 금지"** — 정책 위반. 짧은 시간 내 반복 호출도 무시된다.
-- **공통**: 호출 자체에 비용은 없지만, 정책 엔진으로 호출을 줄여야 "표시될 기회"가 보존된다. `requestReview()`는 표시 여부를 반환하지 않으므로 **표시되었다고 가정한 후속 UI/로직을 만들지 않는다**.
-
-### 트리거 정책 (Hard Rules)
-
-다음 모든 게이트를 통과해야 `requestReview()`가 호출된다:
-
-| 게이트 | 기본값 | 비고 |
-|--------|--------|------|
-| 최소 설치 후 경과 일수 | 3일 이상 | "처음 본 앱"에 평점 금지 |
-| 앱 실행(launch) 누적 횟수 | 5회 이상 | 한 번 써본 사용자 제외 |
-| 핵심 액션 완료 횟수 | 3회 이상 | "Activation" 한 번이 아닌 반복 사용 |
-| 마지막 요청 이후 경과 | 90일 이상 | iOS 시스템 쿼터 보호 |
-| **365일 윈도우 내 자체 호출 횟수** | **3회 이하** | iOS 시스템 한도(연 3회)와 동일. 우리도 카운팅해서 초과 호출 자체를 차단 |
-| 이번 세션에 이미 요청 | false | 한 세션에 1회 |
-| **앱 실행 직후 cooldown** | **120초 이상 경과** | "실행 즉시" 노출 차단 (HIG) |
-| **UI idle 상태 필수** | **true** | 모달/시트/네비게이션 트랜지션/폼 입력/비동기 작업 진행 중 호출 차단 |
-| 최근 5분 내 에러/크래시 | false | 부정적 컨텍스트 차단 |
-| `Platform.isPad` 등 폼팩터 제외 | 정책 결정 | 필요 시 옵트아웃 |
-
-### 안티패턴 (즉시 FAIL)
-
-- 앱 첫 실행 / 온보딩 도중 평점 요청
-- 결제 실패, 네트워크 에러, 권한 거부 직후 평점 요청
-- 모달 위에 모달로 평점 요청 (UX 충돌)
-- "별점 5개 부탁드려요" 등 평점 점수 유도 문구 (App Store 가이드라인 위반)
-- 평점을 안 주면 기능을 막는 dark pattern
-- 각 화면에서 `StoreReview.requestReview()`를 정책 엔진 없이 직접 호출
-- **자체 사전 프롬프트 금지** — "평점 남겨주실래요?" 같은 커스텀 다이얼로그/시트/액션시트로 의향 먼저 묻고 시스템 다이얼로그를 띄우는 흐름 금지 (Google Play 정책 위반, App Store도 권장하지 않음). 곧바로 시스템 다이얼로그(`StoreReview.requestReview()`)만 호출
-- **표시 결과 의존 로직 금지** — `requestReview()`는 표시 여부를 반환하지 않는다. "다이얼로그가 떴으니 토스트 보여주자/다음 화면 이동하자" 같은 후속 UI 분기 금지. 호출은 fire-and-forget
-
-### 코드 통합 위치 (FSD)
-
-```
-src/shared/store-review/
-├── client.ts          # expo-store-review 래퍼 (requestReview, isAvailableAsync)
-├── policy.ts          # 게이트 정책 엔진 (canRequest, evaluate)
-├── store.ts           # Zustand persist — 카운터/타임스탬프 추적
-├── triggers.ts        # TRIGGERS 상수 카탈로그 (액션 ID + 임계값)
-├── hooks/
-│   └── useStoreReview.ts  # maybeRequest(triggerId) 훅
-├── types/index.ts
-└── index.ts           # barrel export
-```
-
-**래퍼/정책 엔진(`canRequestReview`)/store/triggers/훅 구현은 `.claude/agents/api-integrator.md`의 "Store Review 모듈 / 정책 엔진 / 래퍼+훅" 섹션이 정본**이다.
-
-- `IReviewState`는 `installedAt`·`sessionStartedAt`·`launchCount`·`keyActionCount`·`lastRequestedAt`·`lastErrorAt`·`requestedThisSession`·`requestHistory: string[]`를 포함한다. `recordLaunch()`가 `sessionStartedAt` 갱신, `markRequested()`가 `requestHistory` push + 1년 초과 prune.
-- `IReviewPolicy`는 `minDaysSinceInstall`·`minLaunchCount`·`minKeyActionCount`·`minDaysSinceLastRequest`·**`maxRequestsPerYear`·`cooldownAfterLaunchSec`**·`blockAfterErrorWindowMin` 게이트와 `canRequestReview(state, { uiIsIdle }, policy)` 시그니처를 가진다.
-- `maybeRequest`의 boolean 반환값은 "정책 통과 + 호출 시도"만 의미하며 다이얼로그 표시를 보증하지 않는다 → 후속 UI/네비게이션 분기 금지(fire-and-forget).
-
-### 호출 규칙 (CRITICAL)
-
-- 외부 코드는 `expo-store-review`를 직접 호출하지 않는다. **반드시 `useStoreReview().maybeRequest(REVIEW_TRIGGERS.X)`** 만 사용
-- 트리거 ID는 `REVIEW_TRIGGERS` 상수 카탈로그에서만 가져온다 (매직 스트링 금지)
-- 모든 평점 요청은 Analytics에 `request_store_review` 이벤트로 기록 (KPI 추적)
-- 호출 위치: **긍정적 액션의 성공 콜백 안 + UI가 idle 상태**일 때만 (예: 저장 토스트가 사라진 뒤, 화면 전환이 끝난 뒤)
-- 에러 핸들러(`onError`, catch 블록) 내부에서 호출 금지
-
-### 카운터/이벤트 자동 집계
-
-루트 `_layout.tsx`에서 앱 실행 시 `reviewStore.recordLaunch()`를 호출하고, 글로벌 에러 바운더리/Crashlytics 핸들러에서 `reviewStore.recordError()`를 호출한다. 핵심 액션 카운터(`recordKeyAction()`)는 ui-developer가 화면별 성공 콜백에서 호출한다.
+상세(플랫폼 한계, 게이트 표, 안티패턴, 모듈 구조, 에이전트 분담): `docs/rules/store-review.md`. 구현 정본: `.claude/agents/api-integrator.md` "Store Review"
 
 ### Hard Threshold (Store Review)
 
@@ -412,143 +238,20 @@ src/shared/store-review/
 | `maybeRequest()` 반환값에 의존하는 후속 UI/네비게이션 분기 | **0개** |
 | `IReviewPolicy`의 `maxRequestsPerYear` / `cooldownAfterLaunchSec` / `uiIsIdle` 게이트 누락 | **0개** |
 
-### 에이전트 책임 분담
-
-- **product-planner**: PRD에 "Review Triggers" 섹션 작성 — 어떤 액션이 트리거 후보인지, 임계값(N회 완료 등) 정의
-- **api-integrator**: `src/shared/store-review/` 모듈 인프라(래퍼/정책/store/triggers/훅) 구축
-- **ui-developer**: 각 화면의 성공 콜백에 `useStoreReview().maybeRequest(...)` 호출 삽입 + `recordKeyAction()` 카운터 호출
-- **qa-reviewer**: 안티패턴/Hard Threshold 검사
-- **배포 직전 게이트**: 인앱 리뷰는 **게시된 빌드에서만 표시**되고 출시 후엔 코드로만 고칠 수 있으므로, `store_review=true`인데 `maybeRequest`가 어느 화면에도 배선되지 않았으면 빌드를 보류한다 (orchestrate Phase 7 Step 7.0 — 트리거가 적절한 가치-순간에 들어갔는지 최종 확인)
-
 ## 광고 동의 시퀀스 / eCPM 최적화 (MANDATORY)
 
-**AdMob 광고를 통합하는 모든 앱은 표준 동의 시퀀스를 반드시 따른다.** 순서가 어긋나면 첫 광고 요청이 동의 정보 없이 발사되어 EU eCPM이 사실상 non-personalized 트래픽 수준으로 폭락한다. iOS의 경우 ATT를 받지 못해 IDFA 기반 personalized 광고가 불가능해진다.
-
-### 표준 스택
-
-| 영역 | 패키지 | 비고 |
-|------|--------|------|
-| AdMob SDK | `react-native-google-mobile-ads` **17.0.0 (정확히 고정)** | `AdsConsent` UMP API 포함. v17은 RN 0.86+·New Arch 필수. 17.1.0~17.2.0은 Expo config plugin 사용 시 Android Gradle 설정이 깨진다(invertase/react-native-google-mobile-ads#903) — 수정 릴리스 전까지 `^`로 올리지 않는다 |
-| iOS 추적 권한 | `expo-tracking-transparency` | `NSUserTrackingUsageDescription` 필수 |
-| 표준 헬퍼 | `src/features/ads/lib/consent.ts` | `initializeAdsWithConsent()` export |
-
-### 표준 시퀀스 (절대 변경 금지)
+AdMob 을 쓰는 앱은 `react-native-google-mobile-ads` **17.0.0 고정**(17.1~17.2 는 Expo plugin 사용 시 Android Gradle 이 깨진다)과 아래 순서를 따른다. 루트 `_layout.tsx` 는 `initializeAdsWithConsent()` 만 `void` 로 부른다.
 
 ```
-UMP (GDPR) consent
-   ↓  (EU 사용자: 동의 폼 노출 / 비 EU: no-op)
-iOS ATT prompt
-   ↓  (Android: skip)
-mobileAds().setRequestConfiguration(...)
-   ↓
-mobileAds().initialize()
+UMP (GDPR) consent → iOS ATT → mobileAds().setRequestConfiguration(...) → mobileAds().initialize()
 ```
 
-**왜 이 순서인가:**
-- UMP가 ATT보다 먼저 와야 → 사용자가 GDPR 동의를 거부하면 ATT 무관하게 personalized ad 불가. 두 다이얼로그가 자연스럽게 연이어 노출됨.
-- `setRequestConfiguration`이 `initialize()` 전이어야 → SDK가 첫 요청부터 child-directed / max content rating을 반영.
-- `initialize()`가 마지막이어야 → 위 모든 동의/설정이 freeze 된 상태로 첫 광고 요청 발사.
+- 모든 광고 로드는 `useAdsReady()` / `isAdsReady()` 뒤에 시작한다. `AdsConsent.*`·`mobileAds()`·`expo-tracking-transparency` 를 직접 부르지 않는다
+- ATT 목적 문자열은 앱마다 새로 쓴다: 무엇(광고 식별자)·왜(관련성, 설치 측정)·구체적 예시·거부 시 결과. `app.config.ts` 와 `plugins/withLocalizedAttDescription.js` 로케일 테이블을 함께 고치고 plugin 을 등록한다. 상투 문구는 Guideline 5.1.1 자동 반려(poly-dash 1.0.10, 2026-08-06)
+- AdMob Console 의 GDPR·IDFA 메시지는 배포 전에 게시(Published)한다. `privacyOptionsRequired` 면 설정 화면에 `showAdsConsentForm()` 진입점을 두고 `onAdConsentResult()` 로 구독한다
+- 무효 트래픽 방어: 화면당 배너 1개, 전면 광고는 `canShow*` 게이트, 리워드는 `EARNED_REWARD` 에서만 지급, 로드 재시도는 백오프, 실광고 ID 내부 빌드는 테스트 기기 등록 후
 
-### 구현 위치 (FSD)
-
-```
-src/features/ads/
-├── lib/
-│   └── consent.ts                # initializeAdsWithConsent / showAdsConsentForm
-├── hooks/                        # useInterstitialAd / useRewardedAd / useAppOpenAd
-├── ui/AdBanner.tsx
-└── index.ts                      # barrel — initializeAdsWithConsent, isAdsReady, onAdsReady, onAdConsentResult
-```
-
-루트 `_layout.tsx` 에서는 **`initializeAdsWithConsent()` 만 호출**한다 (`void` — 첫 렌더를 막지 않는다. UMP 폼/ATT는 첫 화면 위에 뜬다). 개별 `AdsConsent.*` API 를 직접 부르거나 `mobileAds().initialize()` 를 직접 호출하지 않는다. `initialize()`는 UMP가 `canRequestAds`를 허용할 때만 실행되며, **모든 광고 로드는 `useAdsReady()`/`isAdsReady()`(동의 + SDK 초기화 완료) 뒤에만** 시작한다 — 마운트만으로 `createForAdRequest`/`load()`를 부르지 않는다.
-
-```tsx
-// app/_layout.tsx
-import { initializeAdsWithConsent } from '@features/ads';
-
-useEffect(() => {
-  void initializeAdsWithConsent();
-}, []);
-```
-
-### AdMob 콘솔 사전 설정 (한 번)
-
-UMP가 실제로 폼을 띄우려면 AdMob Console 의 메시지가 **게시(Publish)** 되어야 한다. 게시 안 된 상태면 `requestInfoUpdate()` 가 항상 `NOT_REQUIRED` 로 응답해 코드가 정상이어도 폼이 안 뜬다.
-
-1. **GDPR message**: AdMob Console → Privacy & messaging → European regulations → 메시지 생성 → Publish
-2. **IDFA message** (iOS 권장): Privacy & messaging → IDFA → 생성 → Publish (ATT alert 직전에 사전 설명 노출 가능)
-
-배포 전에 두 메시지가 모두 Published 상태인지 확인한다.
-
-> **GDPR/IDFA 메시지 게시 자동화 시퀀스**(앱별 개인정보처리방침 URL 입력, "광고 단위 배포" 마스터 스위치 native click, **"동의하지 않음" 드롭다운 → "사용 안함" 명시 선택**이라는 게시 버튼 활성화 trap 포함)는 `.claude/agents/api-integrator.md`의 "AdMob 콘솔 자동화" 섹션이 정본이다. 체크박스/스위치는 반드시 Playwright native click을 사용한다(JS click은 React/Angular state 미반영).
-
-### 추적 권한 / Info.plist
-
-`app.config.ts` 의 `infoPlist` 에 `NSUserTrackingUsageDescription` 을 명시한다. 동일 문구를 `expo-tracking-transparency` plugin 옵션과 `react-native-google-mobile-ads` plugin 의 `userTrackingUsageDescription` 옵션 양쪽에 모두 설정한다.
-
-Android 는 ATT 없이도 `react-native-google-mobile-ads` 가 매니페스트에 `com.google.android.gms.permission.AD_ID` 를 자동 주입하므로 추가 설정 불필요.
-
-### 사용자 추후 변경 (선택 — Privacy Options)
-
-AdMob Console 에서 "Privacy Options" 가 REQUIRED 로 설정되어 있으면 앱 내 설정 화면에 "광고 개인정보 설정" 버튼을 노출하고, 클릭 시 `showAdsConsentForm()` 을 호출해 UMP 폼을 다시 띄운다. 노출 여부(`privacyOptionsRequired`)는 한 번 조회하지 말고 `onAdConsentResult()`로 구독한다 — 오프라인 첫 실행 뒤 포그라운드 재시도에서 값이 바뀐다(템플릿 `app/(tabs)/profile.tsx`).
-
-### Analytics 기록 (강력 권장)
-
-- `setUserProperty('ump_status', ...)` — `obtained` / `required` / `not_required` / `error`
-- `setUserProperty('ump_can_request_ads', ...)` — `'true'` / `'false'`
-- `setUserProperty('att_status', ...)` — `granted` / `denied` / `undetermined` / `restricted` / `not_applicable`
-
-이 user property 가 있으면 Firebase / BigQuery 에서 동의 상태별 eCPM·노출률 코호트를 분리해 광고 전략 최적화에 활용 가능.
-
-### eCPM 최적화 체크리스트
-
-| 항목 | 임팩트 | 비고 |
-|------|--------|------|
-| UMP 시퀀스 적용 | EU eCPM +30~50% | 본 섹션의 표준 시퀀스 |
-| `MaxAdContentRating.PG` | 광고 풀 확장 | `setRequestConfiguration` |
-| Adaptive Banner | 배너 수익 +20% | `BannerAdSize.LARGE_ANCHORED_ADAPTIVE_BANNER` (v17에서 `ANCHORED_ADAPTIVE_BANNER`는 deprecated) |
-| App Open 광고 | 추가 수익 라인 | Cold start + warm resume |
-| Rewarded 광고 다종 | 사용자 인게이지먼트 ↑ | revive / coins / continue / shuffle 등 |
-| 광고 mediation (선택) | eCPM +20~50% | AppLovin MAX / IronSource 등 (DAU 5K+에서 ROI) |
-
-### ATT 프롬프트 문구 다국어 (iOS — 광고 앱 필수)
-
-`infoPlist.NSUserTrackingUsageDescription` 한 줄만 넣으면 **모든 기기에서 그 언어 하나로만** 뜬다. 언어별 문구는 `ios/<Project>/{locale}.lproj/InfoPlist.strings`에 있어야 하고, 그 파일이 **Xcode `PBXVariantGroup`에 등록**돼야 번들에 들어간다. 둘 중 하나만 빠져도 조용히 영어로 폴백해 한국·일본 사용자 ATT 허용률이 떨어진다.
-
-- 광고를 넣는 앱은 `plugins`에 `'./plugins/withLocalizedAttDescription'`을 **반드시 등록**한다. 배열 내 위치는 무관하다.
-- 이 플러그인은 `withXcodeProject` mod 에서 동작한다. `withDangerousMod`로 옮기지 말 것 — `withLocalizedAppName`이 dangerous mod 에서 `InfoPlist.strings`를 통째로 덮어쓰는데, dangerous mod 는 **plugins 배열의 역순**으로 실행되어 순서 의존 버그가 생긴다. xcodeproj mod 는 항상 dangerous mod 이후라 안전하다.
-- 등록 대상은 "앱 이름을 선언한 언어"가 아니라 **디스크의 모든 `.lproj`**다. `withLocalizedAppName`은 자기가 선언한 언어만 등록하므로, ATT 전용 언어를 이 플러그인이 합집합으로 채운다.
-- 검증: `npx expo prebuild --platform ios --clean` 후
-  ```bash
-  cat ios/<Project>/ko.lproj/InfoPlist.strings   # CFBundleDisplayName + ATT 문구 둘 다 있어야 함
-  grep -oE "[a-zA-Z-]+\.lproj/InfoPlist.strings" ios/<Project>.xcodeproj/project.pbxproj | sort -u | wc -l
-  ```
-  두 번째 값이 `ls -d ios/<Project>/*.lproj | wc -l`과 같아야 한다.
-
-#### 문구 내용 — 상투적이면 자동 반려된다 (CRITICAL)
-
-Apple 자동 심사가 목적 문자열을 검사해 **일반적인 문구를 placeholder 로 판정하고 반려**한다.
-실제 반려(poly-dash 1.0.10, 2026-08-06):
-
-> the following purpose strings … include placeholder text or are otherwise insufficient:
-> • NSUserTrackingUsageDescription: "This identifier will be used to deliver personalized ads to you."
-
-`withLocalizedAttDescription.js` 의 `DEFAULT_ATT_DESCRIPTIONS` 는 **형식 예시일 뿐 그대로 쓰면 안 된다.**
-앱마다 아래 4가지를 모두 담아 새로 쓴다:
-
-1. 무엇을 쓰는지 — 기기의 광고 식별자
-2. 왜 쓰는지 — 광고 관련성 향상 + 설치 측정
-3. **구체적인 예시** — "관련 없는 상품 대신 이 앱과 비슷한 앱·게임 광고를 보여준다"
-4. 거부 시 결과 — "광고는 계속 표시되며 맞춤 광고가 아닐 뿐"
-
-`app.config.ts` 만 고치는 것으로는 부족하다. **로케일 테이블도 같이** 고쳐야 `.lproj` 에 상투 문구가
-실려 나가지 않는다. 문구에 아포스트로피(`device's`, `won't`)가 들어가므로 TS/JS 리터럴은
-**큰따옴표로 감싼다** — 작은따옴표로 감싸면 파일이 깨진다.
-
-검증:
-```bash
-grep -rn "deliver personalized ads to you" app.config.ts plugins/ app.json locales/ 2>/dev/null   # 결과 0건이어야 함
-```
+상세(콘솔 설정, Info.plist, Privacy Options, user property, eCPM 체크리스트, ATT 다국어 검증 명령, 무효 트래픽 문서 지도, 에이전트 분담): `docs/rules/ads.md`
 
 ### Hard Threshold (광고 동의)
 
@@ -566,18 +269,7 @@ grep -rn "deliver personalized ads to you" app.config.ts plugins/ app.json local
 | 광고 로드(`createForAdRequest`/`load()`/`<BannerAd>`)가 `useAdsReady()`/`isAdsReady()` 게이트 미경유 | **0개** |
 | `privacyOptionsRequired`인데 설정 화면에 "광고 개인정보 설정"(`showAdsConsentForm()`) 진입점 없음 | **0개** |
 
-### 무효 트래픽 방지 / 계정 정지 방어 (MANDATORY — 상세는 에이전트 문서)
-
-AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭, 사용자 비정상 클릭)과 배치 정책 위반에서 발생한다. 상세 규칙은 아래 문서에 분산되어 있으며, 광고 통합 시 반드시 함께 적용한다:
-
-| 영역 | 핵심 규칙 | 상세 위치 |
-|------|----------|----------|
-| 테스트 트래픽 격리 | 빌드 프로필별 광고 모드 + `testDeviceIdentifiers` 등록 | `.claude/agents/api-integrator.md` |
-| 클릭/노출 방어 인프라 | 템플릿에 있음: 전면 광고 공유 쿨다운 · 인터스티셜 일일 cap · 지수 백오프 · 리워드 `EARNED_REWARD` 지급. PRD 광고 정책이 정할 때만: 배너 클릭 가드 · 리워드 일일 cap · 세션당 전면 광고 상한 · `tap_ad` 이벤트 | `.claude/agents/api-integrator.md` |
-| 배치 규칙 | 화면당 배너 1개 · 터치 요소 이격 · 미로드 collapse · 숨김/가림 금지 · 리워드 opt-in | `.claude/agents/ui-developer.md` |
-| 방어 정책 수치 | PRD "무효 트래픽 방어 정책" 표 | `.claude/agents/product-planner.md` |
-| 검사 | 5d 체크리스트 + Hard Threshold / 광고 배치 검수 | `.claude/agents/qa-reviewer.md` / `app-inspector.md` |
-| 계정 레벨 | app-ads.txt 게시 · 스토어 리스팅 연결 · 본인 클릭 금지 | `store-admob` 스킬 Step 7 |
+### Hard Threshold (무효 트래픽)
 
 | 기준 | 임계값 |
 |------|--------|
@@ -587,68 +279,19 @@ AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭,
 | 광고 로드 실패 즉시 무한 재시도 (백오프 없음) | **0개** |
 | 실광고 ID 빌드를 테스트 기기 미등록 상태로 내부 배포 | **0개** |
 
-### 에이전트 책임 분담
-
-- **product-planner**: PRD 에 "광고 정책" 섹션 작성 — 어느 placement (banner/interstitial/rewarded/app-open)을 쓸지, 노출 빈도 제한, EU/non-EU 대상 여부
-- **api-integrator**: `src/features/ads/lib/consent.ts` 구축, `_layout.tsx` 에서 `initializeAdsWithConsent()` 호출, `app.config.ts` 의 plugin/infoPlist 설정
-- **ui-developer**: `AdBanner` / `useInterstitialAd` / `useRewardedAd` 컴포넌트 배치 — 핵심 액션 직전/진행 중 광고 금지
-- **qa-reviewer**: Hard Threshold 검사 + 동의 시퀀스 위반 탐지
-
 ## EAS Build & Deploy Rules (MANDATORY)
 
-### 빌드와 제출
+- 배포는 `/store-deploy`(store-deploy 플러그인) 로만 한다. 프로덕션 빌드는 **로컬이 기본**: `eas build --local` → `eas submit --path <파일>`. EAS 프로젝트가 없는 앱은 빌드·제출 모두 그 앱의 fastlane lane 으로 하고, lane 에서 `API_URL` 등 프로필 env 를 export 한다(안 하면 localhost 로 빌드된다). 클라우드 EAS Build 는 사용자가 요청하거나 로컬 빌드가 안 될 때만
+- 제출 전 산출물의 version, buildNumber/versionCode, bundle id, `extra.appEnv` 를 확인한다
+- `IS_DEV`/`IS_PROD` 는 `APP_ENV`(`development` | `preview` | `production`)가 정한다. EAS 는 프로필 env, APP_ENV 가 없는 release 빌드는 production 으로 판정한다. `.env` 에 `APP_ENV` 를 넣지 않고, 앱 환경 구분에 `NODE_ENV` 를 쓰지 않는다
+- 스토어 이름과 홈 화면 이름(`app.config.ts` `name`, `withLocalizedAppName`, iOS `name.txt`, Android `title.txt`)을 언어별로 똑같이 맞춘다(30자 이내)
+- 네이티브 변경은 config plugin 으로만 한다(SDK 57 `prebuild` 는 기본 clean)
 
-프로덕션 빌드는 **로컬이 기본**이다. 절차는 `store-deploy` 플러그인의 store-build·store-submit 스킬을 따른다.
-
-1. **빌드**: `eas build --local` 로 `build-output/` 에 산출물을 만든다. EAS 프로젝트가 없는 앱은 그 앱의 fastlane lane 으로 빌드한다
-2. **제출**: 로컬 산출물을 `eas submit --path <파일>` 로 올린다. EAS 프로젝트가 없는 앱은 fastlane 업로드 lane 을 쓴다
-3. **클라우드 EAS Build** (`eas build`) 는 사용자가 요청하거나 로컬 빌드가 안 될 때만 쓴다
-4. 제출 전 산출물의 version, buildNumber/versionCode, bundle id 와 `extra.appEnv`(아래)를 확인한다
-
-### 빌드 아카이브·앱 크기 최적화
-
-`.easignore`(빌드 아카이브 제외 목록)와 앱 크기 최적화 체크리스트(이미지 WebP · 미사용 폰트/의존성 제거 · Lottie 최적화 등)는 `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md` 참고.
-
-### 빌드 환경 (APP_ENV) — 광고 ID·Analytics 분기 (CRITICAL)
-
-`src/shared/config/env.ts`의 `IS_DEV` / `IS_PROD`는 `APP_ENV`(`development` | `preview` | `production`)로 결정되고, 실광고 ID(`AdUnitIds`)와 Analytics/Crashlytics 수집이 `IS_PROD`를 따른다.
-
-- **EAS 빌드**: `eas.json` 프로필의 `env.APP_ENV` + `environment`로 지정한다.
-- **APP_ENV가 없는 빌드**(로컬 fastlane/xcodebuild/gradle release): release 번들은 `production`, dev 번들은 `development`로 자동 판정된다(`__DEV__` 기준).
-- 개발용 npm 스크립트(`start*`, `ios`, `android`, `build:*`)는 `APP_ENV=development`를 붙여 둔다 — `expo start --no-dev`나 기기 release 실행이 실광고·Analytics로 새지 않게. fallback은 fastlane 같은 스토어 빌드 경로에서만 쓰인다.
-- 로컬 fastlane lane은 `eas.json` 프로필 env를 읽지 않는다 — `API_URL` 등 프로필 값을 lane에서 export한다 (안 하면 `app.config.ts` 기본값 localhost로 빌드된다).
-- `.env`에 `APP_ENV`를 넣지 않는다 — `.env`는 로컬 release 빌드의 앱 설정에도 로드된다.
-- 앱 환경 구분에 `NODE_ENV`를 쓰지 않는다. 과거 템플릿의 `NODE_ENV` 방식은 로컬 fastlane 빌드에 `nodeEnv: "development"`가 박혀 **스토어 빌드가 테스트 광고 ID로 출시**됐다.
-- 검증: `unzip -p build-output/*.ipa 'Payload/*.app/EXConstants.bundle/app.config' | grep -o '"appEnv":"[a-z]*"'` → 출력이 없거나(`production`으로 판정) `"appEnv":"production"`이어야 한다.
+상세(APP_ENV 판정·검증 명령, 앱 이름 규칙, 배포 전 준비·트러블슈팅 문서 위치, Play 프로덕션 액세스 신청): `docs/rules/build-deploy.md`
 
 | 기준 | 임계값 |
 |------|--------|
 | 스토어 제출 바이너리의 `extra.appEnv`가 `development` / `preview` | **0개** |
-
-### 앱 이름 일관성 (MANDATORY)
-
-스토어에 표시되는 앱 이름과 기기 홈 화면에 표시되는 앱 이름을 반드시 일치시킨다.
-
-| 항목 | 설정 위치 | 설명 |
-|------|----------|------|
-| 홈 화면 이름 | `app.config.ts` → `withLocalizedAppName` plugin | 기기 언어별 앱 이름 |
-| iOS 스토어 이름 | `fastlane/metadata/ios/{lang}/name.txt` | ASC에 표시되는 이름 |
-| Android 스토어 이름 | `fastlane/metadata/android/{lang}/title.txt` | Play Store에 표시되는 이름 |
-| 기본 이름 | `app.config.ts` → `name` | 홈 화면 기본 언어 이름과 동일해야 함 |
-
-**규칙:**
-- 위 4곳의 앱 이름이 언어별로 모두 동일해야 한다
-- 앱 이름 변경 시 4곳 모두 동시에 변경한다
-- 홈 화면 이름은 길면 잘리므로 30자 이내로 설정 (스토어 이름 제한과 동일)
-- `withLocalizedAppName` plugin (`plugins/withLocalizedAppName.js`)은 prebuild 시 iOS `InfoPlist.strings`와 Android `values-{locale}/strings.xml`을 자동 생성
-- plugin이 Xcode 프로젝트의 `PBXVariantGroup`에 파일을 등록해야 빌드에 포함됨
-- **`locales` 필드와 동시 사용 금지**: `app.config.ts`에 `locales: { ko: './...json' }`처럼 Expo의 locales 핸들러를 사용하면 plugin은 자동으로 iOS 처리를 생략한다. 이 경우 각 언어 JSON에 `CFBundleDisplayName` 키를 직접 추가해야 한다 (예: `{ "CFBundleDisplayName": "마이앱", "NSCameraUsageDescription": "..." }`). 두 방식이 동시에 동작하면 "Multiple commands produce InfoPlist.strings" 빌드 에러가 발생함
-
-### 배포 전 준비 · 플랫폼 특수 고려 · 빌드 트러블슈팅
-
-배포 전 필수 준비(개인정보처리방침/아이콘/스크린샷/메타데이터/**Android 릴리즈 노트 언어별 500자 제한**/버전 관리), Android·iOS 특수 고려(Draft App 첫 제출은 Play Console 웹 수동 업로드 · `eas.json` `ascAppId` · `ITSAppUsesNonExemptEncryption` · ASC API Key 비대화식 제출), iOS/Android 빌드 트러블슈팅(xcodebuild 타임아웃 · `InfoPlist.strings` 중복 · **RNFirebase 26 SPM + dynamic frameworks 링크 규칙** · AdMob 17 Android 빌드 버그 · reanimated `libworklets` 캐시 · SDK 57 `prebuild` 기본 clean)은 모두 `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md` 로 이전했다. 배포 시 해당 문서 + `/store-deploy` 스킬을 따른다.
-
-**Android 프로덕션 액세스 신청(개인 계정)**: 비공개 테스트 14일+/12명+ 게이트 충족 후 제출하는 "프로덕션 액세스 신청" 양식의 전체 질문·답변 작성 원칙(사실 기반·날조 금지·300자·worked example)은 `.claude/skills/orchestrate/references/play-production-access-application.md`가 정본이다. 신청서 작성은 `api-integrator`의 "Play Console 프로덕션 액세스 신청 자동화" 능력이 담당하며, 작성 시 반드시 이 문서를 참고한다.
 
 ## Branch Strategy
 
@@ -682,89 +325,16 @@ npm run format       # Prettier
 
 ## 시뮬레이터 런타임 테스트 (sim-use) (MANDATORY)
 
-시뮬레이터/에뮬레이터에서 **앱을 실제로 실행해 화면·흐름을 검증**할 때는 [`sim-use`](https://github.com/lycorp-jp/sim-use) CLI를 사용한다. 접근성 트리를 토큰 효율적 아웃라인으로 바꿔 **좌표가 아닌 요소 별칭(`@N`)으로 observe → act → verify** 하는 도구다. `simctl` 좌표 탭·Playwright 등 다른 방법으로 시뮬레이터 UI를 직접 조작하지 않는다. 정적 코드 리뷰(qa-reviewer)와 별개인 **런타임 검증**용이다.
+시뮬레이터·에뮬레이터에서 앱을 실행해 화면과 흐름을 검증할 때는 `sim-use` 만 쓴다(`simctl`·`adb` 좌표 탭, Playwright 금지). 요소 별칭(`@N`)으로 observe(`sim-use ui`) → act(`tap`·`type`·`swipe`) → verify(`sim-use ui`) 를 반복한다. 스킬은 레포에 있다(`.claude/skills/sim-use`, Codex 사본 `.agents/skills/sim-use`).
 
-### 부트스트랩 — 체크 후 없으면 설치 (런타임 테스트 시작 전 1회)
+상세(설치, 명령 표, Android 브리지, 언제 쓰나): `docs/rules/runtime-testing.md`
 
-시뮬레이터 런타임 테스트 직전 아래를 먼저 실행한다. 이미 설치돼 있으면 no-op:
+## 코딩 원칙 — ponytail · CodeGraph
 
-```bash
-if ! command -v sim-use >/dev/null 2>&1; then
-  brew tap lycorp-jp/tap && brew install lycorp-jp/tap/sim-use
-fi
-```
+- **ponytail**: 존재하지 않아도 되는 코드가 최고의 코드. 필요한가? → 이미 있나? → 표준 라이브러리 → 플랫폼 기능 → 설치된 의존성 → 한 줄 → 동작하는 최소 코드 순으로 먼저 걸리는 칸에서 멈춘다. 버그는 증상이 아닌 근본 원인을 공유 함수 한 곳에서 고친다. 입력 검증·에러 처리·보안·접근성은 줄이지 않는다
+- **CodeGraph (선택)**: 구조 질문(무엇이 무엇을 호출·정의·파급하는지)은 `codegraph_*`, 리터럴 텍스트는 grep. 없으면 grep 으로 진행한다
 
-- 요구: macOS 14+ / 최신 Xcode Command Line Tools. CLT가 outdated면 `brew install`이 실패하므로(예: macOS 26에 구 CLT), 시스템 설정 → 소프트웨어 업데이트에서 CLT를 갱신한 뒤 재시도한다.
-- 설치 자체는 머신 로컬(Homebrew)이다. 스킬은 레포에 들어 있다(`.claude/skills/sim-use`, Codex 사본 `.agents/skills/sim-use`). 평소에는 `sim-use init` 을 하지 않는다.
-- CLI 를 올린 뒤 스킬도 맞추려면 `sim-use init --client claude --dest .claude/skills` 후 `npm run sync:codex` 를 실행해 두 사본을 같이 커밋한다.
-
-### observe → act → verify 루프
-
-```bash
-sim-use ui                 # 관찰: 화면 요소 아웃라인 출력(@별칭 부여)
-sim-use tap @9             # 조작: 별칭으로 탭
-sim-use type "hello"       # 텍스트 입력
-sim-use swipe @3 up        # 스와이프
-sim-use ui                 # 검증: 결과 재확인
-```
-
-| 목적 | 명령 |
-|------|------|
-| 화면 관찰(요소 아웃라인) | `sim-use ui` |
-| 탭 / 스와이프 / 입력 / 붙여넣기 | `sim-use tap @N` · `swipe` · `type` · `paste` |
-| 버튼 · 제스처 · 키보드 상태 | `sim-use button` · `gesture` · `keyboard-state` |
-| 스크린샷 / 영상 | `sim-use screenshot` · `record-video` |
-| iOS 전용 키 입력 | `sim-use ios key` · `key-combo` · `key-sequence` |
-| Android 브리지(기기당 1회) | `sim-use android init --device <serial>` |
-
-- Android는 에뮬레이터/기기마다 `sim-use android init`으로 APK 브리지를 한 번 설치해야 한다.
-- fire-and-verify: 조작 후 반드시 `sim-use ui`로 상태를 재확인한 뒤 다음 액션을 결정한다(`ui` 없이 좌표를 가정하지 않는다).
-
-### 언제 쓰나
-- **app-inspector**의 런타임 UX/기능 검증 — 정적 검수를 넘어 실제 화면 동작·흐름 확인
-- `/iterate-app`의 Verify 단계 — 구현한 슬라이스를 시뮬레이터에서 직접 조작해 확인
-- 버그 재현 / 회귀 확인
-
-## 코딩 원칙 — ponytail (lazy senior dev)
-
-이 프로젝트는 **ponytail** 코딩 철학을 따른다: 존재하지 않아도 되는 코드가 최고의 코드. 요청을 완전히 이해한 뒤, 아래 사다리에서 **먼저 걸리는 칸에서 멈춘다**.
-
-1. 애초에 필요한가? (YAGNI — 투기성 니즈면 스킵)
-2. 이 코드베이스에 이미 있나? (헬퍼·유틸·타입·패턴 재사용 — 재구현 금지)
-3. 표준 라이브러리로 되나?
-4. 네이티브/플랫폼 기능으로 되나?
-5. 이미 설치된 의존성으로 되나? (몇 줄로 될 걸 위해 새 의존성 추가 금지)
-6. 한 줄로 되나?
-7. 그제서야: 동작하는 최소 코드.
-
-- 요청 안 한 추상화·보일러플레이트·"나중을 위한" 스캐폴딩 금지. 삭제 > 추가, 지루함 > 영리함.
-- 버그 수정은 증상이 아닌 **근본 원인** — 공유 함수 한 곳에서 고쳐 형제 호출부까지 함께 수정한다.
-- 이해는 절대 생략하지 않는다 — 사다리는 해법을 줄이지 읽기를 줄이지 않는다. 입력 검증·에러 처리·보안·접근성은 게으르게 굴지 않는다.
-
-### 설정 / 토글
-- 플러그인으로 제공된다(`ponytail@ponytail`, 마켓플레이스 `DietrichGebert/ponytail`). **이 레포 `.claude/settings.json`에 선언**돼 있어 클론 시 설치/신뢰 프롬프트가 뜬다.
-- 수동 설치: `/plugin` → marketplace `DietrichGebert/ponytail` → ponytail 설치.
-- 레벨 토글: `/ponytail lite|full|ultra` (기본 `full`) · 끄기: `stop ponytail` / `normal mode`.
-- 플러그인이 없어도 위 원칙은 이 CLAUDE.md 규칙으로 적용된다. 플러그인은 상시 주입 hook + `/ponytail-review`·`-audit`·`-debt`·`-gain` 스킬을 추가로 제공한다.
-
-## CodeGraph (코드 인텔리전스 · 선택)
-
-이 프로젝트는 CodeGraph(`codegraph` CLI + `codegraph_*` MCP 도구)를 **선택적으로** 사용한다. tree-sitter로 파싱한 심볼/호출/영향도 그래프로, grep이 줄 수 없는 **구조적** 답을 sub-ms로 준다. 설치·인덱스 빌드는 강제가 아니며, 없으면 모든 작업이 grep fallback으로 정상 진행한다.
-
-- **초기 설정/인덱스 빌드**: orchestrate **Phase 0 Step 0.0**이 CLI 설치·인덱스 존재를 감지해 빌드 여부를 인터랙션으로 처리한다(무인 모드는 자동). 수동: `codegraph init -i`.
-- **사용 원칙**: 구조 질문(무엇이 무엇을 호출/정의/파급하는지)은 codegraph, 리터럴 텍스트(문자열·주석·로그)는 grep. 결과는 신뢰하고 grep으로 재검증하지 않는다.
-
-| 질문 | 도구 |
-|------|------|
-| X 정의 위치 / 심볼 찾기 | `codegraph_search` |
-| 작업/영역 컨텍스트 | `codegraph_context` (PRIMARY) |
-| X→Y 흐름 추적 | `codegraph_trace` |
-| 무엇이 이걸 호출/이게 무엇을 호출 | `codegraph_callers` / `codegraph_callees` |
-| 바꾸면 뭐가 깨지나 | `codegraph_impact` |
-| 여러 심볼 소스 한 번에 | `codegraph_explore` |
-
-- **루프에서**: `/iterate-app`은 매 사이클 진단 전 `codegraph sync`(변경분만)로 최신화하고 `codegraph impact`로 회귀 범위를 산정한다(상세: iterate-app 스킬).
-- **인덱스 캐시(`.codegraph/`)는 `.gitignore`** — 머신 로컬. 클론 후 필요 시 `codegraph init -i`로 재빌드.
+상세(플러그인 설정·토글, CodeGraph 도구 표): `docs/rules/tooling.md`
 
 ## Architecture: Feature-Sliced Design (FSD)
 

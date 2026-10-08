@@ -196,7 +196,7 @@ async function runConsentFlow(): Promise<IAdConsentResult> {
     attStatus,
   };
 
-  // Consent cohorts for eCPM analysis (CLAUDE.md "Analytics 기록").
+  // Consent cohorts for eCPM analysis (`docs/rules/ads.md` "Analytics 기록").
   void setUserProperty('ump_status', result.umpStatus.toLowerCase());
   void setUserProperty('ump_can_request_ads', String(result.canRequestAds));
   void setUserProperty(

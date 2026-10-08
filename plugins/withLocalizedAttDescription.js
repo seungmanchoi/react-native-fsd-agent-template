@@ -22,7 +22,7 @@
  * Notes:
  *   - Position in the plugins array does not matter: this runs in the
  *     withXcodeProject mod, which always executes after withLocalizedAppName's
- *     dangerous mod (keep it there — see CLAUDE.md "ATT 프롬프트 문구 다국어").
+ *     dangerous mod (keep it there — see `docs/rules/ads.md` "ATT 프롬프트 문구 다국어").
  *   - Registers every `*.lproj/InfoPlist.strings` on disk in the Xcode
  *     PBXVariantGroup (union with the app-name languages), so each locale ships.
  *   - Android does not require ATT; this plugin is a no-op there.

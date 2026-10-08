@@ -22,7 +22,7 @@ const TOKEN_KEYS = {
 } as const;
 
 // Keychain items readable only while unlocked, never restored to another device
-// (excluded from iCloud/iTunes backups). CLAUDE.md "Secure Storage".
+// (excluded from iCloud/iTunes backups). CLAUDE.md "Secure Storage" (상세 `docs/rules/secure-storage.md`).
 const SECURE_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };

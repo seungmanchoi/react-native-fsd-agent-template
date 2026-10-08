@@ -152,7 +152,7 @@ The harness recommends the **ponytail** "lazy senior dev" plugin: the best code 
 
 ### Code Intelligence — codegraph (optional)
 
-For structural code questions (what calls what, what a change would break, where a symbol is defined), the harness uses **codegraph** — a tree-sitter knowledge graph queried via `codegraph_*` MCP tools. It's optional: without it, everything falls back to grep. Build the index with `codegraph init -i` (`.codegraph/` is gitignored); `orchestrate` detects it in Phase 0 and `/iterate-app` re-syncs it each cycle. See `CLAUDE.md` for the tool-selection table.
+For structural code questions (what calls what, what a change would break, where a symbol is defined), the harness uses **codegraph** — a tree-sitter knowledge graph queried via `codegraph_*` MCP tools. It's optional: without it, everything falls back to grep. Build the index with `codegraph init -i` (`.codegraph/` is gitignored); `orchestrate` detects it in Phase 0 and `/iterate-app` re-syncs it each cycle. See the "CodeGraph" section of `docs/rules/tooling.md` for the tool-selection table.
 
 ---
 

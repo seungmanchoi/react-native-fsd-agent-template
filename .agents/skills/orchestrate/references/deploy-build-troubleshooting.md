@@ -71,7 +71,7 @@ EAS 는 `.easignore` 가 있으면 `.gitignore` 를 보지 않고 이 파일만�
 | 증상 | 원인 | 해결 |
 |------|------|------|
 | `xcodebuild -showBuildSettings` 타임아웃 (fastlane 단계) | Apple Silicon + SPM 의존성(Firebase) 해석 시간 초과. 기본 3초 4회 retry로 부족 | 빌드 명령 앞에 `FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT=180 FASTLANE_XCODEBUILD_SETTINGS_RETRIES=8` 환경변수 설정 (store-build 와 같은 값) |
-| "Multiple commands produce .../InfoPlist.strings" | `app.config.ts`의 `locales` 필드와 `withLocalizedAppName` plugin이 둘 다 PBXVariantGroup을 등록 | CLAUDE.md "앱 이름 일관성" 항목 참고. plugin은 `locales` 사용 시 자동으로 iOS 처리를 생략함. 각 언어 JSON에 `CFBundleDisplayName` 추가 |
+| "Multiple commands produce .../InfoPlist.strings" | `app.config.ts`의 `locales` 필드와 `withLocalizedAppName` plugin이 둘 다 PBXVariantGroup을 등록 | `docs/rules/build-deploy.md` "앱 이름 일관성" 항목 참고. plugin은 `locales` 사용 시 자동으로 iOS 처리를 생략함. 각 언어 JSON에 `CFBundleDisplayName` 추가 |
 | `eas submit` "You've already submitted this version" | 동일 `expo.version`이 이미 ASC에 업로드됨 (TestFlight도 동일 version+build 조합 거부) | `app.config.ts`의 `APP_VERSION` 패치(예: 1.0.2 → 1.0.3) 후 재빌드 |
 | `pod install` 실패: "SPM + static linkage is not supported" | RN Firebase 26 기본 SPM 모드에 `useFrameworks: 'static'`을 단독으로 지정 | `expo-build-properties` → `ios.useFrameworks: 'dynamic'` (템플릿 기본). 정적이 꼭 필요하면 아래 opt-out |
 | `Unable to read Google Service plist at path .../ios/GoogleService-Info.plist` ([CP-User] [RNFB] Crashlytics Configuration 단계) | RN Firebase 26.1~26.4.0의 SPM dSYM 업로드 스크립트가 `ios/<Target>/`가 아닌 `ios/` 루트에서 plist를 찾고, 실패하면 빌드를 중단 | 템플릿의 `patches/@react-native-firebase+crashlytics+26.4.0.patch`(upstream a2b7e578 + 비치명 처리, `postinstall: patch-package`)가 해결. 패치 적용 후 `pod install` 재실행. RNFB를 26.4.0보다 올리면 패치 삭제 |

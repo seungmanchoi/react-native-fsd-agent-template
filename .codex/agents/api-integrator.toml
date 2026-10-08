@@ -22,7 +22,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 4. **타입 정의**: Request/Response 인터페이스 자동 생성 (`I{Name}Request`, `I{Name}Response`)
 5. **Analytics 모듈**: 템플릿의 `src/shared/lib/analytics/`(Firebase modular 래퍼·Crashlytics·noop fallback)를 유지하고 PRD 이벤트 카탈로그를 추가. 화면 추적은 루트 `_layout.tsx`가 담당
 6. **이벤트 배선**: PRD의 KPI 카탈로그를 기준으로 각 화면/액션에 `logEvent` 호출 삽입
-7. **Secure Storage**: 토큰은 템플릿의 `tokenManager`(`@shared/api`, `src/shared/api/client.ts`)로만 저장·조회한다. 토큰 외 시크릿이 늘어 CLAUDE.md "Secure Storage" 기준을 넘을 때만 `src/shared/secure-storage/` 를 분리한다
+7. **Secure Storage**: 토큰은 템플릿의 `tokenManager`(`@shared/api`, `src/shared/api/client.ts`)로만 저장·조회한다. 토큰 외 시크릿이 늘어 CLAUDE.md "Secure Storage" (상세 `docs/rules/secure-storage.md`) 기준을 넘을 때만 `src/shared/secure-storage/` 를 분리한다
 8. **Store Review 모듈**: 템플릿의 `src/shared/store-review/`(래퍼, 정책 엔진 `canRequestReview`, 카운터 store, `useStoreReview` 훅)를 유지하고, PRD의 Review Triggers 섹션을 `REVIEW_TRIGGERS` 카탈로그에 추가
 
 ## Pre-Work Contract — `_workspace/spec.md` 우선 읽기 (MANDATORY)
@@ -63,7 +63,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 - Axios 인터셉터의 토큰 조회는 메모리 또는 `SecureStore`에서만. 로그에 토큰을 출력하지 않는다
 - spec에서 꺼진 항목의 모듈은 생성하지 않는다 (불필요한 의존성/번들 회피)
 - **AdMob SDK 초기화는 표준 시퀀스 헬퍼만 사용** — `mobileAds().initialize()` / `AdsConsent.*` / `expo-tracking-transparency` 를 절대 직접 호출하지 않는다. 반드시 `@features/ads` 의 `initializeAdsWithConsent()` 만 import 해 `_layout.tsx` 에서 `void`로 호출한다(await 금지 — 첫 렌더를 막지 않는다). CLAUDE.md "광고 동의 시퀀스 (MANDATORY)" 섹션 참고.
-- ATT 목적 문자열은 앱마다 새로 쓴다(무엇을·왜·구체적 예시·거부 시 결과). `app.config.ts` 의 `TRACKING_PERMISSION_TEXT` 하나를 `react-native-google-mobile-ads` plugin / `expo-tracking-transparency` plugin / `infoPlist.NSUserTrackingUsageDescription` 세 곳이 같이 쓰고, `plugins/withLocalizedAttDescription.js` 로케일 테이블도 언어별로 채운다. 상투 문구는 Guideline 5.1.1 자동 반려 (CLAUDE.md "ATT 프롬프트 문구 다국어")
+- ATT 목적 문자열은 앱마다 새로 쓴다(무엇을·왜·구체적 예시·거부 시 결과). `app.config.ts` 의 `TRACKING_PERMISSION_TEXT` 하나를 `react-native-google-mobile-ads` plugin / `expo-tracking-transparency` plugin / `infoPlist.NSUserTrackingUsageDescription` 세 곳이 같이 쓰고, `plugins/withLocalizedAttDescription.js` 로케일 테이블도 언어별로 채운다. 상투 문구는 Guideline 5.1.1 자동 반려 (`docs/rules/ads.md` "ATT 프롬프트 문구 다국어")
 - **무효 트래픽 방지** — 템플릿 `src/features/ads` 가 테스트 기기 등록, 전면 광고 공유 쿨다운, 인터스티셜 하루 상한, 지수 백오프, `EARNED_REWARD` 지급을 이미 갖고 있다. 유지만 한다. 아래 "AdMob 무효 트래픽 방지"의 나머지 항목은 PRD 광고 정책이 정할 때만 구현한다
 
 ## Patterns
