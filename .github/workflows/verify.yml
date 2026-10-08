@@ -1,0 +1,19 @@
+# Same gate the agents' Stop hook runs (scripts/verify-hook.mjs → npm run verify).
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main, devel]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run verify

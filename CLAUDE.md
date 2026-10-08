@@ -22,10 +22,11 @@ React Native + Expo template with **Feature-Sliced Design (FSD)** architecture a
 
 ### 핵심 규칙
 
+0. **새 앱 시작**: `app.config.ts` 의 `SLUG` 가 아직 `my-app` 이면 `init-app` 스킬(`npm run app:init`)부터 실행한다.
 1. **새 기능 구현 시**: 반드시 FSD 구조 규칙을 따른다. feature/entity/widget 생성 시 해당 에이전트 정의 파일(`.claude/agents/`)을 Read하고 지시를 따른다.
 2. **풀 앱 개발 시**: `/orchestrate` 스킬의 7-Phase 파이프라인을 따른다. Phase를 건너뛰지 않는다.
-3. **QA는 생략할 수 없다**: 구현 완료 후 반드시 `npm run typecheck`, `npm run lint`를 실행한다. Hard Threshold 기준을 적용한다.
-4. **`_workspace/` 디렉토리**: 에이전트 간 데이터는 `_workspace/`에 파일로 저장하여 전달한다. Phase 전환 시 이전 산출물을 Read하고 이어서 작업한다.
+3. **QA는 생략할 수 없다**: 구현 완료 후 반드시 `npm run verify`(typecheck · lint · test · `check:harness`)를 실행한다. Hard Threshold 기준을 적용한다. 래퍼 우회 import·UTC 날짜 키는 ESLint 가, NativeWind·SafeArea·Firebase 설정·버전 고정·하네스 사본은 `scripts/check-harness.mjs` 가 잡는다. Stop hook(Claude `.claude/settings.json`, Codex `.codex/hooks.json`)이 코드가 바뀐 턴마다 같은 명령을 돌려 실패를 되돌려 주지만, hook 이 없어도 직접 실행한다.
+4. **`_workspace/` 디렉토리**: 에이전트 간 데이터는 `_workspace/`에 파일로 저장하여 전달한다. Phase 전환 시 이전 산출물을 Read하고 이어서 작업한다. `spec.md`·`plan/`·`iterate/` 는 커밋 대상이고(`.gitignore` 예외) 나머지는 임시 산출물이다.
 5. **디자인 변경 시**: `design-architect` 에이전트의 4축 평가 기준(Design Quality, Originality, Craft, Functionality)을 적용한다.
 6. **배포 시**: `/store-deploy` 스킬을 사용한다. 다른 배포 방법을 사용하지 않는다.
 
@@ -172,7 +173,7 @@ NativeWind가 정상 동작하려면 아래 4개 파일이 **모두** 올바르�
 
 ## Agent Team & Skills
 
-이 프로젝트는 10개의 전문 에이전트와 10개의 스킬로 구성된 AI Agent Harness를 포함합니다.
+이 프로젝트는 10개의 전문 에이전트와 11개의 스킬로 구성된 AI Agent Harness를 포함합니다. Claude Code 와 Codex 가 같은 원본을 쓴다(아래 "Claude · Codex 공용 하네스").
 
 ### Agents
 
@@ -193,6 +194,7 @@ NativeWind가 정상 동작하려면 아래 4개 파일이 **모두** 올바르�
 
 | Skill | Command | Description |
 |-------|---------|-------------|
+| `init-app` | "새 앱 시작" / "앱 이름 바꿔줘" | 템플릿 식별자(slug·bundle id·scheme·다국어 이름) 교체 + 남은 수동 단계 안내 |
 | `ideate` | "앱 아이디어 찾아줘" | 시장 조사 및 앱 아이디어 도출 |
 | `plan-app` | "앱 기획해줘" | PRD 작성 및 FSD 모듈 맵 설계 |
 | `design-system` | "디자인 시스템 만들어줘" | NativeWind 테마 및 화면 레이아웃 |
@@ -206,7 +208,18 @@ NativeWind가 정상 동작하려면 아래 4개 파일이 **모두** 올바르�
 
 > `spec-planner`는 전용 스킬 없이 에이전트로 직접 호출된다(Phase 2.5). 그 외 에이전트는 위 스킬과 대응하고, `sim-use` 는 app-inspector 와 `/iterate-app` 이 쓰는 도구 스킬이다.
 
-> **Codex 하네스 동기화**: `.codex/agents/*.toml`과 `.agents/skills/`는 `.claude/` 원본에서 **생성되는 사본**이다. 에이전트·스킬을 고친 뒤에는 반드시 `npm run sync:codex`를 실행하고 사본을 함께 커밋한다(사본을 직접 수정하지 않는다). Codex 진입점은 `AGENTS.md`이며 이 파일(CLAUDE.md)을 정본으로 가리킨다.
+### Claude · Codex 공용 하네스
+
+| | Claude Code | Codex CLI |
+|---|---|---|
+| 진입 지침 | `CLAUDE.md` | `AGENTS.md` → `CLAUDE.md` |
+| 에이전트 | `.claude/agents/*.md` (원본) | `.codex/agents/*.toml` (생성 사본) |
+| 스킬 | `.claude/skills/` (원본), `/스킬명` | `.agents/skills/` (생성 사본), `$스킬명` 또는 `/skills` |
+| 검증 hook | `.claude/settings.json` `hooks.Stop` | `.codex/hooks.json` (처음 한 번 `/hooks` 에서 신뢰) |
+| 배포 플러그인 | `.claude/settings.json` 이 `seungmanchoi/store-deploy-plugin` 을 등록 | `codex plugin marketplace add seungmanchoi/store-deploy-plugin` → `codex plugin add store-deploy@store-deploy-marketplace` |
+
+- 에이전트·스킬을 고친 뒤에는 반드시 `npm run sync:codex`를 실행하고 사본을 함께 커밋한다(사본을 직접 수정하지 않는다). `npm run verify` 가 사본이 낡았으면 실패한다.
+- 스킬·에이전트 본문의 Claude 도구 이름(`Agent`, `AskUserQuestion`, `SendMessage`, `/loop`, `mcp__*`)을 Codex 에서 어떻게 읽는지는 `.claude/skills/orchestrate/references/runtime-adapters.md` 가 정본이다.
 
 ### Full Pipeline
 
@@ -232,7 +245,7 @@ Phase 7: Deployment    — /store-deploy
 ```
 
 데이터 흐름: `_workspace/` 디렉토리를 통해 에이전트 간 컨텍스트 전달.
-출시 후 반복 개발은 일회성 파이프라인(Phase 1~7)을 재실행하지 않고 `/iterate-app` 루프를 사용한다 (상세: `references/loop-engineering.md`).
+출시 후 반복 개발은 일회성 파이프라인(Phase 1~7)을 재실행하지 않고 `/iterate-app` 루프를 사용한다 (상세: `.claude/skills/orchestrate/references/loop-engineering.md`).
 
 ## Analytics & 핵심 지표 (MANDATORY)
 
@@ -660,6 +673,10 @@ npm run ios          # iOS simulator
 npm run android      # Android emulator
 npm run lint         # ESLint
 npm run typecheck    # TypeScript check
+npm run verify       # typecheck + lint + test + check:harness (Stop hook 도 이것을 돌린다)
+npm run app:init -- --slug <slug> --name "<Name>"   # 템플릿 → 새 앱 (init-app 스킬)
+npm run sync:codex   # .claude → Codex 사본 재생성
+npm run eas:build:prod:ios      # 로컬 프로덕션 빌드 → build-output/ (android 는 :android, 클라우드는 eas:build:prod:cloud)
 npm run format       # Prettier
 ```
 

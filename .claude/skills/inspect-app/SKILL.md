@@ -35,7 +35,9 @@ description: "구현된 앱의 기능, UX, 디자인을 종합 검수하는 스�
 - 시작 전 sim-use CLI 설치 확인 → 없으면 설치 (`command -v sim-use >/dev/null || brew install lycorp-jp/tap/sim-use`). 스킬은 레포에 들어 있으니 `sim-use init` 은 하지 않는다 (CLAUDE.md "부트스트랩")
 - 시뮬레이터에서 앱 실행 후 `sim-use ui` → `tap @N`/`type`/`swipe` → `sim-use ui`로 observe-act-verify
 - PRD happy path를 실제 조작으로 밟아 화면 전환/상태 처리 검증 (정본: CLAUDE.md "시뮬레이터 런타임 테스트")
-- 설치 불가 시 skip 표시 후 정적 검수만 진행
+- 필수 흐름: PRD happy path · 뒤로가기 · 키보드가 입력창을 가리지 않는지 · 에러/빈 상태
+- 각 흐름의 플랫폼·기기·커밋(`git rev-parse --short HEAD`)·행동/기대/결과·스크린샷(`sim-use screenshot` → `_workspace/qa/runtime/`)을 보고서 "런타임 검증" 표에 남긴다
+- 설치·실행 불가 시 판정을 `BLOCKED`(사유)로 기록하고 정적 검수만 진행한다. `BLOCKED` 는 PASS 가 아니며 배포 게이트(orchestrate Step 7.0)에서 다시 걸린다
 
 ### Step 3: 디자인 일관성 검수
 - 디자인 시스템의 토큰 값과 실제 className 비교
@@ -55,7 +57,7 @@ description: "구현된 앱의 기능, UX, 디자인을 종합 검수하는 스�
 
 ### Step 6: 보고서 생성
 - 종합 점수 (0~100)
-- CRITICAL / WARNING / INFO 분류
+- HIGH / MEDIUM / LOW 분류 (HIGH = Hard Threshold 위반·기능 차단·크래시, orchestrate Fix Loop 와 같은 체계)
 - 각 이슈에 파일:라인, 설명, 수정 방법 포함
 - `_workspace/qa/inspection-report.md`에 저장
 

@@ -1,14 +1,34 @@
 {
-  "$comment": "이 레포의 하네스가 권장하는 플러그인. 클론 시 Claude Code가 신뢰/설치 프롬프트를 띄운다. ponytail = lazy senior dev 코딩 원칙 (상세: CLAUDE.md '코딩 원칙 (ponytail)').",
+  "$comment": "이 레포의 하네스 설정. ponytail = lazy senior dev 코딩 원칙 (CLAUDE.md '코딩 원칙 (ponytail)'). store-deploy = 빌드·제출·스토어 폼 스킬 (/store-deploy). Stop hook = 코드가 바뀐 턴에 npm run verify 를 돌려 Hard Threshold 실패를 에이전트에게 되돌린다 (Codex 는 .codex/hooks.json 이 같은 스크립트를 부른다).",
   "extraKnownMarketplaces": {
     "ponytail": {
       "source": {
         "source": "github",
         "repo": "DietrichGebert/ponytail"
       }
+    },
+    "store-deploy-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "seungmanchoi/store-deploy-plugin"
+      }
     }
   },
   "enabledPlugins": {
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "store-deploy@store-deploy-marketplace": true
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/verify-hook.mjs\"",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
   }
 }

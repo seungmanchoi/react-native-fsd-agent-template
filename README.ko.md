@@ -8,7 +8,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-Harness-purple?style=for-the-badge&logo=anthropic&logoColor=white" />
   <img src="https://img.shields.io/badge/Agents-10_Specialists-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Skills-10_Workflows-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Skills-11_Workflows-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Pattern-Pipeline-yellow?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Vibe_Coding-AI_Driven-ff69b4?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Harness_Engineering-Production-red?style=for-the-badge" />
@@ -105,6 +105,7 @@ Phase 7: Deployment     /store-deploy → local build (eas build --local) → Ap
 
 | 스킬 | 커맨드 | 설명 |
 |-----|-------|-----|
+| `init-app` | "새 앱 시작" | 템플릿 식별자(slug·bundle id·scheme·다국어 이름) 교체 |
 | `ideate` | "앱 아이디어 찾아줘" | 시장 조사 및 앱 아이디어 도출 |
 | `plan-app` | "앱 기획해줘" | PRD 작성 및 FSD 모듈 맵 설계 |
 | `design-system` | "디자인 시스템 만들어줘" | NativeWind 테마 및 화면 레이아웃 |
@@ -267,7 +268,16 @@ cd my-app
 npm install
 ```
 
-### 3. 환경 설정
+### 3. 새 앱으로 초기화
+
+```bash
+npm run app:init -- --slug pocket-pulse --name "Pocket Pulse" --ko "포켓 펄스"
+npm install
+```
+
+slug·bundle id(`com.seungmanchoi.{slug}`)·scheme·다국어 홈 화면 이름·ATT 문구의 앱 이름을 바꾼다. 남은 수동 단계(ATT 문구 재작성, `firebase/` 설정 파일, `eas init`)는 출력과 `init-app` 스킬이 안내한다. 에이전트에게 "새 앱 시작해줘"라고 해도 같은 스킬이 실행된다.
+
+### 4. 환경 설정
 
 ```bash
 cp .env.example .env
@@ -275,7 +285,7 @@ cp .env.example .env
 
 `.env` 파일을 수정하여 API URL 등을 설정합니다.
 
-### 4. 실행
+### 5. 실행
 
 ```bash
 npm start          # Expo Dev Server (LAN)
@@ -283,7 +293,18 @@ npm run ios        # iOS Simulator
 npm run android    # Android Emulator
 ```
 
-### 5. AI Agent Harness 사용 (Claude Code)
+### 6. AI Agent Harness 사용 (Claude Code · Codex)
+
+같은 에이전트·스킬을 두 도구가 같이 쓴다. 원본은 `.claude/`, Codex 사본은 `npm run sync:codex` 가 만든다.
+
+| | Claude Code | Codex CLI |
+|---|---|---|
+| 스킬 호출 | `/orchestrate`, `/iterate-app`, 또는 자연어 | `$orchestrate`, `/skills` 에서 선택, 또는 자연어 |
+| 반복 고도화 | `/loop /iterate-app` | "iterate-app 3 사이클 돌려줘" (`/loop` 없음) |
+| 검증 hook | 자동 (`.claude/settings.json`) | 처음 한 번 `/hooks` 에서 `.codex/hooks.json` 신뢰 |
+| 배포 스킬 | 클론 시 store-deploy 플러그인 설치 안내가 뜬다 | `codex plugin marketplace add seungmanchoi/store-deploy-plugin` → `codex plugin add store-deploy@store-deploy-marketplace` |
+
+에이전트가 턴을 끝낼 때 코드가 바뀌었으면 Stop hook 이 `npm run verify`(typecheck · lint · test · 하네스 검사)를 돌리고, 실패하면 에이전트에게 고치라고 되돌린다.
 
 ```bash
 # 전체 파이프라인 — 앱을 처음부터 끝까지 만들기
@@ -485,9 +506,14 @@ npm test                  # Vitest unit tests (run once)
 npm run test:watch        # Vitest watch mode
 npm run typecheck         # TypeScript check
 npm run format            # Prettier format
+npm run verify            # typecheck + lint + test + check:harness (Stop hook 이 돌리는 명령)
+npm run check:harness     # Hard Threshold 설정 검사 (NativeWind·SafeArea·Firebase·버전 고정·Codex 사본)
+npm run app:init -- --slug <slug> --name "<Name>"  # 템플릿 → 새 앱
+npm run eas:build:prod:ios      # 로컬 프로덕션 빌드 → build-output/app.ipa
+npm run eas:build:prod:android  # 로컬 프로덕션 빌드 → build-output/app.aab
+npm run eas:build:prod:cloud    # EAS 클라우드 프로덕션 빌드 (요청 시)
 npm run eas:build:dev     # EAS 클라우드 개발 빌드 (요청 시)
 npm run eas:build:preview # EAS 클라우드 프리뷰 빌드 (요청 시)
-npm run eas:build:prod    # EAS 클라우드 프로덕션 빌드 (요청 시. 기본은 로컬 빌드)
 npm run sync:codex        # .claude/ 원본에서 Codex 하네스 사본 재생성
 ```
 
@@ -497,7 +523,7 @@ npm run sync:codex        # .claude/ 원본에서 Codex 하네스 사본 재생�
 
 ### 1. 앱 이름 및 식별자
 
-`app.config.ts`에서 수정:
+`npm run app:init` 이 아래 값을 한 번에 바꾼다. 직접 고칠 때는 `app.config.ts`에서 수정:
 
 ```typescript
 name: 'MyApp',              // 앱 이름

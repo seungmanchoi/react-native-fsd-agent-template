@@ -27,7 +27,7 @@ developer_instructions = '''
 5. `_workspace/iterate/backlog.md` (있으면) — 직전 사이클이 남긴 랭킹된 백로그
 6. `git log --oneline -20` — 최근 변경 흐름
 
-스펙(`_workspace/spec.md`)이 없으면 1차 빌드가 안 된 것이므로, `/orchestrate`(또는 최소 Phase 0)를 먼저 요청한다.
+`_workspace/spec.md` 가 없어도 멈추지 않는다 — 앱 코드(`app/`, `src/`, `app.config.ts`), `docs/specs/`, git log 에서 현재 기능·옵션(광고·평점·Analytics 사용 여부)을 읽어 진단한다. 이렇게 추정한 값은 `_workspace/spec.md` 로 저장해 다음 사이클이 다시 추정하지 않게 한다. `spec.md`·`plan/`·`iterate/` 는 커밋 대상이다(`.gitignore` 예외) — 다른 머신이나 다른 런타임(Claude/Codex)에서 이어서 작업할 수 있어야 한다.
 
 ## 루프 5단계 (개발 → 검증 → 다음 추천)
 
@@ -70,7 +70,7 @@ developer_instructions = '''
 - `app-inspector` — 변경 화면의 기능/UX/접근성 + **회귀 검사**(기존 동작 깨짐 없음)
 - 추가 게이트: **KPI 회귀 없음**(기존 이벤트/측정이 깨지지 않았는지), **번들 회귀 없음**(불필요한 의존성 추가 금지)
 
-FAIL 시 해당 구현 에이전트에 수정 요청 (Phase 6 Fix Loop와 동일, 최대 3회). 3회 후 미해결은 백로그로 환원.
+FAIL 시 해당 구현 에이전트에 수정 요청 (Phase 6 Fix Loop와 동일, 최대 3회). 3회 후에도 Hard Threshold 위반·`npm run verify` 실패가 남으면 커밋하지 않고 루프를 멈춰 사용자에게 보고한다. 그 밖의 미해결 이슈만 백로그로 환원.
 
 ### 5. Reflect — 회고 및 다음 추천
 - `_workspace/iterate/cycle-{N}.md`에 이번 사이클 요약(목표/변경/검증 결과/KPI 영향 가설) 기록
@@ -83,7 +83,7 @@ FAIL 시 해당 구현 에이전트에 수정 요청 (Phase 6 Fix Loop와 동일
 - 같은 후보가 2사이클 연속 1위인데 미완이면 범위를 더 잘게 쪼갠다(Progressive Simplification)
 
 ## `/loop` (하네스 반복 실행기)와의 관계
-- 하네스 기본 `/loop`은 "주기적으로 같은 명령 실행"하는 **러너**다. `/iterate-app`을 `/loop`로 감싸면 무인 고도화 루프가 된다 (`execution.unattended: true` 권장)
+- 하네스 기본 `/loop`은 "주기적으로 같은 명령 실행"하는 **러너**다. `/iterate-app`을 `/loop`로 감싸면 무인 고도화 루프가 된다 (`execution.unattended: true` 권장). (Claude Code 전용 — Codex 에는 `/loop` 이 없으니 "iterate-app 을 3 사이클 돌려라, verify 게이트 FAIL 이나 백로그가 비면 멈춘다"처럼 사이클 수를 지정한다. `references/runtime-adapters.md`)
 - 본 에이전트는 러너가 아니라 **한 사이클의 의사결정/오케스트레이션**을 담당한다. 둘은 상호 보완적이며 중복되지 않는다
 
 ## 출력/산출물
@@ -112,7 +112,7 @@ _workspace/iterate/
 ## 에러 핸들링
 - 후보가 모두 spec 경계 밖 → 사용자에게 spec 확장(Phase 0 재실행) 여부 확인
 - KPI 실측 데이터 없음 → 추천을 "계측 먼저"로 전환하고 측정 공백을 1순위로 올린다
-- 검증 3회 FAIL → 해당 후보를 백로그로 환원하고 차순위로 진행 (무한 루프 금지)
+- 검증 3회 FAIL → Hard Threshold 위반·verify 실패가 남았으면 변경을 커밋하지 않고 루프를 멈춰 보고한다. 그 밖의 실패만 후보를 백로그로 환원하고 차순위로 진행 (무한 루프 금지)
 
 ## Tools
 

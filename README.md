@@ -8,7 +8,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-Harness-purple?style=for-the-badge&logo=anthropic&logoColor=white" />
   <img src="https://img.shields.io/badge/Agents-10_Specialists-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Skills-10_Workflows-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Skills-11_Workflows-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Pattern-Pipeline-yellow?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Vibe_Coding-AI_Driven-ff69b4?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Harness_Engineering-Production-red?style=for-the-badge" />
@@ -105,6 +105,7 @@ Data Flow: Context between agents is passed through the `_workspace/` directory.
 
 | Skill | Command | Description |
 |-----|-------|-----|
+| `init-app` | "Start a new app" | Replace template identifiers (slug, bundle id, scheme, localized names) |
 | `ideate` | "Find app ideas" | Market research and idea generation |
 | `plan-app` | "Plan the app" | PRD writing and FSD module map design |
 | `design-system` | "Create design system" | NativeWind theme and screen layout |
@@ -267,7 +268,16 @@ cd my-app
 npm install
 ```
 
-### 3. Environment Setup
+### 3. Initialize Your App
+
+```bash
+npm run app:init -- --slug pocket-pulse --name "Pocket Pulse" --ko "포켓 펄스"
+npm install
+```
+
+Sets the slug, bundle id (`com.seungmanchoi.{slug}`), scheme, localized home-screen names and the app name inside the ATT strings. The output and the `init-app` skill list the remaining manual steps (rewrite the ATT text, `firebase/` config files, `eas init`). Asking an agent to "start a new app" runs the same skill.
+
+### 4. Environment Setup
 
 ```bash
 cp .env.example .env
@@ -275,7 +285,7 @@ cp .env.example .env
 
 Edit the `.env` file to set your API URL, etc.
 
-### 4. Running the App
+### 5. Running the App
 
 ```bash
 npm start          # Expo Dev Server (LAN)
@@ -283,7 +293,18 @@ npm run ios        # iOS Simulator
 npm run android    # Android Emulator
 ```
 
-### 5. Using AI Agent Harness (Claude Code)
+### 6. Using the AI Agent Harness (Claude Code · Codex)
+
+Both tools share the same agents and skills. `.claude/` is the source; `npm run sync:codex` generates the Codex copies.
+
+| | Claude Code | Codex CLI |
+|---|---|---|
+| Run a skill | `/orchestrate`, `/iterate-app`, or plain language | `$orchestrate`, pick it in `/skills`, or plain language |
+| Repeat improvement | `/loop /iterate-app` | "Run iterate-app for 3 cycles" (no `/loop`) |
+| Verify hook | Automatic (`.claude/settings.json`) | Trust `.codex/hooks.json` once in `/hooks` |
+| Deploy skills | Claude offers to install the store-deploy plugin on clone | `codex plugin marketplace add seungmanchoi/store-deploy-plugin` → `codex plugin add store-deploy@store-deploy-marketplace` |
+
+When an agent ends a turn with changed files, the Stop hook runs `npm run verify` (typecheck · lint · test · harness checks) and hands any failure back to the agent to fix.
 
 ```bash
 # Full Pipeline — Make an app from scratch
@@ -485,9 +506,14 @@ npm test                  # Vitest unit tests (run once)
 npm run test:watch        # Vitest watch mode
 npm run typecheck         # TypeScript check
 npm run format            # Prettier format
+npm run verify            # typecheck + lint + test + check:harness (what the Stop hook runs)
+npm run check:harness     # Hard Threshold config checks (NativeWind, SafeArea, Firebase, pins, Codex copies)
+npm run app:init -- --slug <slug> --name "<Name>"  # template → new app
+npm run eas:build:prod:ios      # Local production build → build-output/app.ipa
+npm run eas:build:prod:android  # Local production build → build-output/app.aab
+npm run eas:build:prod:cloud    # EAS cloud production build (on request)
 npm run eas:build:dev     # EAS cloud development build (on request)
 npm run eas:build:preview # EAS cloud preview build (on request)
-npm run eas:build:prod    # EAS cloud production build (on request; local build is the default)
 npm run sync:codex        # Regenerate the Codex harness copies from .claude/
 ```
 
@@ -497,7 +523,7 @@ npm run sync:codex        # Regenerate the Codex harness copies from .claude/
 
 ### 1. App Name and Identifier
 
-Edit in `app.config.ts`:
+`npm run app:init` changes all of these at once. To edit by hand, change `app.config.ts`:
 
 ```typescript
 name: 'MyApp',              // App name

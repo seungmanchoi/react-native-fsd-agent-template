@@ -2,7 +2,7 @@
 
 Google Play **개인(personal) 개발자 계정**으로 만든 신규 앱을 프로덕션(공개) 트랙에 올리려면, 먼저 **"프로덕션 액세스 신청"** 양식을 제출하고 Google 심사를 통과해야 한다. 이 문서는 그 신청 양식의 전체 질문과 **답변 작성 원칙**을 정의한다. Phase 7 배포(특히 Android, 개인 계정)에서 `api-integrator`의 "Play Console 프로덕션 액세스 신청 자동화" 능력이 이 문서를 정본으로 참고한다.
 
-> 관련: `deploy-build-troubleshooting.md`(빌드/제출), `~/works/store-deploy-plugin/skills/store-forms/SKILL.md`(스토어 폼 일반).
+> 관련: `deploy-build-troubleshooting.md`(빌드/제출), store-deploy 플러그인의 `store-forms` 스킬(스토어 폼 일반).
 
 ---
 

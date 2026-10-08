@@ -8,7 +8,7 @@ description: Drive iOS Simulator and Android emulator/device screens for AI agen
 Before first interaction with a device, run the preflight check:
 
 ```bash
-python3 scripts/preflight.py --device <UDID>
+python3 .claude/skills/sim-use/scripts/preflight.py --device <UDID>   # Codex: .agents/skills/sim-use/scripts/preflight.py
 ```
 
 This verifies sim-use is installed, the device is reachable, and the daemon is healthy. If you don't have the script, do the checks manually:

@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: "React Native + Expo + FSD 앱의 전체 라이프사이클(아이디어→기획→스펙→디자인→구현→QA→배포)을 10개 에이전트·9개 스킬로 오케스트레이션하는 일회성 빌드 파이프라인. '앱 만들어줘', '풀스택으로 만들어줘', '프로덕션 앱 만들어줘', 'end-to-end 개발', '처음부터 끝까지 만들어줘' 요청 시 반드시 이 스킬을 사용할 것. (출시 후 반복 개선은 /iterate-app)"
+description: "React Native + Expo + FSD 앱의 전체 라이프사이클(아이디어→기획→스펙→디자인→구현→QA→배포)을 하네스 에이전트·스킬로 오케스트레이션하는 일회성 빌드 파이프라인. '앱 만들어줘', '풀스택으로 만들어줘', '프로덕션 앱 만들어줘', 'end-to-end 개발', '처음부터 끝까지 만들어줘' 요청 시 반드시 이 스킬을 사용할 것. (출시 후 반복 개선은 /iterate-app)"
 ---
 
 # Orchestrate Skill — Full App Lifecycle Pipeline
@@ -14,7 +14,11 @@ description: "React Native + Expo + FSD 앱의 전체 라이프사이클(아이�
 
 ## Overview
 
-이 스킬은 React Native + Expo + FSD 아키텍처 기반 앱의 **전체 라이프사이클**을 10개의 AI 에이전트와 9개의 스킬을 통해 자동으로 오케스트레이션한다.
+이 스킬은 React Native + Expo + FSD 아키텍처 기반 앱의 **전체 라이프사이클**을 하네스 에이전트와 스킬로 자동 오케스트레이션한다.
+
+> **Codex 에서 실행 중이면** 이 문서의 Claude 도구 이름(`Agent`, `AskUserQuestion`, `SendMessage`, `/skill`, `mcp__*`)을 `references/runtime-adapters.md` 의 Codex 대응으로 읽는다.
+>
+> **통과 기준은 하나다**: `npm run verify`(typecheck · lint · test · check:harness)가 green 이고 CLAUDE.md Hard Threshold 위반이 0 이어야 Phase 를 넘긴다. Stop hook 이 같은 명령을 돌리지만, hook 이 없거나 신뢰되지 않은 환경에서도 직접 실행한다.
 
 **Tech Stack**: React Native 0.86 + Expo SDK 57 + FSD + NativeWind + Zustand + TanStack Query + Axios + TypeScript 6
 
@@ -162,6 +166,10 @@ _workspace/
 - 미설치 → 스킵(grep fallback). 설치를 강제하지 않는다.
 - 선택 결과는 `_workspace/decisions.log`에 기록 (예: `decision=codegraph value=indexed source=unattended`).
 
+#### Step 0.0b: 템플릿 초기화 확인
+
+`app.config.ts` 에 `const SLUG = 'my-app';` 이 남아 있으면 `init-app` 스킬을 먼저 실행한다(앱 이름·slug 는 요청에서 뽑고, 없을 때만 묻는다). 결과는 Step 0.5 의 `project.name` 에 그대로 쓴다.
+
 #### Step 0.1: spec.md 존재 여부 확인
 
 ```
@@ -189,7 +197,7 @@ Q: "이 앱에 대해 추가로 알려주고 싶은 게 있나요?
 
 #### Step 0.3: 질문 카탈로그 진행
 
-`AskUserQuestion` 도구로 아래 카탈로그를 순서대로 진행한다. 각 객관식 질문 직후 **"추가 메모 (선택)"** 자유 입력을 한 번 더 받아 `<field>_notes`에 저장한다.
+**묻기 전에 채운다.** 사용자 요청·Step 0.2 답·현재 코드에서 답이 나오는 항목은 그 값으로 채우고 묻지 않는다(근거는 `<field>_notes`에 한 줄). 남은 **[필수]** 항목만 `AskUserQuestion` 한 번에 최대 4문항씩 묶어 묻고, 각 문항의 첫 옵션을 추천안으로 둔다. 별도 "추가 메모" 질문은 하지 않는다 — 사용자가 "Other"에 쓴 글을 `<field>_notes`에 저장한다. [조건부] 항목은 Step 0.4 규칙이 켤 때만 묻는다. 바이브 코딩 요청("간단한 X 앱 만들어줘")은 질문 1~2회 안에 Phase 1로 넘어가는 것이 목표다.
 
 **[필수]** = 모든 프로젝트가 답해야 함
 **[조건부]** = 앞선 답에 따라 LLM이 묻거나 스킵
@@ -339,6 +347,8 @@ Y → Phase 1로 진행
 **스킬**: `/ideate`
 **입력**: 사용자 요청 (자연어)
 **출력**: `_workspace/idea/`
+
+> 사용자가 만들 앱을 이미 정했으면(이름·핵심 기능이 요청에 있음) 시장 조사와 후보 도출을 건너뛰고 그 요청을 `app-concepts.md` 의 선정 컨셉으로 기록한 뒤 Phase 2로 간다.
 
 ```
 Tasks:
@@ -524,7 +534,7 @@ Phase 4는 의존성 순서에 따라 3개 에이전트가 **순차적으로** �
 - src/entities/{name}/ 디렉토리 N개
 ```
 
-이 Contract가 Quick QA의 기준이 된다. Contract에 명시되지 않은 항목은 검증하지 않는다.
+이 Contract는 해당 Phase에서 **추가로** 확인할 항목이다. Contract에 없더라도 `npm run verify`와 CLAUDE.md Hard Threshold는 항상 적용된다.
 
 ---
 
@@ -953,7 +963,7 @@ Loop 시작 (최대 3회):
 ```
 
 **Iteration Ceiling (Anthropic 원칙)**:
-점수 개선이 둔화되면 추가 반복의 효용이 낮다. 3회 반복 후에도 개선이 미미하면 현재 상태로 Phase 7에 진행하고, 미해결 이슈는 백로그로 관리한다.
+점수 개선이 둔화되면 추가 반복의 효용이 낮다. 3회 반복 후 남은 이슈가 **점수·UX 개선(MEDIUM/LOW)뿐이면** 백로그로 넘기고 Phase 7에 진행한다. **Hard Threshold 위반이나 `npm run verify` 실패, HIGH 이슈가 남아 있으면 Phase 7에 진행하지 않는다** — 반복 횟수는 작업 중단 기준이지 통과 기준이 아니다. 이 경우 남은 문제와 시도한 수정을 사용자에게 보고하고 멈춘다. 사용자 승인으로도 Hard Threshold 위반을 배포할 수 없다.
 
 > **Phase 6은 "출시 전 수렴 루프"다.** 출시 후의 **지속 고도화 루프**(개발→검증→다음 고도화 추천을 무한 반복)는 별도의 `/iterate-app` 스킬과 `loop-engineer` 에이전트가 담당한다. Phase 5에서 백로그(`_workspace/qa/unresolved.md`)로 넘어간 이슈와 미구현 PRD 항목은 출시 후 첫 `/iterate-app` 사이클의 후보가 된다. 루프 메커니즘 상세: `references/loop-engineering.md`.
 
@@ -985,7 +995,9 @@ Loop 시작 (최대 3회):
 | **권한 ↔ 사용 설명 일치** | spec `permissions.*`에서 켠 권한마다 Info.plist 사용 설명 문구 존재 + **안 쓰는 권한은 미선언** | 누락/과선언 → 스토어 리젝 사유, `api-integrator`로 환원 |
 | **데이터 안전 라벨 ↔ SDK** | 통합된 데이터 수집 SDK(Analytics/AdMob/Crashlytics)와 Play 데이터 안전 / Apple 개인정보 라벨이 **일치** | 불일치 → 정책 위반/리젝, store-forms로 보정 |
 | **IAP/구독 상품 등록** (조건부) | `monetization.model`에 IAP/구독 포함 시 ASC/Play 콘솔에 상품 생성·승인됨 | 미등록 → 페이월 무동작(수익 0), 콘솔 등록 후 재확인 |
-| **미해결 HIGH QA 이슈** | `_workspace/qa/unresolved.md`에 HIGH 이상 미해결 이슈 **0건** (있으면 사용자가 명시 승인) | 미승인 HIGH 잔존 → 배포 보류 |
+| **검증 green** | 배포할 커밋에서 `npm run verify` 통과 + Hard Threshold 위반 0 (사용자 승인으로 우회 불가) | 실패 → 배포 보류, 해당 에이전트로 환원 |
+| **미해결 HIGH QA 이슈** | `_workspace/qa/unresolved.md`에 HIGH 미해결 이슈 **0건** (Phase 6 과 같다 — 승인으로 넘기지 않는다) | HIGH 잔존 → 배포 보류 |
+| **런타임 검증 증거** | Phase 5b 가 시뮬레이터에서 핵심 흐름(happy path·뒤로가기·키보드·에러/빈 상태)을 `sim-use` 로 확인하고 플랫폼·기기·커밋·스크린샷을 `_workspace/qa/runtime/` 에 남김. 시뮬레이터를 못 띄웠으면 `BLOCKED` 로 기록되며 PASS 가 아니다 | `BLOCKED`/누락 → 사용자에게 알리고 실행 가능한 환경에서 재검증 |
 | **app-ads.txt** (조건부) | 광고 사용 시 app-ads.txt 게시 + 스토어 리스팅에 도메인 연결 (store-admob Step 7) | 미게시 → 무효 트래픽 판정·수익 차단 |
 | **Firebase 설정 주입** | `GoogleService-Info.plist`/`google-services.json` 평문 커밋 0. `./firebase/` 두 파일 존재 (로컬 빌드, `.easignore` 가 올리는 클라우드 빌드 모두). `firebase/` 를 아카이브에서 뺀 클라우드 빌드만 file 환경변수 `GOOGLE_SERVICE_INFO_PLIST`/`GOOGLE_SERVICES_JSON` 등록(`eas env:list`) | 누락 → prebuild 실패/런타임 Firebase 실패, 설정 후 재빌드 |
 
@@ -1003,7 +1015,7 @@ Tasks (/store-deploy):
    EAS 프로젝트가 없는 앱은 그 앱의 fastlane 업로드 lane
 ```
 
-상세 절차: `~/works/store-deploy-plugin/skills/store-deploy/SKILL.md`
+상세 절차: store-deploy 플러그인의 `store-deploy` 스킬 (Claude: `.claude/settings.json` 이 `seungmanchoi/store-deploy-plugin` 을 등록, Codex: `references/runtime-adapters.md` 의 설치 명령. 유지관리자 로컬 원본: `~/works/store-deploy-plugin/skills/store-deploy/SKILL.md`)
 
 #### Step 7.1: Android 프로덕션 액세스 신청 (개인 계정 한정)
 

@@ -35,12 +35,15 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 3. `project.context` Read
 
 **모듈 스캐폴딩 분기 규칙:**
-- `measurement.firebase_analytics=false` → `@react-native-firebase/*` 패키지·plugin과 함께 `src/shared/lib/analytics/firebase.ts`, `firebase.json`, `patches/@react-native-firebase+*.patch`, `app.config.ts`의 `ios.googleServicesFile`·`android.googleServicesFile`(파일이 없으면 prebuild가 실패)을 지우고 `analytics.ts`의 `resolveAdapter()`는 `noopAnalytics`만 반환. Firebase 콘솔 자동화도 스킵
-- `measurement.crashlytics=false` → 템플릿에 이미 들어 있으므로 "설치 스킵"이 아니라 **제거**다: `@react-native-firebase/crashlytics` 패키지·plugin, `firebase.ts`의 crashlytics import·호출(`recordError`는 no-op), `patches/@react-native-firebase+crashlytics+*.patch`, `firebase.json`의 `crashlytics_*` 키. import가 남으면 Metro 번들이 실패하고, 패치 파일이 남으면 `patch-package`가 CI(EAS)에서 exit 1로 install을 멈춘다
+- Analytics 와 Crashlytics 는 **따로** 고른다. 템플릿에 둘 다 들어 있으므로 꺼진 쪽은 "설치 스킵"이 아니라 **제거**다. import 가 남으면 Metro 번들이 실패하고, 패치 파일이 남으면 `patch-package` 가 CI(EAS)에서 exit 1 로 install 을 멈춘다
+  - `firebase_analytics=false`, `crashlytics=true` → `@react-native-firebase/analytics` 패키지, `firebase.ts` 의 analytics import·호출(`logEvent`/`logScreenView`/`setUser*` 는 no-op), `firebase.json` 의 `analytics_*`·`google_analytics_*` 키를 지운다. `@react-native-firebase/app`·crashlytics·plugin·`googleServicesFile`·Firebase 설정 파일은 **남긴다**
+  - `firebase_analytics=true`, `crashlytics=false` → `@react-native-firebase/crashlytics` 패키지·plugin, `firebase.ts` 의 crashlytics import·호출(`recordError` 는 no-op), `patches/@react-native-firebase+crashlytics+*.patch` 를 지운다
+  - 둘 다 false → `@react-native-firebase/*` 패키지·plugin 전부, `src/shared/lib/analytics/firebase.ts`, `firebase.json`, `patches/@react-native-firebase+*.patch`, `app.config.ts` 의 `ios.googleServicesFile`·`android.googleServicesFile`(파일이 없으면 prebuild 실패)을 지우고 `analytics.ts` 의 `resolveAdapter()` 는 `noopAnalytics` 만 반환. Firebase 콘솔 자동화도 스킵
 - `measurement.remote_config=true` → `@react-native-firebase/remote-config` 추가
-- `ux.store_review=false` → `src/shared/store-review/` 전체 스킵
+- `ux.store_review=false` → 템플릿에 있으므로 **제거**: `src/shared/store-review/`, `app/_layout.tsx` 의 `useReviewStore` rehydrate·`recordLaunch()`, `src/shared/ui/ErrorBoundary.tsx` 의 `recordError()` 호출, `expo-store-review` 의존성
 - `auth.methods=[]` → `features/auth/` 토큰 store 스킵, SecureStore도 토큰 키 미정의
-- `monetization.model`에 광고 포함 → AdMob 콘솔 자동화 + `react-native-google-mobile-ads` 통합
+- `monetization.model`에 광고 포함 → AdMob 콘솔 자동화 + 템플릿 `src/features/ads` 유지, `src/shared/config/ads.ts` 운영 ID 교체
+- `monetization.model`에 광고 없음 → 템플릿에 있으므로 **제거**: `src/features/ads/`, `src/shared/config/ads.ts`(+ `config/index.ts` export), `app/_layout.tsx` 의 `initializeAdsWithConsent`·`useAdLifecycle`·`useAppOpenAd`·`AdDevPanel`, `app/(tabs)/profile.tsx` 의 광고 개인정보 설정 버튼, `app.config.ts` 의 `react-native-google-mobile-ads`·`expo-tracking-transparency`·`./plugins/withLocalizedAttDescription` plugin 과 `NSUserTrackingUsageDescription`, 두 의존성. 제거 후 `npm run verify`
 - `monetization.model`에 구독 포함 → RevenueCat 또는 native IAP 모듈 통합 (`monetization_notes`에 따라 결정)
 - `backend.type=none` → Axios 인스턴스 생성 스킵, TanStack Query는 로컬 mutation만
 
@@ -69,7 +72,7 @@ Axios + TanStack Query + Zustand 기반의 API 연동/상태 관리, 그리고 F
 ### API Function
 ```typescript
 export const getUsers = async (params: IGetUsersRequest): Promise<IGetUsersResponse> => {
-  const { data } = await apiClient.get('/users', { params });
+  const { data } = await api.get<IGetUsersResponse>('/users', { params }); // typed wrapper from @shared/api — apiClient.get without <T> returns any
   return data;
 };
 ```
@@ -337,7 +340,7 @@ export const useStoreReview = () => {
 - 외부 코드는 `expo-store-review`를 직접 호출하지 않는다. **반드시 `useStoreReview().maybeRequest(REVIEW_TRIGGERS.X)`** 만 사용
 - 트리거 ID는 `REVIEW_TRIGGERS` 상수에서만 가져온다 (매직 스트링 금지)
 - 정책 엔진 게이트(`canRequestReview`)를 우회하지 않는다
-- 모든 평점 요청은 `logEvent('request_store_review', { trigger })`로 Analytics에 기록
+- 모든 평점 요청은 `logEvent(EAnalyticsEvent.REQUEST_STORE_REVIEW, { trigger })`로 Analytics에 기록 (`useStoreReview` 가 이미 한다)
 - 에러 핸들러(`catch`, `onError`) 내부에서 호출 금지
 - 호출 위치는 **긍정적 액션의 성공 콜백 + UI idle 상태**
 
@@ -494,7 +497,7 @@ Google은 기기 식별자(GAID/IDFA)·AdMob 계정 로그인·IP·CTR 통계로
 
 ### 모니터링 / 킬 스위치
 
-- **(PRD)** `ad_impression`(자동)과 별개로 광고 클릭 시 `logEvent('tap_ad', { placement })` 수집 → Firebase에서 CTR 이상치 자가 모니터링 (정지 전에 먼저 발견)
+- **(PRD)** `ad_impression`(자동)과 별개로 광고 클릭 시 `events.ts` 에 `TAP_AD: 'tap_ad'` 를 추가하고 `logEvent(EAnalyticsEvent.TAP_AD, { placement })` 수집 → Firebase에서 CTR 이상치 자가 모니터링 (정지 전에 먼저 발견)
 - `measurement.remote_config=true`인 경우 `ads_enabled` / `ads_{format}_enabled` Remote Config 플래그를 노출 게이트에 연결 — 무효 트래픽 경고 메일 수신 시 앱 업데이트 없이 즉시 차단
 
 ## 팀 통신 프로토콜

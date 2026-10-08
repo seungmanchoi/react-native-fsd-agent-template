@@ -20,10 +20,11 @@ React Native + Expo template with Feature-Sliced Design (FSD) and an AI agent ha
 | `.claude/agents/<name>.md` | `.codex/agents/<name>.toml` |
 | `.claude/skills/<name>/` | `.agents/skills/<name>/` |
 
-Edit only the `.claude/` sources, then run `npm run sync:codex`. When a task maps to a role, read that agent's instructions first:
+Edit only the `.claude/` sources, then run `npm run sync:codex` (`npm run verify` fails while the copies are stale). Invoke a skill with `$name`, pick it in `/skills`, or describe the task. When a task maps to a role, read that agent's instructions first:
 
 | Task | Agent |
 | --- | --- |
+| New app from this template (slug, bundle id, names) | `init-app` skill — run first while `app.config.ts` still has `SLUG = 'my-app'` |
 | Idea / market research | `idea-researcher` |
 | PRD / KPIs | `product-planner` |
 | Specs / task breakdown | `spec-planner` |
@@ -35,11 +36,16 @@ Edit only the `.claude/` sources, then run `npm run sync:codex`. When a task map
 | Functional / UX inspection | `app-inspector` |
 | Post-launch iteration loop | `loop-engineer` |
 
-Full-app builds follow the `orchestrate` skill's phases; post-launch work uses `iterate-app`. Claude-only tools named in those docs map to Codex equivalents (subagents, skills, asking the user in chat, a browser tool for console automation). Inter-agent artifacts live in `_workspace/` (gitignored).
+Full-app builds follow the `orchestrate` skill's phases; post-launch work uses `iterate-app` (Codex has no `/loop` — ask for N cycles). The agents and skills name Claude Code tools (`Agent`, `AskUserQuestion`, `SendMessage`, `/skill`, `mcp__*`); read them through `.agents/skills/orchestrate/references/runtime-adapters.md`. Inter-agent artifacts live in `_workspace/`; `spec.md`, `plan/` and `iterate/` are committed, the rest is scratch.
+
+**Setup once per machine**
+- Trust this repo's hooks in `/hooks`: `.codex/hooks.json` runs `scripts/verify-hook.mjs` at Stop, which runs `npm run verify` when files changed and hands failures back to you. Untrusted or not, run `npm run verify` yourself before saying a task is done.
+- Store deploy skills: `codex plugin marketplace add seungmanchoi/store-deploy-plugin`, then `codex plugin add store-deploy@store-deploy-marketplace`.
 
 ## Hard Thresholds (any violation = FAIL)
 
 **Quality**
+- `npm run verify` green (typecheck · lint · test · `check:harness`) — ESLint blocks wrapper-bypass imports and UTC date keys; `check:harness` covers NativeWind, SafeArea, Firebase config, pins and stale Codex copies
 - `npm run typecheck` 0 errors · `npm run lint` 0 errors · `any` 0 · FSD layer violations 0 (`app → widgets → features → entities → shared`)
 - Every screen wrapped in `SafeAreaView` (`react-native-safe-area-context`) · barrel `index.ts` per slice · NativeWind setup intact (babel preset + `nativewind/babel`, `withNativeWind` metro, `global.css`, `nativewind-env.d.ts`)
 - Only Tailwind classes defined in `tailwind.config.js` (undefined classes are silently ignored). Brand color = `primary`; body text = `text-text-*`
@@ -75,7 +81,7 @@ Full-app builds follow the `orchestrate` skill's phases; post-launch work uses `
 - **iOS linking**: `expo-build-properties` `ios.useFrameworks: 'dynamic'` (RNFB 26 uses SPM) and `ios.enableSceneSupport: true`. Never `'static'` alone. No Podfile-patching plugins, no `jsEngine: 'jsc'`.
 - **Pins**: `react-native-google-mobile-ads` stays at 17.0.0 until invertase/react-native-google-mobile-ads#903 is fixed. `patches/@react-native-firebase+crashlytics+26.4.0.patch` must stay until RN Firebase is upgraded past 26.4.0.
 - **Native changes**: `npx expo prebuild` cleans `ios/`/`android/` by default on SDK 57 — change native code through config plugins only.
-- **Deployment**: use the store-deploy skill files under `~/works/store-deploy-plugin/skills/` (see `CLAUDE.md` "EAS Build & Deploy Rules"). Production builds are local by default: `eas build --local` (apps without an EAS project use their fastlane lane), then submit that artifact with `eas submit --path <file>`. Use cloud EAS Build only when the user asks or the local build fails.
+- **Deployment**: use the `store-deploy` plugin skills (install above; maintainer's local source `~/works/store-deploy-plugin/skills/`) (see `CLAUDE.md` "EAS Build & Deploy Rules"). Production builds are local by default: `eas build --local` (apps without an EAS project use their fastlane lane), then submit that artifact with `eas submit --path <file>`. Use cloud EAS Build only when the user asks or the local build fails.
 - **Runtime testing**: drive simulators/emulators with `sim-use` (observe → act → verify with `sim-use ui`); never coordinate-tap with `simctl`/`adb`.
 - **Coding principle (ponytail)**: does it need to exist? → reuse what is here → stdlib → platform → installed deps → one line → minimum code. Fix root causes, not symptoms.
 - **CodeGraph (optional)**: use `codegraph_*` tools for structural questions when `.codegraph/` exists.
@@ -90,7 +96,10 @@ npm run android      # Android build + run
 npm run typecheck    # TypeScript
 npm run lint         # ESLint 9 flat config
 npm test             # Vitest
+npm run verify       # typecheck + lint + test + check:harness (the Stop hook runs this)
+npm run app:init -- --slug <slug> --name "<Name>"   # template → new app
 npm run sync:codex   # regenerate .codex/agents + .agents/skills from .claude/
+npm run eas:build:prod:ios   # local production build → build-output/ (also :android; cloud: eas:build:prod:cloud)
 ```
 
 ## Branch Strategy

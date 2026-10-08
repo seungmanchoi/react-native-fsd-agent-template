@@ -2,7 +2,7 @@
 
 배포(Phase 7 / `/store-deploy`)·빌드 단계에서만 필요한 절차/트러블슈팅 모음. CLAUDE.md(상시 컨텍스트)에서 분리해 on-demand로 참조한다. 항상 적용되는 규칙(빌드와 제출, 앱 이름 일관성)은 CLAUDE.md "EAS Build & Deploy Rules"에 남아 있다.
 
-> 전체 배포 파이프라인은 `store-deploy` 플러그인 스킬(`~/works/store-deploy-plugin/skills/`)을 따른다. 로컬 빌드·서명·제출 문제는 store-build·store-submit 의 트러블슈팅이 정본이다.
+> 전체 배포 파이프라인은 `store-deploy` 플러그인 스킬(설치: `runtime-adapters.md`, 유지관리자 로컬 원본 `~/works/store-deploy-plugin/skills/`)을 따른다. 로컬 빌드·서명·제출 문제는 store-build·store-submit 의 트러블슈팅이 정본이다.
 
 ## 빌드 아카이브 (.easignore)
 
