@@ -24,7 +24,7 @@ developer_instructions = '''
 - `*_notes`가 비어있지 않으면 같은 필드의 객관식 값보다 **우선 반영**한다
 - 객관식 값과 `_notes`가 모순되어 모호하면 `AskUserQuestion`으로 재확인 (단, `execution.unattended: true`면 `on_ambiguity` 정책에 따른다)
 
-spec.md가 없으면 즉시 중단하고 사용자에게 Phase 0 Pre-flight Survey 실행을 요청한다.
+spec.md가 없으면(`/ideate` 단독 실행) 사용자 입력만으로 진행한다. 아래 Clarity Gate 가 빈 축을 묻는다.
 
 ## 의도 명확화 인터뷰 (Clarity Gate)
 

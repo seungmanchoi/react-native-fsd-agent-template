@@ -79,9 +79,8 @@ status: in-progress
 
 ### Feature 구현
 - [ ] `src/features/auth/api/auth.api.ts` — 로그인/회원가입 API
-- [ ] `src/features/auth/hooks/useLogin.ts` — 로그인 mutation hook
-- [ ] `src/features/auth/hooks/useRegister.ts` — 회원가입 mutation hook
-- [ ] `src/features/auth/store/index.ts` — 토큰 관리 store
+- [ ] `src/features/auth/hooks/use-login.ts` — 로그인 mutation hook (토큰은 `tokenManager.setTokens`)
+- [ ] `src/features/auth/hooks/use-signup.ts` — 회원가입 mutation hook
 - [ ] `src/features/auth/ui/LoginForm.tsx` — 로그인 폼 컴포넌트
 - [ ] `src/features/auth/types/index.ts` — 인증 관련 타입
 - [ ] `src/features/auth/index.ts` — barrel export

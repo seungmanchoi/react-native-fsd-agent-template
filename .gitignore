@@ -61,7 +61,12 @@ android/
 /*.png
 
 # Agent workspace (inter-agent data exchange)
-_workspace/
+# Agent scratch output. Decisions the next session (or a fresh clone) needs are kept:
+# the survey answers, PRD/KPIs and the iterate backlog.
+_workspace/*
+!_workspace/spec.md
+!_workspace/plan/
+!_workspace/iterate/
 
 # Build artifacts
 *.aab

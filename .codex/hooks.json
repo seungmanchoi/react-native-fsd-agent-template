@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/verify-hook.mjs\"",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -10,7 +10,8 @@ description: "코드 품질·FSD 규칙·타입 안전성·보안을 검증하�
 ## Role
 
 - 변경된 코드의 FSD 아키텍처 규칙 준수 여부를 검증한다
-- ESLint, TypeScript 타입 체크를 실행하고 문제를 수정한다
+- `npm run verify`(typecheck · lint · test · check:harness)를 실행하고 결과를 판정한다
+- **수정 여부는 모드에 따른다**: orchestrate Phase 5 / iterate-app Verify 처럼 `app-inspector` 와 **병렬로 도는 검증 단계에서는 읽기·보고만** 한다(파일 수정·`npm run format` 금지 — 동시에 같은 파일을 고치면 서로의 결과를 덮는다). 수정은 보고서를 받은 구현 에이전트가 하고, 그 뒤 두 검증을 다시 돌린다. 사용자가 직접 "린트 고쳐줘"처럼 단독으로 부르면 수정해도 된다
 - 코드 컨벤션(네이밍, import 규칙 등) 준수를 확인한다
 - 보안 취약점 및 성능 문제를 탐지한다
 
@@ -45,7 +46,7 @@ description: "코드 품질·FSD 규칙·타입 안전성·보안을 검증하�
 ### 3. Code Quality
 - [ ] `npm run lint` 통과
 - [ ] `npm run typecheck` 통과
-- [ ] `npm run format` 적용
+- [ ] `npx prettier --check "src/**/*.{ts,tsx}" "app/**/*.{ts,tsx}"` 통과 (단독 실행일 때만 `npm run format` 으로 고친다)
 - [ ] import path alias `@/` 사용
 
 ### 4. React Native Specific
@@ -58,9 +59,9 @@ description: "코드 품질·FSD 규칙·타입 안전성·보안을 검증하�
 - [ ] 하드코딩된 시크릿/키 없음
 - [ ] 입력값 검증 (Zod)
 - [ ] XSS 방지
-- [ ] **토큰/시크릿이 `AsyncStorage`·`MMKV`·평문 파일에 저장되지 않음** — 반드시 `@/shared/secure-storage` (expo-secure-store, iOS Keychain / Android Keystore-backed) 사용
-- [ ] `SecureStore` 외부에서 `accessToken`/`refreshToken` 등 시크릿 식별자를 직접 다루지 않음
-- [ ] Zustand `persist`가 토큰 슬라이스를 `AsyncStorage` 어댑터로 저장하지 않음 (SecureStore-backed 어댑터만 허용)
+- [ ] **토큰/시크릿이 `AsyncStorage`·`MMKV`·평문 파일에 저장되지 않음** — 토큰은 `@shared/api`의 `tokenManager`(expo-secure-store)로만, 토큰 외 시크릿은 분리한 `@shared/secure-storage` 래퍼로만 다룬다
+- [ ] `tokenManager`(`src/shared/api/client.ts`) 외부에서 `accessToken`/`refreshToken` 등 시크릿 식별자를 직접 다루지 않음
+- [ ] 토큰이 Zustand store(`persist` 포함)에 없음
 - [ ] `console.log`/Crashlytics/Analytics 파라미터에 토큰/PII 노출 없음
 - [ ] `app.config.ts` `extra` 또는 클라이언트 번들 `.env`에 비밀키 포함 없음
 
@@ -88,15 +89,17 @@ description: "코드 품질·FSD 규칙·타입 안전성·보안을 검증하�
 - [ ] `app.config.ts` 의 `plugins` 에 `react-native-google-mobile-ads` / `expo-tracking-transparency` 가 모두 포함되어 있음
 - [ ] `app.config.ts` 의 `infoPlist.NSUserTrackingUsageDescription` 가 설정되어 있고, 두 plugin 의 `userTrackingUsageDescription` / `userTrackingPermission` 과 문구가 일치함
 - [ ] `BannerAd` 컴포넌트는 `@features/ads/ui/AdBanner` 를 통해서만 사용 (직접 import 금지)
+- [ ] CLAUDE.md "Hard Threshold (광고 동의)" 표의 ATT 항목 전부: 상투 문구 없음, `DEFAULT_ATT_DESCRIPTIONS` 기본값 그대로 아님, `withLocalizedAttDescription` 등록, `.lproj` 개수 = Xcode 등록 개수, GDPR/IDFA 메시지 게시, `privacyOptionsRequired` 일 때 "광고 개인정보 설정" 진입점
+- [ ] (스토어 제출 빌드) 앱 코드가 부르는 `ads.ts` 키마다 iOS·Android 운영 ID 가 `ca-app-pub-XXXXX` placeholder 가 아님. 부르지 않는 키의 훅·컴포넌트는 앱에 없음 (store-admob Step 5)
 
 ### 5d. AdMob 무효 트래픽/배치 안티패턴 (계정 정지 방어)
 - [ ] 한 화면(컴포넌트 트리)에 `AdBanner`/`BannerAd`가 2개 이상 렌더링되지 않음
 - [ ] 배너 로드 실패 시 컨테이너가 collapse됨 (고정 높이 빈 placeholder 없음)
 - [ ] 광고 컴포넌트가 오버레이 아래/opacity 0/화면 밖에 렌더링되는 패턴 없음
 - [ ] 빈 상태/에러/로딩/스플래시 화면에 광고 노출 없음
-- [ ] `ad.store.ts`에 배너 클릭 가드 존재 (일일 N회 초과 시 `bannerSuppressedUntil`로 배너 차단)
+- [ ] (PRD 광고 정책에 있을 때만) `ad.store.ts`에 배너 클릭 가드 존재 (일일 N회 초과 시 `bannerSuppressedUntil`로 배너 차단)
 - [ ] 전면 포맷(interstitial/rewarded/app-open)이 공유 쿨다운(`lastFullScreenAdTime`)을 거침
-- [ ] rewarded 일일 cap 존재
+- [ ] (PRD 광고 정책에 있을 때만) rewarded 일일 cap, 세션당 전면 광고 상한, `tap_ad` 이벤트 존재
 - [ ] 광고 로드 실패 재시도에 지수 백오프 존재 — 즉시 무한 재시도 루프 없음
 - [ ] 전면 광고 `show()` 호출 전 `AppState` active 가드 존재
 - [ ] 리워드 지급이 `EARNED_REWARD` 콜백 내부에서만 발생 (선지급/클릭 보상 없음)
@@ -125,7 +128,7 @@ description: "코드 품질·FSD 규칙·타입 안전성·보안을 검증하�
 | barrel export 누락 | **0개** | index.ts 확인 | 가능 |
 | `toISOString().split('T')[0]` 날짜 키 | **0개** | `grep -r "toISOString.*split"` | 가능 |
 | 토큰을 AsyncStorage에 저장 | **0개** | `grep -rE "AsyncStorage.*(token\|secret\|password)"` 등 | 가능 |
-| SecureStore 외부에서 토큰 처리 | **0개** | `@/shared/secure-storage` 미경유 토큰 참조 grep | 수동 |
+| SecureStore 외부에서 토큰 처리 | **0개** | `src/shared/api/client.ts`(`tokenManager`) 밖의 토큰 참조 grep | 수동 |
 | 토큰/PII 로그 노출 | **0개** | `console.log` 인자 분석 | 수동 |
 | 평점 정책 `maxRequestsPerYear`/`cooldownAfterLaunchSec`/`uiIsIdle` 게이트 누락 | **0개** | `policy.ts` 필드/시그니처 확인 | 수동 |
 | 평점 자체 사전 프롬프트 다이얼로그/시트 | **0개** | "평점/리뷰/별점" UI 텍스트 + Alert/Modal/ActionSheet 조합 grep | 수동 |
@@ -145,9 +148,8 @@ description: "코드 품질·FSD 규칙·타입 안전성·보안을 검증하�
 정적 코드 분석만 하지 않는다. **실제 명령을 실행**하여 검증한다.
 
 ```bash
-npm run typecheck   # TypeScript strict check — 반드시 실행
-npm run lint        # ESLint — 반드시 실행
-npm run format      # Prettier — 적용 후 diff 확인
+npm run verify      # typecheck · lint · test · check:harness — 반드시 실행 (Hard Threshold 자동 검사 포함)
+npx prettier --check "src/**/*.{ts,tsx}" "app/**/*.{ts,tsx}"   # 검증 단계에서는 check 만
 ```
 
 추가 능동 검증:
@@ -211,4 +213,4 @@ npm run lint        # 0 에러 확인
 
 ## Tools
 
-전 도구 상속. 주로 Read/Grep/Glob + Bash(typecheck/lint 실행) + Edit(자동 수정)를 사용한다.
+전 도구 상속. 주로 Read/Grep/Glob + Bash(typecheck/lint 실행) + Edit(단독 실행일 때만 자동 수정)를 사용한다.

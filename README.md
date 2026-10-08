@@ -8,14 +8,14 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-Harness-purple?style=for-the-badge&logo=anthropic&logoColor=white" />
   <img src="https://img.shields.io/badge/Agents-10_Specialists-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Skills-9_Workflows-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Skills-11_Workflows-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Pattern-Pipeline-yellow?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Vibe_Coding-AI_Driven-ff69b4?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Harness_Engineering-Production-red?style=for-the-badge" />
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Expo_Router-6-000020?style=flat-square&logo=expo&logoColor=white" />
+  <img src="https://img.shields.io/badge/Expo_Router-57-000020?style=flat-square&logo=expo&logoColor=white" />
   <img src="https://img.shields.io/badge/Zustand-5-433E38?style=flat-square&logo=zustand&logoColor=white" />
   <img src="https://img.shields.io/badge/TanStack_Query-5-FF4154?style=flat-square&logo=reactquery&logoColor=white" />
   <img src="https://img.shields.io/badge/NativeWind-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" />
@@ -27,12 +27,10 @@
   <img src="https://img.shields.io/badge/Prettier-3-F7B93E?style=flat-square&logo=prettier&logoColor=black" />
   <img src="https://img.shields.io/badge/EAS_Build-CLI-000020?style=flat-square&logo=expo&logoColor=white" />
   <img src="https://img.shields.io/badge/Reanimated-4-6236FF?style=flat-square&logo=react&logoColor=white" />
-  <img src="https://img.shields.io/badge/Lottie-7-00DDB3?style=flat-square&logo=airbnb&logoColor=white" />
   <img src="https://img.shields.io/badge/Flash_List-2-FF6C37?style=flat-square&logo=shopify&logoColor=white" />
-  <img src="https://img.shields.io/badge/Bottom_Sheet-5-000000?style=flat-square" />
   <img src="https://img.shields.io/badge/Day.js-1.11-FF5F4C?style=flat-square" />
-  <img src="https://img.shields.io/badge/Firebase_Analytics-24-FFCA28?style=flat-square&logo=firebase&logoColor=black" />
-  <img src="https://img.shields.io/badge/AdMob-16-EA4335?style=flat-square&logo=googleads&logoColor=white" />
+  <img src="https://img.shields.io/badge/Firebase_Analytics-26-FFCA28?style=flat-square&logo=firebase&logoColor=black" />
+  <img src="https://img.shields.io/badge/AdMob-17-EA4335?style=flat-square&logo=googleads&logoColor=white" />
   <img src="https://img.shields.io/badge/SecureStore-Keychain%20%7C%20Keystore-4630EB?style=flat-square&logo=expo&logoColor=white" />
   <img src="https://img.shields.io/badge/Vitest-4-6E9F18?style=flat-square&logo=vitest&logoColor=white" />
 </p>
@@ -49,7 +47,7 @@
 
 A React Native + Expo + Feature-Sliced Design production template that supports AI agent-based full-lifecycle development.
 
-> **What makes this different?** This template includes 10 Claude Code agents and 9 skills that understand FSD architecture rules. With a single "Make an app" command, the entire pipeline—from ideation to market research, planning, design system, FSD module scaffolding, API integration, screen development, and QA verification—runs automatically. After launch, a **continuous improvement loop** (`/iterate-app`) keeps shipping: it diagnoses the current state, recommends the next highest-value enhancement (ranked by KPI gap, tech debt, and coverage), builds one slice, verifies it, and recommends what to build next.
+> **What makes this different?** This template includes 10 Claude Code agents and 10 skills that understand FSD architecture rules. With a single "Make an app" command, the entire pipeline—from ideation to market research, planning, design system, FSD module scaffolding, API integration, screen development, and QA verification—runs automatically. After launch, a **continuous improvement loop** (`/iterate-app`) keeps shipping: it diagnoses the current state, recommends the next highest-value enhancement (ranked by KPI gap, tech debt, and coverage), builds one slice, verifies it, and recommends what to build next.
 
 ---
 
@@ -75,7 +73,7 @@ Phase 5: QA (Parallel)
            │
 Phase 6: Iteration      Fix Loop (max 3 times, pre-launch convergence)
            │
-Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
+Phase 7: Deployment     /store-deploy → local build (eas build --local) → App Store / Google Play
 ═══════════════════════════════════════════════════════════════════════
 Post-launch Continuous Improvement Loop (repeat):
   Assess → Recommend next → Develop one slice → Verify → Reflect
@@ -107,6 +105,7 @@ Data Flow: Context between agents is passed through the `_workspace/` directory.
 
 | Skill | Command | Description |
 |-----|-------|-----|
+| `init-app` | "Start a new app" | Replace template identifiers (slug, bundle id, scheme, localized names) |
 | `ideate` | "Find app ideas" | Market research and idea generation |
 | `plan-app` | "Plan the app" | PRD writing and FSD module map design |
 | `design-system` | "Create design system" | NativeWind theme and screen layout |
@@ -116,6 +115,7 @@ Data Flow: Context between agents is passed through the `_workspace/` directory.
 | `inspect-app` | "Inspect app" | Full functional/UX inspection |
 | `orchestrate` | "Make an app" | Full pipeline orchestration (one-shot build) |
 | `iterate-app` | "What's next" / "Improve it" | Post-launch develop → verify → recommend-next loop |
+| `sim-use` | (used during runtime testing) | Drives the iOS Simulator / Android emulator by element alias |
 
 ---
 
@@ -179,7 +179,7 @@ For structural code questions (what calls what, what a change would break, where
 | Secure Storage | expo-secure-store (Keychain / Keystore) |
 | In-App Review | expo-store-review (policy-gated) |
 | i18n | i18n-js |
-| Build & Deploy | EAS Build / EAS Submit |
+| Build & Deploy | EAS Build (local by default) / EAS Submit, via the store-deploy plugin |
 
 ---
 
@@ -198,13 +198,13 @@ useEffect(() => { void initializeAdsWithConsent(); }, []);
 ```
 
 ```
-UMP (GDPR) consent  →  iOS ATT prompt  →  mobileAds().initialize()
+UMP (GDPR) consent  →  iOS ATT prompt  →  setRequestConfiguration()  →  mobileAds().initialize()
 ```
 
 - Hooks: `useInterstitialAd`, `useRewardedAd`, `useAppOpenAd`, `useAdLifecycle`, `usePremiumGuard`
 - Components: `AdBanner`, `AdDevPanel` (dev-only test panel)
-- Frequency caps & premium gating via `useAdStore` / `usePremiumStore` (Zustand)
-- Dev uses Google **test ad units**; production uses real IDs in `src/shared/config/ads.ts`
+- Frequency caps & premium gating via `useAdStore` / `usePremiumStore` (Zustand): shared full-screen cooldown, daily interstitial cap, load-retry backoff. Extra guards (banner click guard, rewarded daily cap, per-session cap, `tap_ad` event) are added only when the PRD asks for them
+- Dev uses Google **test ad units**; production uses real IDs in `src/shared/config/ads.ts`, created with the store-deploy plugin's `store-admob` skill (only the formats the app calls, via `--ad-types`)
 - **Never** place ads right before a key action or on a camera/core screen
 
 ### Analytics — Firebase (`src/shared/lib/analytics/`)
@@ -268,7 +268,16 @@ cd my-app
 npm install
 ```
 
-### 3. Environment Setup
+### 3. Initialize Your App
+
+```bash
+npm run app:init -- --slug pocket-pulse --name "Pocket Pulse" --ko "포켓 펄스"
+npm install
+```
+
+Sets the slug, bundle id (`com.seungmanchoi.{slug}`), scheme, localized home-screen names and the app name inside the ATT strings. The output and the `init-app` skill list the remaining manual steps (rewrite the ATT text, `firebase/` config files, `eas init`). Asking an agent to "start a new app" runs the same skill.
+
+### 4. Environment Setup
 
 ```bash
 cp .env.example .env
@@ -276,7 +285,7 @@ cp .env.example .env
 
 Edit the `.env` file to set your API URL, etc.
 
-### 4. Running the App
+### 5. Running the App
 
 ```bash
 npm start          # Expo Dev Server (LAN)
@@ -284,7 +293,18 @@ npm run ios        # iOS Simulator
 npm run android    # Android Emulator
 ```
 
-### 5. Using AI Agent Harness (Claude Code)
+### 6. Using the AI Agent Harness (Claude Code · Codex)
+
+Both tools share the same agents and skills. `.claude/` is the source; `npm run sync:codex` generates the Codex copies.
+
+| | Claude Code | Codex CLI |
+|---|---|---|
+| Run a skill | `/orchestrate`, `/iterate-app`, or plain language | `$orchestrate`, pick it in `/skills`, or plain language |
+| Repeat improvement | `/loop /iterate-app` | "Run iterate-app for 3 cycles" (no `/loop`) |
+| Verify hook | Automatic (`.claude/settings.json`) | Trust `.codex/hooks.json` once in `/hooks` |
+| Deploy skills | Claude offers to install the store-deploy plugin on clone | `codex plugin marketplace add seungmanchoi/store-deploy-plugin` → `codex plugin add store-deploy@store-deploy-marketplace` |
+
+When an agent ends a turn with changed files, the Stop hook runs `npm run verify` (typecheck · lint · test · harness checks) and hands any failure back to the agent to fix.
 
 ```bash
 # Full Pipeline — Make an app from scratch
@@ -326,6 +346,7 @@ npm run android    # Android Emulator
 │       ├── create-screen/              # Screen creation
 │       ├── inspect-app/                # App inspection
 │       ├── iterate-app/                # Post-launch continuous improvement loop
+│       ├── sim-use/                    # Runtime simulator testing (sim-use CLI)
 │       └── orchestrate/                # Full pipeline orchestration
 │           └── references/             # harness-principles, loop-engineering, deploy-build-troubleshooting
 │
@@ -398,7 +419,7 @@ npm run android    # Android Emulator
 ├── tailwind.config.js                  # NativeWind/Tailwind config
 ├── tsconfig.json                       # TypeScript (path aliases)
 ├── eslint.config.js                    # ESLint 9 Flat Config
-├── vitest.config.ts                    # Vitest test runner config
+├── vitest.config.mts                   # Vitest test runner config
 ├── .prettierrc.js                      # Prettier rules
 ├── eas.json                            # EAS Build profiles
 └── CLAUDE.md                           # Claude Code instructions
@@ -485,9 +506,14 @@ npm test                  # Vitest unit tests (run once)
 npm run test:watch        # Vitest watch mode
 npm run typecheck         # TypeScript check
 npm run format            # Prettier format
-npm run eas:build:dev     # EAS development build
-npm run eas:build:preview # EAS preview build
-npm run eas:build:prod    # EAS production build
+npm run verify            # typecheck + lint + test + check:harness (what the Stop hook runs)
+npm run check:harness     # Hard Threshold config checks (NativeWind, SafeArea, Firebase, pins, Codex copies)
+npm run app:init -- --slug <slug> --name "<Name>"  # template → new app
+npm run eas:build:prod:ios      # Local production build → build-output/app.ipa
+npm run eas:build:prod:android  # Local production build → build-output/app.aab
+npm run eas:build:prod:cloud    # EAS cloud production build (on request)
+npm run eas:build:dev     # EAS cloud development build (on request)
+npm run eas:build:preview # EAS cloud preview build (on request)
 npm run sync:codex        # Regenerate the Codex harness copies from .claude/
 ```
 
@@ -497,7 +523,7 @@ npm run sync:codex        # Regenerate the Codex harness copies from .claude/
 
 ### 1. App Name and Identifier
 
-Edit in `app.config.ts`:
+`npm run app:init` changes all of these at once. To edit by hand, change `app.config.ts`:
 
 ```typescript
 name: 'MyApp',              // App name
@@ -560,7 +586,7 @@ App config flows through `app.config.ts` → `extra` → `src/shared/config/env.
 | `GOOGLE_SERVICE_INFO_PLIST` | `firebase/GoogleService-Info.plist` (iOS) |
 | `GOOGLE_SERVICES_JSON` | `firebase/google-services.json` (Android) |
 
-For EAS cloud builds, inject them as file environment variables (`eas secret:*` is deprecated):
+Local builds read these files directly, and cloud builds get them too because `.easignore` uploads `firebase/`. Only on a clean checkout without these files (e.g. CI), or if you exclude `firebase/` from the archive, inject them into cloud builds as file environment variables (`eas secret:*` is deprecated):
 
 ```bash
 eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./firebase/GoogleService-Info.plist --visibility secret --environment production --environment preview --environment development
@@ -588,9 +614,10 @@ The `app-inspector` agent / `inspect-app` skill **checks for `sim-use` and insta
 ```bash
 if ! command -v sim-use >/dev/null 2>&1; then
   brew tap lycorp-jp/tap && brew install lycorp-jp/tap/sim-use
-  sim-use init --client claude --dest .claude/skills   # register the agent skill in this repo
 fi
 ```
+
+The skill itself ships in the repo (`.claude/skills/sim-use`, Codex copy `.agents/skills/sim-use`), so `sim-use init` is not needed. After upgrading the CLI, refresh it with `sim-use init --client claude --dest .claude/skills` and `npm run sync:codex`.
 
 ```bash
 sim-use ui            # observe — element outline with @aliases
@@ -619,6 +646,8 @@ sim-use ui            # verify — re-read the screen
 
 ## Branch Strategy
 
+Apps built from this template:
+
 ```
 main      ← Production
   ^
@@ -627,19 +656,20 @@ devel     ← Development (default)
 feature/* ← Feature branches
 ```
 
+This template repo itself has no `devel`; PRs merge into `main`.
+
 ---
 
 ## Build & Deploy Optimization
 
-### EAS Build Sequence (Mandatory)
+### Build & Submit (local by default)
 
 ```
-1. eas build --local        ← Check for build errors locally first
-2. eas build                ← Proceed to cloud build after success
-3. eas submit               ← Submit to store
+1. eas build --local        ← Production build on this machine (apps without an EAS project: fastlane)
+2. eas submit --path <file> ← Submit the local artifact
 ```
 
-> Since cloud build credits are limited, catch Gradle/Xcode errors locally first.
+> Use cloud EAS Build (`eas build`) only when you ask for it or the local build fails. Steps: the `store-build` / `store-submit` skills of the store-deploy plugin.
 
 ### EAS Build Profiles (`eas.json`)
 

@@ -33,7 +33,7 @@ NativeWind(Tailwind CSS) 기반의 React Native UI 컴포넌트 및 스크린을
 - `ux.onboarding=none` → 온보딩 라우트/화면 생성 안 함, `app/(tabs)`로 바로 진입
 - `ux.onboarding=slideshow` → 스킵 가능한 슬라이드 (기본 3장, `_notes`로 장수/내용 오버라이드)
 - `ux.dark_mode=light_only` → 다크 색상 클래스 생성 안 함
-- `ux.store_review=true` → 트리거 화면의 성공 콜백에 `maybeRequest({ uiIsIdle: true })` 배선 + `recordKeyAction()`
+- `ux.store_review=true` → 트리거 화면의 성공 콜백에 `maybeRequest(REVIEW_TRIGGERS.X)` 배선(두 번째 인자 `{ uiIsIdle }` 기본값 true — idle 이 아니면 `{ uiIsIdle: false }`) + `recordKeyAction()`
 - `ux.store_review=false` → store-review 관련 import/호출 전부 생략
 - `auth.profile_screen=false` → 프로필 화면 생성 안 함
 - `monetization.paywall_position`에 따라 페이월 진입점 배선 (none이면 페이월 자체 생성 안 함)
@@ -62,18 +62,18 @@ NativeWind(Tailwind CSS) 기반의 React Native UI 컴포넌트 및 스크린을
 
 ```typescript
 // app/(tabs)/camera.tsx — 성공 콜백 예시
-import { useStoreReview, useReviewStore } from '@/shared/store-review';
-import { REVIEW_TRIGGERS } from '@/shared/store-review/triggers';
+import { useStoreReview, useReviewStore, REVIEW_TRIGGERS } from '@/shared/store-review';
 
 export default function CameraScreen() {
   const { maybeRequest } = useStoreReview();
   const recordKeyAction = useReviewStore((s) => s.recordKeyAction);
 
-  const onSaveSuccess = async () => {
-    recordKeyAction();              // 카운터 누적
-    showToast('저장되었습니다');     // 긍정적 피드백 먼저
-    await new Promise((r) => setTimeout(r, 400)); // UI idle 대기
-    await maybeRequest(REVIEW_TRIGGERS.AFTER_PHOTO_SAVE);
+  const onSaveSuccess = () => {
+    recordKeyAction(); // 카운터 누적
+    // 긍정적 피드백 먼저. 토스트가 사라진 뒤(=UI idle)에 요청한다 — 고정 sleep 은 idle 을 보장하지 않는다.
+    showToast('저장되었습니다', {
+      onHide: () => void maybeRequest(REVIEW_TRIGGERS.AFTER_PHOTO_SAVE),
+    });
   };
   // ...
 }

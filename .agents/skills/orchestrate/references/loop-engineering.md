@@ -75,7 +75,7 @@
 
 ## `/loop`(하네스 러너)와의 관계
 - 하네스 기본 `/loop`은 "주기적으로 같은 명령 실행"하는 범용 러너다.
-- 자동 무인 고도화: `_workspace/spec.md`에 `execution.unattended: true` + `on_ambiguity: pick_recommended` 설정 후 `/loop /iterate-app`.
+- 자동 무인 고도화: `_workspace/spec.md`에 `execution.unattended: true` + `on_ambiguity: pick_recommended` 설정 후 `/loop /iterate-app` (Claude Code 전용 — Codex 에는 `/loop` 이 없으니 "iterate-app 을 3 사이클 돌려라, verify 게이트 FAIL 이나 백로그가 비면 멈춘다"처럼 사이클 수를 지정한다. `references/runtime-adapters.md`).
 - `loop-engineer`는 러너가 아니라 **한 사이클의 의사결정/오케스트레이션**을 담당한다. 역할이 겹치지 않는다.
 
 ## 산출물

@@ -45,7 +45,8 @@ description: "출시/1차 구현 완료 후 앱을 지속적으로 고도화하�
 - `qa-reviewer`: typecheck/lint 0, FSD 의존성, 보안·Analytics·평점·광고 안티패턴 (변경 슬라이스 + 의존 그래프 — CodeGraph 사용 시 `codegraph impact`로 변경 심볼의 파급 범위를 산출해 회귀 검사 대상 화면을 누락 없이 확정). **CLAUDE.md "Hard Thresholds" 표가 정본.**
 - `app-inspector`: 변경 화면 기능/UX/접근성 + **회귀 검사**(기존 동작 유지)
 - 추가: KPI 회귀 없음, 불필요 의존성 추가 없음
-- FAIL → 구현 에이전트에 수정 요청 (최대 3회). 3회 후 미해결은 백로그 환원.
+- `npm run verify` green 이 기본 게이트다. 변경 화면은 `sim-use` 로 실제 조작해 확인하고 증거를 남긴다(inspect-app Step 2.5)
+- FAIL → 구현 에이전트에 수정 요청 (최대 3회). 3회 후에도 Hard Threshold 위반·verify 실패가 남으면 **커밋하지 않고** 사용자에게 보고한다. 그 밖의 미해결 이슈만 백로그로 환원.
 
 ### Step 5: Reflect — 회고 및 다음 추천
 - `_workspace/iterate/cycle-{N}.md`에 사이클 요약 기록 (목표·변경·검증 결과·KPI 영향 가설)
@@ -53,7 +54,7 @@ description: "출시/1차 구현 완료 후 앱을 지속적으로 고도화하�
 - 백로그 재채점 → `_workspace/iterate/backlog.md` 갱신 → **다음 사이클 추천 1개 제시 후 루프 종료**
 
 ## 무인/반복 실행
-이 스킬을 하네스 `/loop`으로 감싸면 자동 고도화 루프가 된다. 권장: `_workspace/spec.md`에 `execution.unattended: true` + `on_ambiguity: pick_recommended` 설정 후 `/loop /iterate-app`.
+이 스킬을 하네스 `/loop`으로 감싸면 자동 고도화 루프가 된다. 권장: `_workspace/spec.md`에 `execution.unattended: true` + `on_ambiguity: pick_recommended` 설정 후 `/loop /iterate-app` (Claude Code 전용 — Codex 에는 `/loop` 이 없으니 "iterate-app 을 3 사이클 돌려라, verify 게이트 FAIL 이나 백로그가 비면 멈춘다"처럼 사이클 수를 지정한다. `references/runtime-adapters.md`).
 
 ## Agent Delegation
 | Step | Agent |

@@ -24,7 +24,7 @@ eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./firebase/google
 
 ## 왜 Firebase Analytics가 필요한가
 
-Firebase Analytics를 통합하지 않으면 AdMob 광고가 audience signal 없이 non-personalized(NPA) 형태로만 노출되어 eCPM이 3~5배 낮아진다. AdMob과 Firebase Analytics를 함께 사용하는 것이 표준 권장 구성이다.
+AdMob 은 Firebase Analytics 없이도 동작한다(Analytics SDK 는 선택). 이 템플릿은 KPI 측정을 위해 Analytics 를 기본으로 넣고, AdMob 과 연결하면 광고 노출·수익을 사용자 행동 이벤트와 같은 곳에서 볼 수 있다.
 
 ## 빌드 호환성 메모 (Expo SDK 57 / RN Firebase 26)
 

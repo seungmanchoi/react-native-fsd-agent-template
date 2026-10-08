@@ -22,10 +22,11 @@ React Native + Expo template with **Feature-Sliced Design (FSD)** architecture a
 
 ### 핵심 규칙
 
+0. **새 앱 시작**: `app.config.ts` 의 `SLUG` 가 아직 `my-app` 이면 `init-app` 스킬(`npm run app:init`)부터 실행한다.
 1. **새 기능 구현 시**: 반드시 FSD 구조 규칙을 따른다. feature/entity/widget 생성 시 해당 에이전트 정의 파일(`.claude/agents/`)을 Read하고 지시를 따른다.
 2. **풀 앱 개발 시**: `/orchestrate` 스킬의 7-Phase 파이프라인을 따른다. Phase를 건너뛰지 않는다.
-3. **QA는 생략할 수 없다**: 구현 완료 후 반드시 `npm run typecheck`, `npm run lint`를 실행한다. Hard Threshold 기준을 적용한다.
-4. **`_workspace/` 디렉토리**: 에이전트 간 데이터는 `_workspace/`에 파일로 저장하여 전달한다. Phase 전환 시 이전 산출물을 Read하고 이어서 작업한다.
+3. **QA는 생략할 수 없다**: 구현 완료 후 반드시 `npm run verify`(typecheck · lint · test · `check:harness`)를 실행한다. Hard Threshold 기준을 적용한다. 래퍼 우회 import·UTC 날짜 키는 ESLint 가, NativeWind·SafeArea·Firebase 설정·버전 고정·하네스 사본은 `scripts/check-harness.mjs` 가 잡는다. Stop hook(Claude `.claude/settings.json`, Codex `.codex/hooks.json`)이 코드가 바뀐 턴마다 같은 명령을 돌려 실패를 되돌려 주지만, hook 이 없어도 직접 실행한다.
+4. **`_workspace/` 디렉토리**: 에이전트 간 데이터는 `_workspace/`에 파일로 저장하여 전달한다. Phase 전환 시 이전 산출물을 Read하고 이어서 작업한다. `spec.md`·`plan/`·`iterate/` 는 커밋 대상이고(`.gitignore` 예외) 나머지는 임시 산출물이다.
 5. **디자인 변경 시**: `design-architect` 에이전트의 4축 평가 기준(Design Quality, Originality, Craft, Functionality)을 적용한다.
 6. **배포 시**: `/store-deploy` 스킬을 사용한다. 다른 배포 방법을 사용하지 않는다.
 
@@ -92,11 +93,11 @@ src/shared/secure-storage/
 └── index.ts           # barrel export
 ```
 
-**분리 시 구현 코드는 `.claude/agents/api-integrator.md`의 "Secure Storage 래퍼 / SecureStore-backed Zustand Persist" 섹션이 정본**이다. 상시 규칙: `keychainAccessible = WHEN_UNLOCKED_THIS_DEVICE_ONLY`(iCloud 백업 차단), 키는 상수로만 정의한다.
+**분리 시 래퍼 코드는 `.claude/agents/api-integrator.md`의 "Secure Storage 래퍼" 섹션이 정본**이다. 분리해도 토큰은 `tokenManager` 에 둔다. 상시 규칙: `keychainAccessible = WHEN_UNLOCKED_THIS_DEVICE_ONLY`(iCloud 백업 차단), 키는 상수로만 정의한다.
 
 #### 토큰 저장소 통합 규칙
 
-- 템플릿 기본: 토큰은 `src/shared/api/client.ts`의 `tokenManager`로 저장/조회하고, auth 훅(use-login/use-signup)은 `tokenManager.setTokens(...)`만 호출한다. Zustand `persist`로 토큰을 AsyncStorage에 저장하지 않는다. (secure-storage 모듈로 분리한 경우 토큰 store는 `createJSONStorage(() => secureZustandStorage)` 어댑터를 쓴다.)
+- 템플릿 기본: 토큰은 `src/shared/api/client.ts`의 `tokenManager`로 저장/조회하고, auth 훅(use-login/use-signup)은 `tokenManager.setTokens(...)`만 호출한다. 토큰을 Zustand store(`persist` 포함)에 두지 않는다.
 - Axios 인터셉터(`src/shared/api/client.ts`)는 토큰을 메모리 또는 SecureStore에서 가져온다. **AsyncStorage 직접 조회 금지**.
 - 토큰 만료/로그아웃 시 `tokenManager.clearTokens()`(시크릿이 여럿이면 `clearAllSecure()`)로 시크릿을 삭제하고, 같은 경로에서 `queryClient.clear()`로 이전 사용자의 쿼리 캐시를 비운다(템플릿: Profile Sign Out · `setAuthFailureCallback`).
 - iOS 옵션: 기본은 `WHEN_UNLOCKED_THIS_DEVICE_ONLY` — 디바이스 잠금 해제 시에만 접근, 백업/iCloud 동기화 제외.
@@ -172,7 +173,7 @@ NativeWind가 정상 동작하려면 아래 4개 파일이 **모두** 올바르�
 
 ## Agent Team & Skills
 
-이 프로젝트는 10개의 전문 에이전트와 9개의 스킬로 구성된 AI Agent Harness를 포함합니다.
+이 프로젝트는 10개의 전문 에이전트와 11개의 스킬로 구성된 AI Agent Harness를 포함합니다. Claude Code 와 Codex 가 같은 원본을 쓴다(아래 "Claude · Codex 공용 하네스").
 
 ### Agents
 
@@ -193,6 +194,7 @@ NativeWind가 정상 동작하려면 아래 4개 파일이 **모두** 올바르�
 
 | Skill | Command | Description |
 |-------|---------|-------------|
+| `init-app` | "새 앱 시작" / "앱 이름 바꿔줘" | 템플릿 식별자(slug·bundle id·scheme·다국어 이름) 교체 + 남은 수동 단계 안내 |
 | `ideate` | "앱 아이디어 찾아줘" | 시장 조사 및 앱 아이디어 도출 |
 | `plan-app` | "앱 기획해줘" | PRD 작성 및 FSD 모듈 맵 설계 |
 | `design-system` | "디자인 시스템 만들어줘" | NativeWind 테마 및 화면 레이아웃 |
@@ -202,10 +204,22 @@ NativeWind가 정상 동작하려면 아래 4개 파일이 **모두** 올바르�
 | `inspect-app` | "앱 검사해줘" | 기능/UX 전체 검사 |
 | `orchestrate` | "앱 만들어줘" | 전체 파이프라인 오케스트레이션 (일회성 빌드) |
 | `iterate-app` | "다음 뭐 만들지" / "고도화해줘" | 출시 후 개발→검증→다음 추천 지속 루프 |
+| `sim-use` | 시뮬레이터 런타임 검증 시 | 시뮬레이터·에뮬레이터 조작 (아래 "시뮬레이터 런타임 테스트") |
 
-> `spec-planner`는 전용 스킬 없이 에이전트로 직접 호출된다(Phase 2.5). 그 외 9개 스킬이 위 표에 대응한다.
+> `spec-planner`는 전용 스킬 없이 에이전트로 직접 호출된다(Phase 2.5). 그 외 에이전트는 위 스킬과 대응하고, `sim-use` 는 app-inspector 와 `/iterate-app` 이 쓰는 도구 스킬이다.
 
-> **Codex 하네스 동기화**: `.codex/agents/*.toml`과 `.agents/skills/`는 `.claude/` 원본에서 **생성되는 사본**이다. 에이전트·스킬을 고친 뒤에는 반드시 `npm run sync:codex`를 실행하고 사본을 함께 커밋한다(사본을 직접 수정하지 않는다). Codex 진입점은 `AGENTS.md`이며 이 파일(CLAUDE.md)을 정본으로 가리킨다.
+### Claude · Codex 공용 하네스
+
+| | Claude Code | Codex CLI |
+|---|---|---|
+| 진입 지침 | `CLAUDE.md` | `AGENTS.md` → `CLAUDE.md` |
+| 에이전트 | `.claude/agents/*.md` (원본) | `.codex/agents/*.toml` (생성 사본) |
+| 스킬 | `.claude/skills/` (원본), `/스킬명` | `.agents/skills/` (생성 사본), `$스킬명` 또는 `/skills` |
+| 검증 hook | `.claude/settings.json` `hooks.Stop` | `.codex/hooks.json` (처음 한 번 `/hooks` 에서 신뢰) |
+| 배포 플러그인 | `.claude/settings.json` 이 `seungmanchoi/store-deploy-plugin` 을 등록 | `codex plugin marketplace add seungmanchoi/store-deploy-plugin` → `codex plugin add store-deploy@store-deploy-marketplace` |
+
+- 에이전트·스킬을 고친 뒤에는 반드시 `npm run sync:codex`를 실행하고 사본을 함께 커밋한다(사본을 직접 수정하지 않는다). `npm run verify` 가 사본이 낡았으면 실패한다.
+- 스킬·에이전트 본문의 Claude 도구 이름(`Agent`, `AskUserQuestion`, `SendMessage`, `/loop`, `mcp__*`)을 Codex 에서 어떻게 읽는지는 `.claude/skills/orchestrate/references/runtime-adapters.md` 가 정본이다.
 
 ### Full Pipeline
 
@@ -231,7 +245,7 @@ Phase 7: Deployment    — /store-deploy
 ```
 
 데이터 흐름: `_workspace/` 디렉토리를 통해 에이전트 간 컨텍스트 전달.
-출시 후 반복 개발은 일회성 파이프라인(Phase 1~7)을 재실행하지 않고 `/iterate-app` 루프를 사용한다 (상세: `references/loop-engineering.md`).
+출시 후 반복 개발은 일회성 파이프라인(Phase 1~7)을 재실행하지 않고 `/iterate-app` 루프를 사용한다 (상세: `.claude/skills/orchestrate/references/loop-engineering.md`).
 
 ## Analytics & 핵심 지표 (MANDATORY)
 
@@ -289,7 +303,7 @@ src/shared/lib/analytics/
 
 Firebase 콘솔 자동화(Playwright MCP) · 설정파일 배치/보안(`.gitignore` + EAS 환경변수(file)) · 패키지 설치/plugin 등록 · `src/shared/lib/analytics/` 모듈 작성 · `_layout.tsx` 초기화 · 이벤트 배선 · 빌드 검증의 **전체 절차는 `.claude/agents/api-integrator.md`("Firebase 콘솔 자동화", "Analytics 통합 규칙")** 와 orchestrate Phase 4d가 정본이다.
 
-> 요약 규칙: `app.config.ts` plugins 에 `@react-native-firebase/app`, `@react-native-firebase/crashlytics`, `expo-build-properties`(iOS `useFrameworks: 'dynamic'`)를 등록한다. Podfile을 고치는 커스텀 패치 플러그인은 쓰지 않는다. `GoogleService-Info.plist`/`google-services.json`은 `./firebase/`에 두고(gitignore) 절대 커밋하지 않으며, EAS 클라우드 빌드에는 file 타입 환경변수 `GOOGLE_SERVICE_INFO_PLIST` / `GOOGLE_SERVICES_JSON`으로 주입한다(`app.config.ts`가 이 두 이름을 읽는다 — `eas secret:*`은 deprecated, `eas env:create --type file --visibility secret`). RNFirebase 빌드 이슈 상세: `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md`.
+> 요약 규칙: `app.config.ts` plugins 에 `@react-native-firebase/app`, `@react-native-firebase/crashlytics`, `expo-build-properties`(iOS `useFrameworks: 'dynamic'`)를 등록한다. Podfile을 고치는 커스텀 패치 플러그인은 쓰지 않는다. `GoogleService-Info.plist`/`google-services.json`은 `./firebase/`에 두고(gitignore) 절대 커밋하지 않는다. 로컬 빌드는 이 파일을 그대로 쓰고, 클라우드 빌드도 `.easignore`가 `firebase/`를 올려서 그대로 된다. `firebase/`를 아카이브에서 뺀 경우에만 file 타입 환경변수 `GOOGLE_SERVICE_INFO_PLIST` / `GOOGLE_SERVICES_JSON`으로 주입한다(`app.config.ts`가 이 두 이름을 먼저 읽는다 — `eas secret:*`은 deprecated, `eas env:create --type file --visibility secret`). RNFirebase 빌드 이슈 상세: `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md`.
 
 ### Hard Threshold (Analytics)
 
@@ -559,7 +573,7 @@ AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭,
 | 영역 | 핵심 규칙 | 상세 위치 |
 |------|----------|----------|
 | 테스트 트래픽 격리 | 빌드 프로필별 광고 모드 + `testDeviceIdentifiers` 등록 | `.claude/agents/api-integrator.md` |
-| 클릭/노출 방어 인프라 | 배너 클릭 가드 · 전면 광고 공유 쿨다운 · 포맷별 일일 cap · 지수 백오프 · 리워드 `EARNED_REWARD` 지급 | `.claude/agents/api-integrator.md` |
+| 클릭/노출 방어 인프라 | 템플릿에 있음: 전면 광고 공유 쿨다운 · 인터스티셜 일일 cap · 지수 백오프 · 리워드 `EARNED_REWARD` 지급. PRD 광고 정책이 정할 때만: 배너 클릭 가드 · 리워드 일일 cap · 세션당 전면 광고 상한 · `tap_ad` 이벤트 | `.claude/agents/api-integrator.md` |
 | 배치 규칙 | 화면당 배너 1개 · 터치 요소 이격 · 미로드 collapse · 숨김/가림 금지 · 리워드 opt-in | `.claude/agents/ui-developer.md` |
 | 방어 정책 수치 | PRD "무효 트래픽 방어 정책" 표 | `.claude/agents/product-planner.md` |
 | 검사 | 5d 체크리스트 + Hard Threshold / 광고 배치 검수 | `.claude/agents/qa-reviewer.md` / `app-inspector.md` |
@@ -582,15 +596,14 @@ AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭,
 
 ## EAS Build & Deploy Rules (MANDATORY)
 
-### 빌드 순서
+### 빌드와 제출
 
-프로덕션 빌드 시 반드시 아래 순서를 따른다:
+프로덕션 빌드는 **로컬이 기본**이다. 절차는 `store-deploy` 플러그인의 store-build·store-submit 스킬을 따른다.
 
-1. **로컬 빌드 먼저** (`eas build --local`) → 빌드 에러 확인
-2. 로컬 빌드 성공 시 → **클라우드 빌드** (`eas build`) 진행
-3. 클라우드 빌드 크레딧 부족 시 로컬 빌드 결과물 사용
-
-이렇게 하면 클라우드 빌드 크레딧 낭비 없이 Gradle/Xcode 에러를 사전에 잡을 수 있다.
+1. **빌드**: `eas build --local` 로 `build-output/` 에 산출물을 만든다. EAS 프로젝트가 없는 앱은 그 앱의 fastlane lane 으로 빌드한다
+2. **제출**: 로컬 산출물을 `eas submit --path <파일>` 로 올린다. EAS 프로젝트가 없는 앱은 fastlane 업로드 lane 을 쓴다
+3. **클라우드 EAS Build** (`eas build`) 는 사용자가 요청하거나 로컬 빌드가 안 될 때만 쓴다
+4. 제출 전 산출물의 version, buildNumber/versionCode, bundle id 와 `extra.appEnv`(아래)를 확인한다
 
 ### 빌드 아카이브·앱 크기 최적화
 
@@ -633,11 +646,13 @@ AdMob 계정 정지의 대부분은 무효 트래픽(개발자/테스터 클릭,
 
 ### 배포 전 준비 · 플랫폼 특수 고려 · 빌드 트러블슈팅
 
-배포 전 필수 준비(개인정보처리방침/아이콘/스크린샷/메타데이터/**릴리즈 노트 500byte 제한**/버전 관리), Android·iOS 특수 고려(Draft App 첫 제출은 Play Console 웹 수동 업로드 · `eas.json` `ascAppId` · `ITSAppUsesNonExemptEncryption` · ASC API Key 비대화식 제출), iOS/Android 빌드 트러블슈팅(xcodebuild 타임아웃 · `InfoPlist.strings` 중복 · **RNFirebase 26 SPM + dynamic frameworks 링크 규칙** · AdMob 17 Android 빌드 버그 · reanimated `libworklets` 캐시 · SDK 57 `prebuild` 기본 clean)은 모두 `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md` 로 이전했다. 배포 시 해당 문서 + `/store-deploy` 스킬을 따른다.
+배포 전 필수 준비(개인정보처리방침/아이콘/스크린샷/메타데이터/**Android 릴리즈 노트 언어별 500자 제한**/버전 관리), Android·iOS 특수 고려(Draft App 첫 제출은 Play Console 웹 수동 업로드 · `eas.json` `ascAppId` · `ITSAppUsesNonExemptEncryption` · ASC API Key 비대화식 제출), iOS/Android 빌드 트러블슈팅(xcodebuild 타임아웃 · `InfoPlist.strings` 중복 · **RNFirebase 26 SPM + dynamic frameworks 링크 규칙** · AdMob 17 Android 빌드 버그 · reanimated `libworklets` 캐시 · SDK 57 `prebuild` 기본 clean)은 모두 `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md` 로 이전했다. 배포 시 해당 문서 + `/store-deploy` 스킬을 따른다.
 
 **Android 프로덕션 액세스 신청(개인 계정)**: 비공개 테스트 14일+/12명+ 게이트 충족 후 제출하는 "프로덕션 액세스 신청" 양식의 전체 질문·답변 작성 원칙(사실 기반·날조 금지·300자·worked example)은 `.claude/skills/orchestrate/references/play-production-access-application.md`가 정본이다. 신청서 작성은 `api-integrator`의 "Play Console 프로덕션 액세스 신청 자동화" 능력이 담당하며, 작성 시 반드시 이 문서를 참고한다.
 
 ## Branch Strategy
+
+이 템플릿으로 만든 앱 레포:
 
 ```
 main     <- Production
@@ -646,6 +661,8 @@ devel    <- Development (default)
   ^
 feature/* <- Feature branches
 ```
+
+템플릿 레포 자체에는 `devel` 이 없다. `main` 에 PR 로 머지한다.
 
 ## Commands
 
@@ -656,6 +673,10 @@ npm run ios          # iOS simulator
 npm run android      # Android emulator
 npm run lint         # ESLint
 npm run typecheck    # TypeScript check
+npm run verify       # typecheck + lint + test + check:harness (Stop hook 도 이것을 돌린다)
+npm run app:init -- --slug <slug> --name "<Name>"   # 템플릿 → 새 앱 (init-app 스킬)
+npm run sync:codex   # .claude → Codex 사본 재생성
+npm run eas:build:prod:ios      # 로컬 프로덕션 빌드 → build-output/ (android 는 :android, 클라우드는 eas:build:prod:cloud)
 npm run format       # Prettier
 ```
 
@@ -670,12 +691,12 @@ npm run format       # Prettier
 ```bash
 if ! command -v sim-use >/dev/null 2>&1; then
   brew tap lycorp-jp/tap && brew install lycorp-jp/tap/sim-use
-  sim-use init --client claude --dest .claude/skills   # 이 프로젝트에 에이전트 스킬 등록
 fi
 ```
 
 - 요구: macOS 14+ / 최신 Xcode Command Line Tools. CLT가 outdated면 `brew install`이 실패하므로(예: macOS 26에 구 CLT), 시스템 설정 → 소프트웨어 업데이트에서 CLT를 갱신한 뒤 재시도한다.
-- 설치 자체는 머신 로컬(Homebrew) — 레포에는 스킬 파일(`.claude/skills`)만 남는다.
+- 설치 자체는 머신 로컬(Homebrew)이다. 스킬은 레포에 들어 있다(`.claude/skills/sim-use`, Codex 사본 `.agents/skills/sim-use`). 평소에는 `sim-use init` 을 하지 않는다.
+- CLI 를 올린 뒤 스킬도 맞추려면 `sim-use init --client claude --dest .claude/skills` 후 `npm run sync:codex` 를 실행해 두 사본을 같이 커밋한다.
 
 ### observe → act → verify 루프
 

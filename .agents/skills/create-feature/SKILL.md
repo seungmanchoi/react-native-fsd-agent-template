@@ -69,13 +69,13 @@ export interface IGet{Name}ListResponse {
 
 #### `api/{name}.api.ts`
 ```typescript
-import { apiClient } from '@shared/api';
+import { api } from '@shared/api';
 import type { IGet{Name}ListRequest, IGet{Name}ListResponse } from '../types';
 
 export const get{Name}List = async (
   params: IGet{Name}ListRequest,
 ): Promise<IGet{Name}ListResponse> => {
-  const { data } = await apiClient.get('/{name}', { params });
+  const { data } = await api.get<IGet{Name}ListResponse>('/{name}', { params });
   return data;
 };
 ```

@@ -1,33 +1,12 @@
 # Deploy & Build Troubleshooting (on-demand reference)
 
-배포(Phase 7 / `/store-deploy`)·빌드 단계에서만 필요한 절차/트러블슈팅 모음. CLAUDE.md(상시 컨텍스트)에서 분리해 on-demand로 참조한다. 항상 적용되는 규칙(빌드 순서, 앱 이름 일관성)은 CLAUDE.md "EAS Build & Deploy Rules"에 남아 있다.
+배포(Phase 7 / `/store-deploy`)·빌드 단계에서만 필요한 절차/트러블슈팅 모음. CLAUDE.md(상시 컨텍스트)에서 분리해 on-demand로 참조한다. 항상 적용되는 규칙(빌드와 제출, 앱 이름 일관성)은 CLAUDE.md "EAS Build & Deploy Rules"에 남아 있다.
 
-> 전체 배포 파이프라인은 global `~/.claude/CLAUDE.md`의 `store-deploy` 스킬 규칙을 따른다.
+> 전체 배포 파이프라인은 `store-deploy` 플러그인 스킬(설치: `runtime-adapters.md`, 유지관리자 로컬 원본 `~/works/store-deploy-plugin/skills/`)을 따른다. 로컬 빌드·서명·제출 문제는 store-build·store-submit 의 트러블슈팅이 정본이다.
 
-## 빌드 아카이브 최적화 (.easignore)
+## 빌드 아카이브 (.easignore)
 
-EAS 클라우드 빌드 시 불필요한 파일이 업로드되면 아카이브 크기가 커지고 업로드 시간이 증가한다. `.easignore` 파일을 반드시 설정한다:
-
-```
-node_modules/
-assets/store-screenshots/
-assets/store-listing/
-fastlane/
-screenshots/
-docs/
-scripts/
-build-output/
-_workspace/
-.claude/
-plugins/
-.git/
-.idea/
-.vscode/
-.playwright-mcp/
-.DS_Store
-*.md
-*.tsbuildinfo
-```
+EAS 는 `.easignore` 가 있으면 `.gitignore` 를 보지 않고 이 파일만으로 빌드 아카이브에 넣을 파일을 고른다. 그래서 비밀 파일(`credentials.json`, `credentials/`, `*.p12`, `*.p8`, `.env*` 등)을 여기에 다시 적어야 한다. **레포의 `.easignore` 가 정본**이니 그대로 쓴다. `plugins/` 는 빼지 않는다 (config plugin 이 prebuild 에 필요하다).
 
 ## 앱 크기 최적화 체크리스트
 
@@ -41,7 +20,6 @@ plugins/
 | Lottie 애니메이션 최적화 | 파일 크기 확인, 불필요한 레이어 제거 | 1-5MB 절감 가능 |
 | 네이티브 디버그 심볼 | `eas.json`에서 production 프로필 확인 | 앱 크기 직접 영향 없음 |
 | ProGuard/R8 (Android) | 자동 적용됨, 매핑 파일 경고 무시 가능 | 코드 크기 감소 |
-| Bitcode (iOS) | Expo managed에서 자동 처리 | - |
 
 ## 배포 전 필수 준비 항목
 
@@ -52,11 +30,11 @@ plugins/
 | 스크린샷 | iOS: iPhone 6.7"/6.5", iPad 12.9". Android: 1080x1920 phone |
 | 그래픽 이미지 (Android) | 1024x500 feature graphic |
 | 스토어 메타데이터 | `fastlane/metadata/` 구조로 title, description, release notes 준비 |
-| **릴리즈 노트** | **Android changelogs는 반드시 500 bytes 이내**. Google Play API 제한. iOS release_notes는 4000자까지 가능하지만, 동일 내용을 Android에도 사용하므로 **500 bytes 기준으로 작성** |
+| **릴리즈 노트** | **Android changelogs는 언어별 500자 이내** (공백·줄바꿈 포함, Google Play 제한 — 넘으면 업로드 실패). iOS release_notes는 4000자까지 가능하지만, 동일 내용을 Android에도 사용하므로 **500자 기준으로 작성** |
 | 앱 버전 관리 | ASC/Play 기존 버전보다 높은 version 설정 필수 |
-| `.easignore` 설정 | 빌드 아카이브에 불필요한 파일 제외 |
+| `.easignore` 설정 | 빌드 아카이브에서 불필요한 파일과 비밀 파일 제외 (레포 `.easignore` 가 정본) |
 | **런타임 트리거 배선** | **게시 후엔 코드로만 수정 가능.** 빌드 직전 확인: `ux.store_review=true`면 평점 트리거(`maybeRequest`)가 가치-순간 화면 성공 콜백에 최소 1곳 배선됐는지 / 광고 사용 시 AdMob GDPR·IDFA 메시지 Published 여부 / KPI 이벤트 배선 여부. (시뮬레이터·dev·TestFlight에선 검증 불가 → 코드로만 판정) 상세: orchestrate Phase 7 Step 7.0 |
-| **배포 게이트 (b) 항목** | 앱 이름 4곳 일치 / 권한↔사용설명 일치(미사용 권한 미선언) / 데이터 안전 라벨↔수집 SDK 일치 / IAP·구독 상품 콘솔 등록 / 미해결 HIGH QA 이슈 0 / app-ads.txt 게시 / Firebase 설정 주입(EAS file env 또는 로컬 `./firebase/`) / 제출 바이너리 `appEnv` = production. 상세: orchestrate Phase 7 Step 7.0 (b) |
+| **배포 게이트 (b) 항목** | 앱 이름 4곳 일치 / 권한↔사용설명 일치(미사용 권한 미선언) / 데이터 안전 라벨↔수집 SDK 일치 / IAP·구독 상품 콘솔 등록 / 미해결 HIGH QA 이슈 0 / app-ads.txt 게시 / Firebase 설정 주입(`./firebase/` 파일. 아카이브에서 뺀 클라우드 빌드만 EAS file env) / 제출 바이너리 `appEnv` = production. 상세: orchestrate Phase 7 Step 7.0 (b) |
 
 ## 네이티브 설정 변경 → 재빌드 무효화 (재검증 규칙)
 
@@ -86,13 +64,13 @@ plugins/
   "ascApiKeyId": "XXXXXXXXXX",
   "ascApiKeyIssuerId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   ```
-  `appleId`만 설정된 상태에서는 앱 별 암호 입력을 요구하므로 CI/자동 파이프라인이 멈춘다.
+  `appleId`만 설정된 상태에서는 앱 별 암호 입력을 요구하므로 CI/자동 파이프라인이 멈춘다. 키를 레포 밖에 두면 `ascApiKeyPath` 는 절대 경로다 (store-submit 이 키 파일을 찾아 넣는다).
 
 ## iOS 빌드 트러블슈팅
 
 | 증상 | 원인 | 해결 |
 |------|------|------|
-| `xcodebuild -showBuildSettings` 타임아웃 (fastlane 단계) | Apple Silicon + SPM 의존성(Firebase) 해석 시간 초과. 기본 3초 4회 retry로 부족 | 빌드 명령 앞에 `FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT=120 FASTLANE_XCODEBUILD_SETTINGS_RETRIES=8` 환경변수 설정 |
+| `xcodebuild -showBuildSettings` 타임아웃 (fastlane 단계) | Apple Silicon + SPM 의존성(Firebase) 해석 시간 초과. 기본 3초 4회 retry로 부족 | 빌드 명령 앞에 `FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT=180 FASTLANE_XCODEBUILD_SETTINGS_RETRIES=8` 환경변수 설정 (store-build 와 같은 값) |
 | "Multiple commands produce .../InfoPlist.strings" | `app.config.ts`의 `locales` 필드와 `withLocalizedAppName` plugin이 둘 다 PBXVariantGroup을 등록 | CLAUDE.md "앱 이름 일관성" 항목 참고. plugin은 `locales` 사용 시 자동으로 iOS 처리를 생략함. 각 언어 JSON에 `CFBundleDisplayName` 추가 |
 | `eas submit` "You've already submitted this version" | 동일 `expo.version`이 이미 ASC에 업로드됨 (TestFlight도 동일 version+build 조합 거부) | `app.config.ts`의 `APP_VERSION` 패치(예: 1.0.2 → 1.0.3) 후 재빌드 |
 | `pod install` 실패: "SPM + static linkage is not supported" | RN Firebase 26 기본 SPM 모드에 `useFrameworks: 'static'`을 단독으로 지정 | `expo-build-properties` → `ios.useFrameworks: 'dynamic'` (템플릿 기본). 정적이 꼭 필요하면 아래 opt-out |
@@ -123,5 +101,5 @@ RN Firebase 26.1+는 Firebase iOS SDK를 **Swift Package Manager**로 가져오�
 
 | 증상 | 원인 | 해결 |
 |------|------|------|
-| `react-native-reanimated:buildCMakeRelWithDebInfo` 단계에서 `libworklets.so missing and no known rule to make it` | 로컬 `node_modules/react-native-{reanimated,worklets}/android/.cxx` 캐시가 이전 빌드의 절대 경로를 참조 | `cd android && ./gradlew --stop && cd ..` 후 `rm -rf android node_modules/react-native-reanimated/android/{.cxx,build} node_modules/react-native-worklets/android/{.cxx,build}` 실행. EAS가 prebuild를 다시 수행하면서 일관된 경로로 빌드함 |
+| `react-native-reanimated:buildCMakeRelWithDebInfo` 단계에서 `libworklets.so missing and no known rule to make it` | ① `eas build --local` 작업 폴더가 `/tmp`(→ `/private/tmp` 심볼릭 링크) 아래라 CMake/Ninja 가 경로를 혼동 ② 로컬 `node_modules/react-native-{reanimated,worklets}/android/.cxx` 캐시가 이전 빌드의 절대 경로를 참조 | ① `EAS_LOCAL_BUILD_WORKINGDIR="$HOME/tmp/eas-build"` 로 빌드 (store-build Step 3) ② `cd android && ./gradlew --stop && cd ..` 후 `rm -rf android node_modules/react-native-reanimated/android/{.cxx,build} node_modules/react-native-worklets/android/{.cxx,build}` 실행. EAS가 prebuild를 다시 수행하면서 일관된 경로로 빌드함 |
 | "Specified value for android.package is ignored because an android directory was detected" | 로컬에 `android/` 폴더가 이미 있음 (이전 prebuild 결과) | 의도한 동작이라면 무시. `app.config.ts`의 `android.package` 변경을 반영하려면 `android/` 삭제 후 재빌드 |

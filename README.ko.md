@@ -8,14 +8,14 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-Harness-purple?style=for-the-badge&logo=anthropic&logoColor=white" />
   <img src="https://img.shields.io/badge/Agents-10_Specialists-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Skills-9_Workflows-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Skills-11_Workflows-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Pattern-Pipeline-yellow?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Vibe_Coding-AI_Driven-ff69b4?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Harness_Engineering-Production-red?style=for-the-badge" />
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Expo_Router-6-000020?style=flat-square&logo=expo&logoColor=white" />
+  <img src="https://img.shields.io/badge/Expo_Router-57-000020?style=flat-square&logo=expo&logoColor=white" />
   <img src="https://img.shields.io/badge/Zustand-5-433E38?style=flat-square&logo=zustand&logoColor=white" />
   <img src="https://img.shields.io/badge/TanStack_Query-5-FF4154?style=flat-square&logo=reactquery&logoColor=white" />
   <img src="https://img.shields.io/badge/NativeWind-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" />
@@ -27,12 +27,10 @@
   <img src="https://img.shields.io/badge/Prettier-3-F7B93E?style=flat-square&logo=prettier&logoColor=black" />
   <img src="https://img.shields.io/badge/EAS_Build-CLI-000020?style=flat-square&logo=expo&logoColor=white" />
   <img src="https://img.shields.io/badge/Reanimated-4-6236FF?style=flat-square&logo=react&logoColor=white" />
-  <img src="https://img.shields.io/badge/Lottie-7-00DDB3?style=flat-square&logo=airbnb&logoColor=white" />
   <img src="https://img.shields.io/badge/Flash_List-2-FF6C37?style=flat-square&logo=shopify&logoColor=white" />
-  <img src="https://img.shields.io/badge/Bottom_Sheet-5-000000?style=flat-square" />
   <img src="https://img.shields.io/badge/Day.js-1.11-FF5F4C?style=flat-square" />
-  <img src="https://img.shields.io/badge/Firebase_Analytics-24-FFCA28?style=flat-square&logo=firebase&logoColor=black" />
-  <img src="https://img.shields.io/badge/AdMob-16-EA4335?style=flat-square&logo=googleads&logoColor=white" />
+  <img src="https://img.shields.io/badge/Firebase_Analytics-26-FFCA28?style=flat-square&logo=firebase&logoColor=black" />
+  <img src="https://img.shields.io/badge/AdMob-17-EA4335?style=flat-square&logo=googleads&logoColor=white" />
   <img src="https://img.shields.io/badge/SecureStore-Keychain%20%7C%20Keystore-4630EB?style=flat-square&logo=expo&logoColor=white" />
   <img src="https://img.shields.io/badge/Vitest-4-6E9F18?style=flat-square&logo=vitest&logoColor=white" />
 </p>
@@ -49,7 +47,7 @@
 
 AI 에이전트 기반 풀 라이프사이클 개발을 지원하는 React Native + Expo + Feature-Sliced Design 프로덕션 템플릿.
 
-> **What makes this different?** 이 템플릿은 FSD 아키텍처 규칙을 이해하는 10개의 Claude Code 에이전트와 9개의 스킬을 포함합니다. "앱 만들어줘" 한 마디로 아이디어 도출부터 시장 조사 → 기획 → 디자인 시스템 → FSD 모듈 스캐폴딩 → API 연동 → 스크린 개발 → QA 검증까지 전체 파이프라인이 자동으로 실행됩니다. 출시 후에는 **지속 개선 루프**(`/iterate-app`)가 현황을 진단하고 KPI 갭·기술부채·커버리지로 순위를 매겨 다음 고도화를 추천한 뒤, 한 슬라이스를 만들고 검증하고 다음 작업을 추천합니다.
+> **What makes this different?** 이 템플릿은 FSD 아키텍처 규칙을 이해하는 10개의 Claude Code 에이전트와 10개의 스킬을 포함합니다. "앱 만들어줘" 한 마디로 아이디어 도출부터 시장 조사 → 기획 → 디자인 시스템 → FSD 모듈 스캐폴딩 → API 연동 → 스크린 개발 → QA 검증까지 전체 파이프라인이 자동으로 실행됩니다. 출시 후에는 **지속 개선 루프**(`/iterate-app`)가 현황을 진단하고 KPI 갭·기술부채·커버리지로 순위를 매겨 다음 고도화를 추천한 뒤, 한 슬라이스를 만들고 검증하고 다음 작업을 추천합니다.
 
 ---
 
@@ -75,7 +73,7 @@ Phase 5: QA (병렬)
            │
 Phase 6: Iteration      Fix Loop (최대 3회, 출시 전 수렴)
            │
-Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
+Phase 7: Deployment     /store-deploy → local build (eas build --local) → App Store / Google Play
 ═══════════════════════════════════════════════════════════════════════
 출시 후 지속 개선 루프 (반복):
   Assess → 다음 고도화 추천 → 한 슬라이스 개발 → 검증 → 회고
@@ -107,6 +105,7 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 
 | 스킬 | 커맨드 | 설명 |
 |-----|-------|-----|
+| `init-app` | "새 앱 시작" | 템플릿 식별자(slug·bundle id·scheme·다국어 이름) 교체 |
 | `ideate` | "앱 아이디어 찾아줘" | 시장 조사 및 앱 아이디어 도출 |
 | `plan-app` | "앱 기획해줘" | PRD 작성 및 FSD 모듈 맵 설계 |
 | `design-system` | "디자인 시스템 만들어줘" | NativeWind 테마 및 화면 레이아웃 |
@@ -116,6 +115,7 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 | `inspect-app` | "앱 검사해줘" | 기능/UX 전체 검사 |
 | `orchestrate` | "앱 만들어줘" | 전체 파이프라인 오케스트레이션 (일회성 빌드) |
 | `iterate-app` | "다음 뭐 만들지" / "고도화해줘" | 출시 후 개발→검증→다음 추천 지속 루프 |
+| `sim-use` | (런타임 테스트 시 사용) | 요소 별칭으로 iOS 시뮬레이터 / Android 에뮬레이터 조작 |
 
 ---
 
@@ -179,7 +179,7 @@ Phase 7: Deployment     /store-deploy → EAS Build → App Store / Google Play
 | Secure Storage | expo-secure-store (Keychain / Keystore) |
 | In-App Review | expo-store-review (policy-gated) |
 | i18n | i18n-js |
-| Build & Deploy | EAS Build / EAS Submit |
+| Build & Deploy | EAS Build (로컬 기본) / EAS Submit, store-deploy 플러그인 사용 |
 
 ---
 
@@ -198,13 +198,13 @@ useEffect(() => { void initializeAdsWithConsent(); }, []);
 ```
 
 ```
-UMP(GDPR) 동의  →  iOS ATT 프롬프트  →  mobileAds().initialize()
+UMP(GDPR) 동의  →  iOS ATT 프롬프트  →  setRequestConfiguration()  →  mobileAds().initialize()
 ```
 
 - 훅: `useInterstitialAd`, `useRewardedAd`, `useAppOpenAd`, `useAdLifecycle`, `usePremiumGuard`
 - 컴포넌트: `AdBanner`, `AdDevPanel` (개발 전용 테스트 패널)
-- 빈도 제한·프리미엄 게이팅은 `useAdStore` / `usePremiumStore` (Zustand)
-- 개발 환경은 Google **테스트 광고 단위**, 프로덕션은 `src/shared/config/ads.ts`의 실제 ID 사용
+- 빈도 제한·프리미엄 게이팅은 `useAdStore` / `usePremiumStore` (Zustand): 전면 광고 공유 쿨다운, 인터스티셜 하루 상한, 로드 실패 백오프. 배너 클릭 가드, 리워드 하루 상한, 세션당 상한, `tap_ad` 이벤트는 PRD가 정할 때만 더한다
+- 개발 환경은 Google **테스트 광고 단위**, 프로덕션은 `src/shared/config/ads.ts`의 실제 ID 사용. 실제 ID 는 store-deploy 플러그인의 `store-admob` 스킬로 만든다 (앱이 부르는 형식만 `--ad-types` 로)
 - 핵심 액션 직전이나 카메라/핵심 화면에는 **절대** 광고 배치 금지
 
 ### Analytics — Firebase (`src/shared/lib/analytics/`)
@@ -268,7 +268,16 @@ cd my-app
 npm install
 ```
 
-### 3. 환경 설정
+### 3. 새 앱으로 초기화
+
+```bash
+npm run app:init -- --slug pocket-pulse --name "Pocket Pulse" --ko "포켓 펄스"
+npm install
+```
+
+slug·bundle id(`com.seungmanchoi.{slug}`)·scheme·다국어 홈 화면 이름·ATT 문구의 앱 이름을 바꾼다. 남은 수동 단계(ATT 문구 재작성, `firebase/` 설정 파일, `eas init`)는 출력과 `init-app` 스킬이 안내한다. 에이전트에게 "새 앱 시작해줘"라고 해도 같은 스킬이 실행된다.
+
+### 4. 환경 설정
 
 ```bash
 cp .env.example .env
@@ -276,7 +285,7 @@ cp .env.example .env
 
 `.env` 파일을 수정하여 API URL 등을 설정합니다.
 
-### 4. 실행
+### 5. 실행
 
 ```bash
 npm start          # Expo Dev Server (LAN)
@@ -284,7 +293,18 @@ npm run ios        # iOS Simulator
 npm run android    # Android Emulator
 ```
 
-### 5. AI Agent Harness 사용 (Claude Code)
+### 6. AI Agent Harness 사용 (Claude Code · Codex)
+
+같은 에이전트·스킬을 두 도구가 같이 쓴다. 원본은 `.claude/`, Codex 사본은 `npm run sync:codex` 가 만든다.
+
+| | Claude Code | Codex CLI |
+|---|---|---|
+| 스킬 호출 | `/orchestrate`, `/iterate-app`, 또는 자연어 | `$orchestrate`, `/skills` 에서 선택, 또는 자연어 |
+| 반복 고도화 | `/loop /iterate-app` | "iterate-app 3 사이클 돌려줘" (`/loop` 없음) |
+| 검증 hook | 자동 (`.claude/settings.json`) | 처음 한 번 `/hooks` 에서 `.codex/hooks.json` 신뢰 |
+| 배포 스킬 | 클론 시 store-deploy 플러그인 설치 안내가 뜬다 | `codex plugin marketplace add seungmanchoi/store-deploy-plugin` → `codex plugin add store-deploy@store-deploy-marketplace` |
+
+에이전트가 턴을 끝낼 때 코드가 바뀌었으면 Stop hook 이 `npm run verify`(typecheck · lint · test · 하네스 검사)를 돌리고, 실패하면 에이전트에게 고치라고 되돌린다.
 
 ```bash
 # 전체 파이프라인 — 앱을 처음부터 끝까지 만들기
@@ -326,6 +346,7 @@ npm run android    # Android Emulator
 │       ├── create-screen/              # Screen creation
 │       ├── inspect-app/                # App inspection
 │       ├── iterate-app/                # 출시 후 지속 개선 루프
+│       ├── sim-use/                    # 시뮬레이터 런타임 테스트 (sim-use CLI)
 │       └── orchestrate/                # Full pipeline orchestration
 │           └── references/             # harness-principles, loop-engineering, deploy-build-troubleshooting
 │
@@ -398,7 +419,7 @@ npm run android    # Android Emulator
 ├── tailwind.config.js                  # NativeWind/Tailwind config
 ├── tsconfig.json                       # TypeScript (path aliases)
 ├── eslint.config.js                    # ESLint 9 Flat Config
-├── vitest.config.ts                    # Vitest test runner config
+├── vitest.config.mts                   # Vitest test runner config
 ├── .prettierrc.js                      # Prettier rules
 ├── eas.json                            # EAS Build profiles
 └── CLAUDE.md                           # Claude Code instructions
@@ -485,9 +506,14 @@ npm test                  # Vitest unit tests (run once)
 npm run test:watch        # Vitest watch mode
 npm run typecheck         # TypeScript check
 npm run format            # Prettier format
-npm run eas:build:dev     # EAS development build
-npm run eas:build:preview # EAS preview build
-npm run eas:build:prod    # EAS production build
+npm run verify            # typecheck + lint + test + check:harness (Stop hook 이 돌리는 명령)
+npm run check:harness     # Hard Threshold 설정 검사 (NativeWind·SafeArea·Firebase·버전 고정·Codex 사본)
+npm run app:init -- --slug <slug> --name "<Name>"  # 템플릿 → 새 앱
+npm run eas:build:prod:ios      # 로컬 프로덕션 빌드 → build-output/app.ipa
+npm run eas:build:prod:android  # 로컬 프로덕션 빌드 → build-output/app.aab
+npm run eas:build:prod:cloud    # EAS 클라우드 프로덕션 빌드 (요청 시)
+npm run eas:build:dev     # EAS 클라우드 개발 빌드 (요청 시)
+npm run eas:build:preview # EAS 클라우드 프리뷰 빌드 (요청 시)
 npm run sync:codex        # .claude/ 원본에서 Codex 하네스 사본 재생성
 ```
 
@@ -497,7 +523,7 @@ npm run sync:codex        # .claude/ 원본에서 Codex 하네스 사본 재생�
 
 ### 1. 앱 이름 및 식별자
 
-`app.config.ts`에서 수정:
+`npm run app:init` 이 아래 값을 한 번에 바꾼다. 직접 고칠 때는 `app.config.ts`에서 수정:
 
 ```typescript
 name: 'MyApp',              // 앱 이름
@@ -560,7 +586,7 @@ eas build:configure    # EAS 초기 설정
 | `GOOGLE_SERVICE_INFO_PLIST` | `firebase/GoogleService-Info.plist` (iOS) |
 | `GOOGLE_SERVICES_JSON` | `firebase/google-services.json` (Android) |
 
-EAS 클라우드 빌드에서는 file 타입 환경변수로 주입합니다 (`eas secret:*`은 deprecated):
+로컬 빌드는 이 파일을 그대로 쓰고, 클라우드 빌드도 `.easignore`가 `firebase/`를 올려서 그대로 됩니다. 파일이 없는 깨끗한 체크아웃(CI 등)이나 `firebase/`를 아카이브에서 뺀 경우에만 클라우드 빌드에 file 타입 환경변수로 주입합니다 (`eas secret:*`은 deprecated):
 
 ```bash
 eas env:create --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./firebase/GoogleService-Info.plist --visibility secret --environment production --environment preview --environment development
@@ -588,9 +614,10 @@ npm run test:watch  # Vitest, watch 모드
 ```bash
 if ! command -v sim-use >/dev/null 2>&1; then
   brew tap lycorp-jp/tap && brew install lycorp-jp/tap/sim-use
-  sim-use init --client claude --dest .claude/skills   # 이 레포에 에이전트 스킬 등록
 fi
 ```
+
+스킬은 레포에 들어 있어(`.claude/skills/sim-use`, Codex 사본 `.agents/skills/sim-use`) `sim-use init` 은 하지 않는다. CLI 를 올린 뒤에는 `sim-use init --client claude --dest .claude/skills` 와 `npm run sync:codex` 로 스킬도 맞춘다.
 
 ```bash
 sim-use ui            # 관찰 — @별칭이 붙은 요소 아웃라인
@@ -619,6 +646,8 @@ sim-use ui            # 검증 — 화면 재확인
 
 ## Branch Strategy
 
+이 템플릿으로 만든 앱 레포:
+
 ```
 main      ← Production
   ^
@@ -627,19 +656,20 @@ devel     ← Development (default)
 feature/* ← Feature branches
 ```
 
+템플릿 레포 자체에는 `devel` 이 없다. `main` 에 PR 로 머지한다.
+
 ---
 
 ## Build & Deploy Optimization
 
-### EAS Build 순서 (필수)
+### 빌드와 제출 (로컬 기본)
 
 ```
-1. eas build --local        ← 로컬에서 먼저 빌드 에러 확인
-2. eas build                ← 성공 확인 후 클라우드 빌드
-3. eas submit               ← 스토어 제출
+1. eas build --local        ← 이 맥에서 프로덕션 빌드 (EAS 프로젝트가 없는 앱은 fastlane)
+2. eas submit --path <파일> ← 로컬 산출물 제출
 ```
 
-> 클라우드 빌드 크레딧은 월 제한이 있으므로, 로컬 빌드로 Gradle/Xcode 에러를 먼 저 잡는다.
+> 클라우드 EAS Build(`eas build`)는 요청하거나 로컬 빌드가 안 될 때만 쓴다. 절차: store-deploy 플러그인의 `store-build` / `store-submit` 스킬.
 
 ### EAS 빌드 프로필 (`eas.json`)
 

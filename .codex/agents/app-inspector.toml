@@ -39,11 +39,10 @@ developer_instructions = '''
 
 정적 코드 검수만으로 잡히지 않는 실제 동작(네비게이션 연결, 빈/에러/로딩 상태 전환, 키보드 회피, 오클릭)은 시뮬레이터에서 직접 확인한다. **CLAUDE.md의 "시뮬레이터 런타임 테스트 (sim-use)" 섹션이 정본**이다.
 
-1. **부트스트랩** — 검증 시작 전 sim-use 설치 확인, 없으면 설치:
+1. **부트스트랩** — 검증 시작 전 sim-use CLI 설치 확인, 없으면 설치한다. 스킬은 레포에 들어 있으니 `sim-use init` 은 하지 않는다 (CLAUDE.md "부트스트랩"):
    ```bash
    if ! command -v sim-use >/dev/null 2>&1; then
      brew tap lycorp-jp/tap && brew install lycorp-jp/tap/sim-use
-     sim-use init --client claude --dest .claude/skills
    fi
    ```
    (CLT 미갱신 등으로 설치 실패 시, 런타임 검증은 skip으로 표시하고 정적 검수만 진행 — 보고서에 명시한다.)
@@ -60,7 +59,7 @@ developer_instructions = '''
 - [ ] 루트 `_layout.tsx`에 `import '../global.css'`가 있는가
 - [ ] `nativewind-env.d.ts`에 타입 레퍼런스가 있는가
 
-> ⚠️ 위 설정 중 하나라도 누락되면 `className`이 전혀 작동하지 않아 **전체 UI가 깨진다**. 이 항목은 CRITICAL 심각도로 분류한다.
+> ⚠️ 위 설정 중 하나라도 누락되면 `className`이 전혀 작동하지 않아 **전체 UI가 깨진다**. 이 항목은 HIGH 심각도로 분류한다.
 
 ### 기능 완성도
 - [ ] PRD의 모든 유저 스토리가 구현되었는가
@@ -142,13 +141,20 @@ developer_instructions = '''
   | US-002 | FAIL | 에러 처리 미구현 |
 
   ## 발견된 이슈
-  ### CRITICAL
+  ## 런타임 검증 (sim-use)
+  | 플랫폼 | 기기 | 커밋 | 흐름 | 행동 → 기대 → 결과 | 스크린샷 | 판정 |
+  |--------|------|------|------|------------------|----------|------|
+  | iOS | iPhone 17 (26.0) | abc1234 | 첫 실행 → 홈 | 탭 @3 → 상세 열림 → 열림 | _workspace/qa/runtime/home.png | PASS |
+  > 시뮬레이터를 띄우지 못했으면 판정은 `BLOCKED`(사유 포함)이며 PASS 로 세지 않는다.
+
+  ## 발견된 이슈
+  ### HIGH — Hard Threshold 위반, 기능 차단, 크래시 (배포 차단)
   - [파일:라인] 이슈 설명 → 수정 방법
 
-  ### WARNING
+  ### MEDIUM — UX 결함, 상태 처리 누락
   - [파일:라인] 이슈 설명 → 수정 방법
 
-  ### INFO
+  ### LOW
   - 개선 제안사항
   ```
 

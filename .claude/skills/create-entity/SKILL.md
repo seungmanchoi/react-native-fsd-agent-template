@@ -72,11 +72,11 @@ export const use{Name}Store = create<I{Name}State>()((set) => ({
 
 #### `api/{name}.api.ts`
 ```typescript
-import { apiClient } from '@shared/api';
+import { api } from '@shared/api';
 import type { I{Name} } from '../types';
 
 export const get{Name} = async (id: string): Promise<I{Name}> => {
-  const { data } = await apiClient.get(`/{name}/${id}`);
+  const { data } = await api.get<I{Name}>(`/{name}/${id}`);
   return data;
 };
 ```
