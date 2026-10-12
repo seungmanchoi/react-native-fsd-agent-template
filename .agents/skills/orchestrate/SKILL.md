@@ -661,7 +661,7 @@ import { useAuth } from '@/features/auth';
 Phase 5의 app-inspector는 정적 코드 분석뿐 아니라 **런타임 테스트**도 수행해야 한다. 시뮬레이터·에뮬레이터 조작은 **sim-use 만** 쓴다 (CLAUDE.md "시뮬레이터 런타임 테스트 (sim-use)"). `simctl` 좌표 탭이나 Playwright 로 시뮬레이터를 조작하지 않는다:
 
 ```
-1. 앱 실행: npm run ios / npm run android
+1. 앱 실행: npm start 를 띄워 두고 npm run ios / npm run android
 2. 관찰 → 조작 → 확인: sim-use ui → sim-use tap @N / type / swipe → sim-use ui
 3. 네비게이션 흐름 확인: 탭 전환, 스택 push/pop
 4. 입력 테스트: 키보드 입력, 버튼 터치 반응

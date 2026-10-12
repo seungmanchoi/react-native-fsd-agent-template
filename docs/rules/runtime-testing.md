@@ -18,6 +18,20 @@ fi
 - 설치 자체는 머신 로컬(Homebrew)이다. 스킬은 레포에 들어 있다(`.claude/skills/sim-use`, Codex 사본 `.agents/skills/sim-use`). 평소에는 `sim-use init` 을 하지 않는다.
 - CLI 를 올린 뒤 스킬도 맞추려면 `sim-use init --client claude --dest .claude/skills` 후 `npm run sync:codex` 를 실행해 두 사본을 같이 커밋한다.
 
+## 앱 띄우기 — 개발 서버는 이 맥에서만
+
+Metro 는 켜 둔 동안 앱 JS 번들(코드·콘텐츠 전체)·이미지·설정을 인증 없이 내준다. 그래서 기본 명령은 127.0.0.1 에만 연다.
+
+```bash
+npm start            # 터미널 1: 127.0.0.1:8081 에 Metro
+npm run ios          # 터미널 2: 빌드·설치 후 127.0.0.1:8081 로 앱을 연다 (android 도 같다)
+```
+
+- `npm run ios`·`android` 는 서버를 열지 않는다(`--no-bundler`). `expo run:*` 이 직접 여는 Metro 는 `--localhost` 를 받지 않아 모든 네트워크에 열리고, 127.0.0.1 서버가 떠 있어도 같은 포트에 하나 더 뜬다. 앱이 붙을 주소는 `REACT_NATIVE_PACKAGER_HOSTNAME=127.0.0.1` 로 맞춘다.
+- `start` 의 `--dns-result-order=ipv4first` 를 지우지 않는다. 없으면 Node 가 localhost 를 `::1` 로 풀어 Metro 가 IPv6 에만 열리는데, Expo 는 앱을 `127.0.0.1` 로 열어 접속이 안 된다.
+- 다른 프로젝트가 8081 을 쓰고 있으면 `npm start` 가 다른 포트를 묻는다. 그때 `npm run ios` 가 연 앱은 8081 로 붙으니, `npm start` 터미널에서 `i`(Android 는 `a`)로 다시 연다.
+- 실기기는 `npm run start:lan` 을 쓰고 끝나면 바로 끈다. 켜 둔 동안 같은 네트워크의 누구나 번들을 받을 수 있다.
+
 ## observe → act → verify 루프
 
 ```bash

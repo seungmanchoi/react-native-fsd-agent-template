@@ -311,9 +311,10 @@ feature/* <- Feature branches
 
 ```bash
 npm install          # Install dependencies
-npm start            # Dev server (LAN)
-npm run ios          # iOS simulator
-npm run android      # Android emulator
+npm start            # Dev server (127.0.0.1 만. 상세: docs/rules/runtime-testing.md)
+npm run start:lan    # 실기기용 LAN 서버 — 켜 둔 동안 같은 네트워크에 번들이 열린다
+npm run ios          # iOS 빌드·실행 (서버는 npm start 를 먼저 띄운다)
+npm run android      # Android 빌드·실행 (서버는 npm start 를 먼저 띄운다)
 npm run lint         # ESLint
 npm run typecheck    # TypeScript check
 npm run verify       # typecheck + lint + test + check:harness (Stop hook 도 이것을 돌린다)

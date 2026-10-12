@@ -288,9 +288,9 @@ cp .env.example .env
 ### 5. 실행
 
 ```bash
-npm start          # Expo Dev Server (LAN)
-npm run ios        # iOS Simulator
-npm run android    # Android Emulator
+npm start          # Expo Dev Server (127.0.0.1 전용)
+npm run ios        # iOS Simulator (npm start 를 띄운 채 다른 터미널에서)
+npm run android    # Android Emulator (npm start 를 띄운 채 다른 터미널에서)
 ```
 
 ### 6. AI Agent Harness 사용 (Claude Code · Codex)
@@ -496,11 +496,11 @@ import { useUserStore } from '@entities/user';
 ## Available Scripts
 
 ```bash
-npm start                 # Dev server (LAN mode)
-npm run start:local       # Dev server (localhost)
+npm start                 # Dev server (127.0.0.1 전용)
+npm run start:lan         # Dev server (LAN, 실기기용 — 켜 둔 동안 같은 네트워크에 번들이 열림)
 npm run start:tunnel      # Dev server (tunnel)
-npm run ios               # Run on iOS
-npm run android           # Run on Android
+npm run ios               # iOS 빌드·실행 (npm start 서버 사용)
+npm run android           # Android 빌드·실행 (npm start 서버 사용)
 npm run lint              # ESLint 9 check
 npm test                  # Vitest unit tests (run once)
 npm run test:watch        # Vitest watch mode
