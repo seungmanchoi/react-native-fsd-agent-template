@@ -36,7 +36,7 @@ npm install   # package-lock.json 이름 갱신
 2. **Firebase** — 새 bundle id 로 Firebase 앱을 만들고 `firebase/GoogleService-Info.plist`, `firebase/google-services.json` 을 둔다(gitignore). 없으면 네이티브 빌드가 실패한다. 콘솔 자동화는 `api-integrator` "Firebase 콘솔 자동화"
 3. **EAS** — `eas init` 으로 `extra.eas.projectId` 를 채운다. EAS 25 프로젝트 한도 밖이면 건너뛰고 fastlane 으로 빌드한다(`~/works/AGENTS.md`)
 4. **아이콘·스플래시** — `assets/images/` 교체
-5. **검증** — `npm run verify` 후 `npm run ios` 로 시뮬레이터에서 앱 이름과 첫 화면을 확인한다(`sim-use ui`)
+5. **검증** — `npm run verify` 후 `npm start` 를 띄워 두고 `npm run ios` 로 시뮬레이터에서 앱 이름과 첫 화면을 확인한다(`sim-use ui`)
 
 ## 다음
 

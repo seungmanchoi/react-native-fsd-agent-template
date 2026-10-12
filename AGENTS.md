@@ -90,9 +90,10 @@ Full-app builds follow the `orchestrate` skill's phases; post-launch work uses `
 
 ```bash
 npm install          # also applies patches/ (postinstall)
-npm start            # dev server (LAN, dev client)
-npm run ios          # iOS build + run
-npm run android      # Android build + run
+npm start            # dev server on 127.0.0.1 only (see docs/rules/runtime-testing.md)
+npm run start:lan    # LAN dev server for physical devices; exposes the bundle to the network while running
+npm run ios          # iOS build + run (run `npm start` first)
+npm run android      # Android build + run (run `npm start` first)
 npm run typecheck    # TypeScript
 npm run lint         # ESLint 9 flat config
 npm test             # Vitest

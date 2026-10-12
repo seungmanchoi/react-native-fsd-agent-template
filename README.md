@@ -288,9 +288,9 @@ Edit the `.env` file to set your API URL, etc.
 ### 5. Running the App
 
 ```bash
-npm start          # Expo Dev Server (LAN)
-npm run ios        # iOS Simulator
-npm run android    # Android Emulator
+npm start          # Expo Dev Server (127.0.0.1 only)
+npm run ios        # iOS Simulator (second terminal, with npm start running)
+npm run android    # Android Emulator (second terminal, with npm start running)
 ```
 
 ### 6. Using the AI Agent Harness (Claude Code · Codex)
@@ -496,11 +496,11 @@ import { useUserStore } from '@entities/user';
 ## Available Scripts
 
 ```bash
-npm start                 # Dev server (LAN mode)
-npm run start:local       # Dev server (localhost)
+npm start                 # Dev server (127.0.0.1 only)
+npm run start:lan         # Dev server (LAN, physical devices; exposes the bundle while running)
 npm run start:tunnel      # Dev server (tunnel)
-npm run ios               # Run on iOS
-npm run android           # Run on Android
+npm run ios               # Build and run on iOS (uses the npm start server)
+npm run android           # Build and run on Android (uses the npm start server)
 npm run lint              # ESLint 9 check
 npm test                  # Vitest unit tests (run once)
 npm run test:watch        # Vitest watch mode
