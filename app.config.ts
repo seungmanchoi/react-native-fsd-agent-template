@@ -67,6 +67,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ],
       // ATT prompt 문구 다국어 (InfoPlist.strings). plugins 배열 순서와 무관.
       './plugins/withLocalizedAttDescription',
+      // 출시 빌드는 휴대폰 CPU 둘(arm64-v8a·armeabi-v7a)만 — 에뮬레이터용 x86 둘을 빼 Android 빌드 시간을 줄인다.
+      './plugins/withAndroidArchitectures',
       // Google AdMob test app IDs — safe for development/simulator.
       // Replace with real IDs from AdMob Console before production build.
       [
