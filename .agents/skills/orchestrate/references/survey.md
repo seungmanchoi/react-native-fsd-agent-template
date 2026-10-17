@@ -78,7 +78,7 @@ Q: "이 앱에 대해 추가로 알려주고 싶은 게 있나요?
 | ID | 질문 | 옵션 | spec 필드 |
 |----|------|------|----------|
 | A1 [필수] | Firebase Analytics + GA property 연동 | Yes / No | `measurement.firebase_analytics` |
-| A2 [필수] | Crashlytics 활성화 | Yes / No | `measurement.crashlytics` |
+| A2 [필수] | Crashlytics 활성화 | Yes / No | `measurement.crashlytics` (이미 있는 앱에 나중에 붙일 때: `crashlytics-integration.md`) |
 | A3 [조건부] | Remote Config(A/B 테스트) | Yes / No | `measurement.remote_config` (`firebase_analytics=true`일 때만) |
 | A4 [필수] | 북극성 지표 | LLM 추천 수락 / 직접 입력 | `measurement.north_star` + `_notes` |
 

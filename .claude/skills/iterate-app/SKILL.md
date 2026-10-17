@@ -24,6 +24,8 @@ description: "출시/1차 구현 완료 후 앱을 지속적으로 고도화하�
 `loop-engineer`가 `_workspace/spec.md`, `docs/specs/README.md`, `_workspace/plan/{prd,kpis}.md`, `_workspace/qa/*`, `_workspace/iterate/backlog.md`(있으면), 최근 git log를 읽어 "지금 상태"를 요약한다. KPI 실측이 있으면 목표 대비 취약 축을 식별한다.
 > **CodeGraph 사용 시**: 직전 사이클 이후 코드가 바뀌었으므로 진단 전 `codegraph sync`(변경분만)로 인덱스를 최신화한 뒤, `codegraph impact`/`callers`/`files`로 변경 영향 범위·커버리지 갭을 구조적으로 파악한다(없으면 grep fallback). 인덱스가 stale하면 Step 2 랭킹이 왜곡되므로 sync는 매 사이클 권장.
 
+**관측 점검 (매 사이클 첫 단계)**: `package.json` 에 `@react-native-firebase/crashlytics` 가 없고 `spec.md` 의 `measurement.crashlytics` 도 `false` 로 답한 적이 없으면, 진단을 이어가기 전에 `AskUserQuestion` 으로 "Crashlytics 를 붙일까요?"(붙이기 권장 / 건너뛰기)를 묻는다. 붙이기면 이번 사이클의 슬라이스를 Crashlytics 연동으로 정하고 `.claude/skills/orchestrate/references/crashlytics-integration.md` 순서대로 적용한다(Step 3~5 동일). 건너뛰기면 `measurement.crashlytics: false` 와 사유를 기록하고 다시 묻지 않는다.
+
 ### Step 2: Recommend — 다음 고도화 추천
 후보(미완료 spec task / PRD 2차 확장 / 미해결 이슈 / KPI 갭 기능 / 기술 부채 / 사용자 피드백)를 가중 루브릭(KPI 30 · 가치 25 · 노력↓ 20 · 부채 15 · 커버 10)으로 채점·정렬한다.
 - 상위 3개를 근거와 함께 제시하고 **사용자가 1개 선택**
