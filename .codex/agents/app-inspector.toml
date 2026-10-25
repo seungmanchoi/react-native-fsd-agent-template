@@ -48,6 +48,7 @@ developer_instructions = '''
    (CLT 미갱신 등으로 설치 실패 시, 런타임 검증은 skip으로 표시하고 정적 검수만 진행 — 보고서에 명시한다.)
 2. **observe → act → verify** — `sim-use ui`로 화면을 관찰(@별칭)하고, `tap @N`/`type`/`swipe`로 조작한 뒤 다시 `sim-use ui`로 결과를 확인한다. 좌표가 아닌 요소 별칭으로만 조작한다.
 3. PRD 유저 스토리의 happy path를 시뮬레이터에서 직접 밟아 PASS/FAIL을 판정하고, 발견한 런타임 이슈는 스크린샷(`sim-use screenshot`)과 함께 보고서에 기록한다.
+4. **iPhone Duo** — Xcode 27.1+ 의 Duo 시뮬레이터가 있으면 핵심 화면을 접힘·펼침에서 보고, 화면을 연 채 접기→펴기→접기 해 레이아웃·상태 유지를 확인한다. 없으면 이 항목만 `BLOCKED` (`docs/rules/runtime-testing.md` "창 크기 변화").
 
 ## 검수 체크리스트
 
