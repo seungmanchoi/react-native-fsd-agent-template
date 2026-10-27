@@ -96,6 +96,14 @@ for (const f of tracked.filter((f) =>
   failures.push(`${f}: Firebase config must not be committed`);
 }
 
+// Expo SDK 57: UIScene support is opt-in, and apps built with the iOS 27 SDK need it to launch.
+if (/^[~^]?57\./.test(deps.expo ?? '')) {
+  expect(
+    /enableSceneSupport:\s*true/.test(stripComments(read('app.config.ts'))),
+    'app.config.ts: expo-build-properties ios.enableSceneSupport must stay true (iOS 27 SDK builds)',
+  );
+}
+
 // Pins (CLAUDE.md): AdMob 17.1–17.2 break the Android Gradle config with the Expo plugin.
 if (deps['react-native-google-mobile-ads']) {
   expect(

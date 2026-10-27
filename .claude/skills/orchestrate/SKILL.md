@@ -614,7 +614,7 @@ Loop 시작 (최대 3회):
 게시된 빌드에서만 동작하거나 출시 후 코드·콘솔로만 고칠 수 있는 것들을 빌드 직전에 다시 확인한다. **하나라도 미통과면 Build/Submit 을 보류한다. 전체 표와 미통과 시 조치: `references/pre-deploy-gate.md` — Phase 7 진입 시 반드시 Read.**
 
 - **(a) 런타임 배선**: 평점 트리거 최소 1곳 배선(`store_review=true` 일 때) · 광고 동의/초기화와 `useAdsReady()` 게이트 · KPI 이벤트 배선 · 스토어 바이너리 `extra.appEnv` 가 없거나 `production`
-- **(b) 스토어·콘솔·시크릿**: `npm run verify` green + Hard Threshold 0 (승인으로 우회 불가) · HIGH 이슈 0 · 런타임 검증 증거(`BLOCKED` 는 PASS 아님) · 앱 이름 4곳 일치 · 권한 ↔ 사용 설명 일치 · 데이터 안전 라벨 ↔ SDK 일치 · IAP 상품 등록 · app-ads.txt · Firebase 설정 파일
+- **(b) 스토어·콘솔·시크릿**: `npm run verify` green + Hard Threshold 0 (승인으로 우회 불가) · HIGH 이슈 0 · 런타임 검증 증거(`BLOCKED` 는 PASS 아님) · 앱 이름 4곳 일치 · 권한 ↔ 사용 설명 일치 · 데이터 안전 라벨 ↔ SDK 일치 · IAP 상품 등록 · app-ads.txt · Firebase 설정 파일 · (2027-04 이후 iOS 27.1 SDK+ 제출) iPhone Duo 네이티브 스크린샷 — 이 항목만 Submit 직전에 확인
 
 **배포 순서** (`/store-deploy`): (광고 앱) `store-admob` 으로 AdMob 앱·광고 단위(spec `monetization.ad_formats` → `--ad-types`) → 로컬 프로덕션 빌드(`eas build --local`, EAS 없는 앱은 fastlane. 클라우드는 사용자가 요청하거나 로컬 빌드가 안 될 때만) → 메타데이터 → 스크린샷 → 로컬 산출물 제출(`eas submit --path <파일>` 또는 fastlane 업로드 lane). 상세: store-deploy 플러그인 `store-deploy` 스킬 (설치: `references/runtime-adapters.md`)
 

@@ -27,7 +27,7 @@ EAS 는 `.easignore` 가 있으면 `.gitignore` 를 보지 않고 이 파일만�
 |------|------|
 | 개인정보처리방침 URL | GitHub Pages 등에 호스팅, 4개 언어 권장 |
 | 앱 아이콘 | iOS: 1024x1024, Android: 512x512 (adaptive icon) |
-| 스크린샷 | iOS: iPhone 6.7"/6.5", iPad 12.9". Android: 1080x1920 phone |
+| 스크린샷 | 언어별 한 세트. iOS: iPhone 6.9" 1320×2868, iPhone Duo outer 1398×2034·inner 2007×2853(2027-04 부터 iOS 27.1 SDK 이상 바이너리에 필수). iPad 는 `supportsTablet: true` 일 때만. Android: phone. 규격·캡처·업로드 정본: store-deploy 플러그인 `store-screenshots` 스킬 |
 | 그래픽 이미지 (Android) | 1024x500 feature graphic |
 | 스토어 메타데이터 | `fastlane/metadata/` 구조로 title, description, release notes 준비 |
 | **릴리즈 노트** | **Android changelogs는 언어별 500자 이내** (공백·줄바꿈 포함, Google Play 제한 — 넘으면 업로드 실패). iOS release_notes는 4000자까지 가능하지만, 동일 내용을 Android에도 사용하므로 **500자 기준으로 작성** |

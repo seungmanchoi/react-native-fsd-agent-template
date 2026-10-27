@@ -33,6 +33,7 @@ export default function TabLayout(): React.JSX.Element {
         name="index"
         options={{
           title: 'Home',
+          tabBarButtonTestID: 'tab-home',
           tabBarIcon: ({ color, size }) => <TabIcon name="home" color={color} size={size} />,
         }}
       />
@@ -40,6 +41,7 @@ export default function TabLayout(): React.JSX.Element {
         name="explore"
         options={{
           title: 'Explore',
+          tabBarButtonTestID: 'tab-explore',
           tabBarIcon: ({ color, size }) => <TabIcon name="compass" color={color} size={size} />,
         }}
       />
@@ -47,6 +49,7 @@ export default function TabLayout(): React.JSX.Element {
         name="profile"
         options={{
           title: 'Profile',
+          tabBarButtonTestID: 'tab-profile',
           tabBarIcon: ({ color, size }) => <TabIcon name="person" color={color} size={size} />,
         }}
       />

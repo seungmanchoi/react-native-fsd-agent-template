@@ -54,6 +54,16 @@ sim-use ui                 # 검증: 결과 재확인
 - Android는 에뮬레이터/기기마다 `sim-use android init`으로 APK 브리지를 한 번 설치해야 한다.
 - fire-and-verify: 조작 후 반드시 `sim-use ui`로 상태를 재확인한 뒤 다음 액션을 결정한다(`ui` 없이 좌표를 가정하지 않는다).
 
+## 창 크기 변화 — iPhone Duo (2027-04 부터)
+
+iPhone Duo 는 접고 펴면 앱이 켜진 채로 창 크기가 바뀐다(outer 1398×2034 ↔ inner 2007×2853). iOS 27.1 SDK 이상으로 빌드하면 inner 화면 전체를 쓰고, 2027-04 부터 Apple 이 Duo 대응과 Duo 스크린샷을 요구한다. `orientation: 'portrait'`·`supportsTablet: false` 는 그대로 두되, 이 설정이 창 비율을 고정하거나 Duo 대응을 면제하지 않는다. `requireFullScreen`(`UIRequiresFullScreen`)을 켜서 피하지 않는다.
+
+- 크기는 flex 로 잡고, 숫자가 필요하면 `useWindowDimensions()` 나 컨테이너 `onLayout` 을 쓴다. 모듈 최상단 `Dimensions.get()`·state 에 캐시한 크기·기종 분기는 펼친 뒤에 틀린 값이 된다. 스크린샷 픽셀값을 breakpoint 로 쓰지 않는다
+- 넓은 창에서 본문·폼은 읽기 폭을 제한한다(`max-w-*` + `self-center`). 배경·미디어·게임 캔버스는 제한하지 않는다
+- 하단 여백은 하드코딩하지 말고 safe-area inset 과 탭바 높이를 쓴다. 템플릿 `Tabs` 는 JS 탭바라 Duo 에서 자동으로 세로로 바뀌지 않는다
+- 검증: Xcode 27.1+ 의 iPhone Duo 시뮬레이터에서 접힘·펼침 각각 핵심 화면을 보고, 화면을 연 채 접기→펴기→접기 해 상태(입력·스크롤·모달·키보드)가 유지되는지 본다. Duo 시뮬레이터가 없으면 이 항목만 `BLOCKED` 로 기록한다
+- 스토어 스크린샷이 언어와 무관하게 같은 화면을 찍도록, 주요 내비게이션과 캡처 경로의 버튼에 고정 `testID` 를 둔다(탭은 `tabBarButtonTestID: 'tab-<route>'`). `store-screenshots` 가 `sim-use tap '#tab-<route>'` 로 누른다
+
 ## 언제 쓰나
 - **app-inspector**의 런타임 UX/기능 검증 — 정적 검수를 넘어 실제 화면 동작·흐름 확인
 - `/iterate-app`의 Verify 단계 — 구현한 슬라이스를 시뮬레이터에서 직접 조작해 확인

@@ -49,6 +49,7 @@ NativeWind(Tailwind CSS) 기반의 React Native UI 컴포넌트 및 스크린을
 - 모든 스크린에 SafeAreaView 필수 (`react-native-safe-area-context`)
 - NativeWind `className` prop 사용 (inline style 지양)
 - 컴포넌트는 PascalCase 파일명
+- 창 크기가 실행 중에 바뀐다(iPhone Duo 접기/펴기). flex·`useWindowDimensions()` 로 잡고, 모듈 최상단 `Dimensions.get()`·캐시한 크기·고정 하단 여백을 쓰지 않는다. 넓은 창의 본문·폼은 읽기 폭을 제한한다. 주요 내비게이션·스크린샷 캡처 경로의 버튼에는 고정 `testID`(탭은 `tabBarButtonTestID: 'tab-<route>'`)를 둔다 (`docs/rules/runtime-testing.md` "창 크기 변화")
 - Props 타입은 `I{Name}Props` 인터페이스로 정의
 - 리스트 렌더링 시 FlashList 우선 사용
 - Bottom Sheet는 네이티브 시트 우선: Expo Router 스크린 옵션 `presentation: 'formSheet'` + `sheetAllowedDetents`(iOS·Android 네이티브, 의존성 추가 없음). 커스텀 제스처가 꼭 필요할 때만 `npx expo install @gorhom/bottom-sheet` 후 **Android 실기기에서 표시 여부를 확인**한다 (RN 0.86 + Reanimated 4.5에서 시트가 보이지 않거나 터치를 막는 이슈가 열려 있다)

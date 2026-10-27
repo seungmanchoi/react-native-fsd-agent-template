@@ -27,6 +27,7 @@
 | **미해결 HIGH QA 이슈** | `_workspace/qa/unresolved.md`에 HIGH 미해결 이슈 **0건** (Phase 6 과 같다 — 승인으로 넘기지 않는다) | HIGH 잔존 → 배포 보류 |
 | **런타임 검증 증거** | Phase 5b 가 시뮬레이터에서 핵심 흐름(happy path·뒤로가기·키보드·에러/빈 상태)을 `sim-use` 로 확인하고 플랫폼·기기·커밋·스크린샷을 `_workspace/qa/runtime/` 에 남김. 시뮬레이터를 못 띄웠으면 `BLOCKED` 로 기록되며 PASS 가 아니다 | `BLOCKED`/누락 → 사용자에게 알리고 실행 가능한 환경에서 재검증 |
 | **app-ads.txt** (조건부) | 광고 사용 시 app-ads.txt 게시 + 스토어 리스팅에 도메인 연결 (store-admob Step 7) | 미게시 → 무효 트래픽 판정·수익 차단 |
+| **iPhone Duo 스크린샷** (Submit 직전) | 2027-04 이후 iOS 제출이고 바이너리가 iOS 27.1 SDK(Xcode 27.1) 이상으로 빌드됐으면, 제출할 빌드와 같은 커밋·네이티브 설정으로 Duo 시뮬레이터에서 캡처한 outer·inner 스크린샷이 언어별로 있고 ASC 에 올라감. `--duo` letterbox 대체본은 준비용이라 통과가 아니다. 빌드 전에는 Duo 시뮬레이터(Xcode 27.1+)를 쓸 수 있는지만 본다 | 없음/letterbox → iOS 제출 보류, `store-screenshots` Step 2d 로 네이티브 캡처 |
 | **Firebase 설정 주입** | `GoogleService-Info.plist`/`google-services.json` 평문 커밋 0. `./firebase/` 두 파일 존재 (로컬 빌드, `.easignore` 가 올리는 클라우드 빌드 모두). `firebase/` 를 아카이브에서 뺀 클라우드 빌드만 file 환경변수 `GOOGLE_SERVICE_INFO_PLIST`/`GOOGLE_SERVICES_JSON` 등록(`eas env:list`) | 누락 → prebuild 실패/런타임 Firebase 실패, 설정 후 재빌드 |
 
 > **왜 배포 단계인가**: (a)는 "어느 화면의 어느 순간에 넣을지"가 UX 품질을 좌우하고(평점은 잘못 띄우면 ★1 폭격), (b)는 여러 곳에 흩어져 동기화가 깨지거나 콘솔/스토어 설정과 어긋나기 쉽다. 둘 다 **전체가 완성된 배포 직전**에 판단·확인이 가장 정확하고, 게시 후엔 즉시 못 고치므로 여기가 마지막 안전망이다. 모두 통과해야 Build/Submit 진행.
