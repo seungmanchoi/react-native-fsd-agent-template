@@ -1,8 +1,4 @@
 <p align="center">
-  <img src="./docs/images/hero.webp" alt="React Native FSD Agent Template" width="100%" />
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/React_Native-0.86-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
   <img src="https://img.shields.io/badge/Expo-SDK_57-000020?style=for-the-badge&logo=expo&logoColor=white" />
   <img src="https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
@@ -43,6 +39,10 @@
   <img src="https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Web-lightgrey?style=flat-square" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" />
   <img src="https://img.shields.io/badge/node-%3E%3D24-339933?style=flat-square&logo=nodedotjs&logoColor=white" />
+</p>
+
+<p align="center">
+  <img src="./docs/images/hero.webp" alt="React Native FSD Agent Template" width="100%" />
 </p>
 
 **English** | [한국어](./README.ko.md)
