@@ -100,6 +100,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             // iOS 27 SDK (Xcode 27) don't launch correctly without it.
             enableSceneSupport: true,
           },
+          // Play flags release bundles with 0% obfuscation (DEX optimization). R8 shrinks + obfuscates.
+          android: {
+            enableMinifyInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+          },
         },
       ],
       'expo-router',
