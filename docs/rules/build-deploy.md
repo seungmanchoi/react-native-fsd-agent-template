@@ -17,7 +17,7 @@
 
 - 플레이북이 `~/repositories/app-store-compliance`(`ASC_HOME` 로 바꿀 수 있음)에 없으면 처음 실행할 때 받는다. 갱신은 `git -C ~/repositories/app-store-compliance pull`. 규칙이 60일 넘게 묵으면 결과 맨 위에 `Rule pack STALE` 이 뜬다
 - 없는 플랫폼만 `expo prebuild --no-install --platform <ios|android>` 로 만든 뒤 검사한다(둘 다 gitignore). `app.config.ts` 를 바꾼 뒤에는 `npm run check:store -- --fresh`(전체 clean prebuild 라 `ios/Pods` 도 지운다)
-- 앱에 들어가는 파일만 임시 사본으로 떼어 검사한다. 점 폴더(`.claude`·`.codex`·`.playwright-mcp`), `docs`, 테스트, `build-output` 은 빼고, `eas.json` 은 production 프로필(과 그 `extends`)만, `package.json` 은 `scripts` 를 뺀다. 하네스 문서(계정 삭제 없음)·개발용 `expo start --localhost`(스테이징 주소) 오탐과 Xcode 캐시로 10분 넘던 검사를 막는다
+- 앱에 들어가는 파일만 임시 사본으로 떼어 검사한다. gitignore 된 경로(`ios/`·`android/` 만 예외), 점 폴더(`.claude`·`.codex`·`.playwright-mcp`), 루트 `*.yml`(Playwright 캡처), `docs`, 테스트, `build-output` 은 빼고, `eas.json` 은 production 프로필(과 그 `extends`)만, `package.json` 은 `scripts` 를 뺀다. 하네스 문서(계정 삭제 없음)·개발용 `expo start --localhost`(스테이징 주소) 오탐과 Xcode 캐시로 10분 넘던 검사를 막는다
 - 앱 `PrivacyInfo.xcprivacy` 는 RN 이 `pod install` 때 pod 매니페스트를 모아 만든다(`privacy_file_aggregation`). `ios/` 에 아직 없으면 사본에서 `pod install` 을 돌려 빌드와 같은 파일로 검사한다(Pods 는 사본과 함께 지워진다, 첫 실행 1분 안팎). 그래서 `app.config.ts` 에 `privacyManifests` 를 따로 적지 않는다
 - 결과가 `BLOCKED`(critical) 이면 빌드·제출하지 않는다. 고치거나, 오탐이면 파일·줄을 근거로 사용자에게 확인받는다. `APP_STORE_GUARD_OK=1` 우회는 사용자가 허락할 때만 쓴다
 - `CLEAR` 는 승인 보장이 아니다. 데모 계정·스토어 콘솔 답변 같은 코드 밖 항목은 guard 가 출력하는 체크리스트로 따로 확인한다

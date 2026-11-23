@@ -21,13 +21,16 @@ if [ -n "$PLAT" ]; then
   APP_ENV=production npx expo prebuild --no-install --platform "$PLAT" || exit 1
 fi
 
-# 앱에 들어가는 파일만 떼어 검사한다. 점 폴더(.claude·.codex·.playwright-mcp 등 도구 기록)와 테스트는 오탐을,
-# build-output 의 Xcode 캐시는 10분 넘는 검사를 만든다. eas.json 은 production 프로필만,
+# 앱에 들어가는 파일만 떼어 검사한다. 점 폴더(.claude·.codex·.playwright-mcp 등 도구 기록)·루트 yml(Playwright 캡처)·
+# 테스트는 오탐을, gitignore 된 캐시(build-output 의 Xcode 캐시, unity/Library)는 10분 넘는 검사를 만든다.
+# ios/android 는 gitignore 여도 prebuild 결과라 넣는다. eas.json 은 production 프로필만,
 # package.json 은 scripts(개발용 `expo start --localhost` 가 스테이징 주소로 잡힌다)를 뺀다.
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-rsync -a \
+git ls-files -o -i --exclude-standard --directory 2>/dev/null \
+  | grep -v -E '^(ios|android)/$' | sed 's|^|/|' > "$TMP/ignored"
+rsync -a --exclude-from="$TMP/ignored" \
   --exclude '.*/' --exclude node_modules --exclude build-output --exclude build --exclude Pods \
-  --exclude _workspace --exclude docs --exclude screenshots \
+  --exclude _workspace --exclude docs --exclude screenshots --exclude '/*.yml' --exclude '/*.yaml' \
   --exclude __tests__ --exclude '*.test.*' --exclude '*.spec.*' \
   ./ "$TMP/app/" || exit 1
 node -e '
