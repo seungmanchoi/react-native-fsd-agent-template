@@ -283,6 +283,7 @@ UMP (GDPR) consent → iOS ATT → mobileAds().setRequestConfiguration(...) → 
 
 - 배포는 `/store-deploy`(store-deploy 플러그인) 로만 한다. 프로덕션 빌드는 **로컬이 기본**: `eas build --local` → `eas submit --path <파일>`. EAS 프로젝트가 없는 앱은 빌드·제출 모두 그 앱의 fastlane lane 으로 하고, lane 에서 `API_URL` 등 프로필 env 를 export 한다(안 하면 localhost 로 빌드된다). 클라우드 EAS Build 는 사용자가 요청하거나 로컬 빌드가 안 될 때만
 - 제출 전 산출물의 version, buildNumber/versionCode, bundle id, `extra.appEnv` 를 확인한다
+- 프로덕션 빌드 전 `npm run check:store`(app-store-compliance guard) 가 `BLOCKED` 가 아니어야 한다. critical 은 고치거나, 오탐이면 사용자 확인 뒤 진행한다
 - `IS_DEV`/`IS_PROD` 는 `APP_ENV`(`development` | `preview` | `production`)가 정한다. EAS 는 프로필 env, APP_ENV 가 없는 release 빌드는 production 으로 판정한다. `.env` 에 `APP_ENV` 를 넣지 않고, 앱 환경 구분에 `NODE_ENV` 를 쓰지 않는다
 - 스토어 이름과 홈 화면 이름(`app.config.ts` `name`, `withLocalizedAppName`, iOS `name.txt`, Android `title.txt`)을 언어별로 똑같이 맞춘다(30자 이내)
 - 네이티브 변경은 config plugin 으로만 한다(SDK 57 `prebuild` 는 기본 clean)

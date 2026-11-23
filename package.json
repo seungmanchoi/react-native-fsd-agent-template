@@ -20,6 +20,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check:harness": "node scripts/check-harness.mjs",
+    "check:store": "bash scripts/check-store.sh",
     "verify": "npm run typecheck && npm run lint && npm test && npm run check:harness",
     "app:init": "node scripts/init-app.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\"",

@@ -41,6 +41,7 @@ Full-app builds follow the `orchestrate` skill's phases; post-launch work uses `
 **Setup once per machine**
 - Trust this repo's hooks in `/hooks`: `.codex/hooks.json` runs `scripts/verify-hook.mjs` at Stop, which runs `npm run verify` when files changed and hands failures back to you. Untrusted or not, run `npm run verify` yourself before saying a task is done.
 - Store deploy skills: `codex plugin marketplace add seungmanchoi/store-deploy-plugin`, then `codex plugin add store-deploy@store-deploy-marketplace`.
+- Store rejection check: before any production build run `npm run check:store` (app-store-compliance guard; it clones the playbook to `~/repositories/app-store-compliance` on first run). `BLOCKED` (critical) means no build or submit until fixed or the user confirms a false positive. Do not register the playbook's global PreToolUse hook (`docs/rules/build-deploy.md`).
 
 ## Hard Thresholds (any violation = FAIL)
 

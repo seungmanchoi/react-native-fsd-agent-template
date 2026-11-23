@@ -11,6 +11,18 @@
 3. **클라우드 EAS Build** (`eas build`) 는 사용자가 요청하거나 로컬 빌드가 안 될 때만 쓴다
 4. 제출 전 산출물의 version, buildNumber/versionCode, bundle id 와 `extra.appEnv`(아래)를 확인한다
 
+### 제출 전 반려 위험 검사 (app-store-compliance)
+
+프로덕션 빌드 전에 `npm run check:store` 를 돌린다. [app-store-compliance](https://github.com/mjmirza/app-store-compliance) guard 가 Apple·Google 반려 패턴(개인정보 매니페스트, 계정 삭제, 권한 문구, 결제, 스테이징 주소 등)으로 이 앱을 검사한다.
+
+- 플레이북이 `~/repositories/app-store-compliance`(`ASC_HOME` 로 바꿀 수 있음)에 없으면 처음 실행할 때 받는다. 갱신은 `git -C ~/repositories/app-store-compliance pull`. 규칙이 60일 넘게 묵으면 결과 맨 위에 `Rule pack STALE` 이 뜬다
+- 없는 플랫폼만 `expo prebuild --no-install --platform <ios|android>` 로 만든 뒤 검사한다(둘 다 gitignore). `app.config.ts` 를 바꾼 뒤에는 `npm run check:store -- --fresh`(전체 clean prebuild 라 `ios/Pods` 도 지운다)
+- 앱에 들어가는 파일만 임시 사본으로 떼어 검사한다. 점 폴더(`.claude`·`.codex`·`.playwright-mcp`), `docs`, 테스트, `build-output` 은 빼고, `eas.json` 은 production 프로필(과 그 `extends`)만, `package.json` 은 `scripts` 를 뺀다. 하네스 문서(계정 삭제 없음)·개발용 `expo start --localhost`(스테이징 주소) 오탐과 Xcode 캐시로 10분 넘던 검사를 막는다
+- 앱 `PrivacyInfo.xcprivacy` 는 RN 이 `pod install` 때 pod 매니페스트를 모아 만든다(`privacy_file_aggregation`). `ios/` 에 아직 없으면 사본에서 `pod install` 을 돌려 빌드와 같은 파일로 검사한다(Pods 는 사본과 함께 지워진다, 첫 실행 1분 안팎). 그래서 `app.config.ts` 에 `privacyManifests` 를 따로 적지 않는다
+- 결과가 `BLOCKED`(critical) 이면 빌드·제출하지 않는다. 고치거나, 오탐이면 파일·줄을 근거로 사용자에게 확인받는다. `APP_STORE_GUARD_OK=1` 우회는 사용자가 허락할 때만 쓴다
+- `CLEAR` 는 승인 보장이 아니다. 데모 계정·스토어 콘솔 답변 같은 코드 밖 항목은 guard 가 출력하는 체크리스트로 따로 확인한다
+- 플레이북의 `install.sh` 가 넣는 전역 PreToolUse hook 은 쓰지 않는다. `expo run:ios`·`expo prebuild`·개발용 `eas build` 까지 막고, 사본 없이 앱 폴더 전체를 읽어 위 오탐이 그대로 critical 이 된다. 에이전트용 감사(`/app-store-audit`)만 원하면 `install.sh` 뒤 각 도구 설정에서 hook 항목만 지운다
+
 ## 빌드 아카이브·앱 크기 최적화
 
 `.easignore`(빌드 아카이브 제외 목록)와 앱 크기 최적화 체크리스트(이미지 WebP · 미사용 폰트/의존성 제거 · Lottie 최적화 등)는 `.claude/skills/orchestrate/references/deploy-build-troubleshooting.md` 참고.
